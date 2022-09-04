@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package coordinator;
+
+option go_package = "cs425/mp1/coordinator";
+
+// The Distributed Logger service definition.
+service Coordinator {
+    // Sends a greeting
+    rpc QueryLogs (QueryRequest) returns (QueryReply) {}
+  }
+  
+  // The request message containing the user's name.
+  message QueryRequest {
+    string query = 1;
+  }
+  
+  // The response message containing the greetings
+  message QueryReply {
+    string logs = 1;
+    int32 matches = 2;
+  }
