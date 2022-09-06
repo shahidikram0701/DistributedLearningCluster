@@ -13,18 +13,18 @@ import (
 )
 
 const (
-	defaultCommand = "shahid"
+	defaultQuery = "shahid"
 )
 
 var (
-	addr  = flag.String("addr", "localhost:50051", "the address to connect to")
-	query = flag.String("query", defaultCommand, "Query to search for")
+	coordinatorIp = "172.22.156.122:5051"
+	query         = flag.String("query", defaultQuery, "Query to search for")
 )
 
 func main() {
 	flag.Parse()
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}

@@ -78,9 +78,21 @@ func main() {
 	pb.RegisterCoordinatorServer(s, &server{})
 
 	// adding all the node endpoints to query
-	addServerAddress("localhost:50052")
-	addServerAddress("localhost:50053")
-	addServerAddress("localhost:50054")
+	addServerAddress("172.22.156.122:50052")
+	addServerAddress("172.22.158.122:50052")
+	addServerAddress("172.22.94.122:50052")
+	addServerAddress("172.22.156.123:50052")
+	addServerAddress("172.22.158.123:50052")
+	addServerAddress("172.22.94.123:50052")
+	addServerAddress("172.22.156.124:50052")
+	addServerAddress("172.22.158.124:50052")
+	addServerAddress("172.22.94.124:50052")
+	addServerAddress("172.22.156.125:50052")
+
+	// local testing
+	// addServerAddress("192.168.0.102:50052")
+	// addServerAddress("192.168.0.102:50053")
+	// addServerAddress("192.168.0.102:50054")
 
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
