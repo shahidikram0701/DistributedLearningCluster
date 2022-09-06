@@ -38,7 +38,7 @@ func queryServer(addr string, query string, responseChannel chan *lg.FindLogsRep
 	c := lg.NewLoggerClient(conn)
 
 	// Contact the server and print out its response.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	r, err := c.FindLogs(ctx, &lg.FindLogsRequest{Query: query})
 	if err != nil {

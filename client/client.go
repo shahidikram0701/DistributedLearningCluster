@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	coordinatorIp = "172.22.156.122:5051"
+	coordinatorIp = "172.22.156.122:50051"
 	query         = flag.String("query", defaultQuery, "Query to search for")
 )
 
@@ -32,7 +32,7 @@ func main() {
 	c := pb.NewCoordinatorClient(conn)
 
 	// Contact the server and print out its response.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: *query})
 	if err != nil {

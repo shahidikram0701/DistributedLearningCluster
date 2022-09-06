@@ -28,7 +28,7 @@ func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.Find
 	query := in.GetQuery()
 
 	// TODO: error handling
-	out, _ := (exec.Command("bash", "-c", "grep -H "+query+" ../logs/*.log").Output())
+	out, _ := (exec.Command("bash", "-c", "grep -H "+query+" ../../logs/*.log").Output())
 	res := string(out)
 	numLines := strings.Count(res, "\n")
 
