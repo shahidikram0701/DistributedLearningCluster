@@ -18,5 +18,4 @@ service Logger {
   // The response message containing the greetings
   message FindLogsReply {
     string logs = 1;
-    int32 count = 2;
   }

@@ -38,7 +38,7 @@ func queryServer(addr string, query string, responseChannel chan *lg.FindLogsRep
 	c := lg.NewLoggerClient(conn)
 
 	// Contact the server and print out its response.
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	r, err := c.FindLogs(ctx, &lg.FindLogsRequest{Query: query})
 	if err != nil {
@@ -50,7 +50,7 @@ func queryServer(addr string, query string, responseChannel chan *lg.FindLogsRep
 }
 
 func (s *server) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryReply, error) {
-	log.Printf("Received: %v", in.GetQuery())
+	// log.Printf("Received: %v", in.GetQuery())
 
 	// Establish connections with the server nodes
 	responseChannel := make(chan *lg.FindLogsReply)
@@ -59,13 +59,11 @@ func (s *server) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryR
 		go queryServer(addr, in.GetQuery(), responseChannel, idx)
 	}
 	logs := ""
-	numOfMatches := 0
 	for i := 0; i < len(serverAddresses); i++ {
 		logQueryResponse := <-responseChannel
 		logs += logQueryResponse.GetLogs()
-		numOfMatches += int(logQueryResponse.GetCount())
 	}
-	return &pb.QueryReply{Logs: logs, Matches: int32(numOfMatches)}, nil
+	return &pb.QueryReply{Logs: logs}, nil
 }
 
 func main() {
@@ -90,7 +88,7 @@ func main() {
 	addServerAddress("172.22.156.125:50052")
 
 	// local testing
-	// addServerAddress("192.168.0.102:50052")
+	// addServerAddress("localhost:50052")
 	// addServerAddress("192.168.0.102:50053")
 	// addServerAddress("192.168.0.102:50054")
 

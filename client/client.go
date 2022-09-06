@@ -32,12 +32,11 @@ func main() {
 	c := pb.NewCoordinatorClient(conn)
 
 	// Contact the server and print out its response.
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: *query})
 	if err != nil {
 		log.Fatalf("could not greet: %v", err)
 	}
-	log.Printf("Number of Matches: %v", r.Matches)
 	log.Printf(r.GetLogs())
 }

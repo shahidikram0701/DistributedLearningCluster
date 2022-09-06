@@ -18,5 +18,4 @@ service Coordinator {
   // The response message containing the greetings
   message QueryReply {
     string logs = 1;
-    int32 matches = 2;
   }

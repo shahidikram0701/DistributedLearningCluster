@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"os/exec"
-	"strings"
 
 	lg "cs425/mp1/logger_proto"
 
@@ -26,13 +25,12 @@ type server struct {
 // SayHello implements helloworld.GreeterServer
 func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.FindLogsReply, error) {
 	query := in.GetQuery()
-
+	// log.Printf("Received: %v", query)
 	// TODO: error handling
-	out, _ := (exec.Command("bash", "-c", "grep -H "+query+" ../../logs/*.log").Output())
+	out, _ := (exec.Command("bash", "-c", "grep -HEc '"+query+"' ../../logs/*.log").Output())
 	res := string(out)
-	numLines := strings.Count(res, "\n")
 
-	return &lg.FindLogsReply{Logs: res, Count: int32(numLines)}, nil
+	return &lg.FindLogsReply{Logs: res}, nil
 }
 
 func main() {
