@@ -4,18 +4,26 @@ package coordinator;
 
 option go_package = "cs425/mp1/coordinator";
 
-// The Distributed Logger service definition.
+// The Coordinator service
 service Coordinator {
-    // Sends a greeting
     rpc QueryLogs (QueryRequest) returns (QueryReply) {}
+    rpc Test_GenerateLogs (GenerateLogsRequest) returns (GenerateLogsReply) {}
   }
   
   // The request message containing the user's name.
   message QueryRequest {
     string query = 1;
+    bool isTest = 2;
   }
   
   // The response message containing the greetings
   message QueryReply {
     string logs = 1;
+  }
+
+  message GenerateLogsRequest {
+  }
+
+  message GenerateLogsReply {
+    string status = 1;
   }

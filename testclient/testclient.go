@@ -35,9 +35,9 @@ func main() {
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: *query})
+	r, err := c.Test_GenerateLogs(ctx, &pb.GenerateLogsRequest{})
 	if err != nil {
-		log.Fatalf("could not greet: %v", err)
+		log.Fatalf("could not Generate Logs: %v", err)
 	}
-	log.Printf(r.GetLogs())
+	log.Println(r.GetStatus())
 }

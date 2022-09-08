@@ -22,8 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CoordinatorClient interface {
-	// Sends a greeting
 	QueryLogs(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryReply, error)
+	Test_GenerateLogs(ctx context.Context, in *GenerateLogsRequest, opts ...grpc.CallOption) (*GenerateLogsReply, error)
 }
 
 type coordinatorClient struct {
@@ -43,12 +43,21 @@ func (c *coordinatorClient) QueryLogs(ctx context.Context, in *QueryRequest, opt
 	return out, nil
 }
 
+func (c *coordinatorClient) Test_GenerateLogs(ctx context.Context, in *GenerateLogsRequest, opts ...grpc.CallOption) (*GenerateLogsReply, error) {
+	out := new(GenerateLogsReply)
+	err := c.cc.Invoke(ctx, "/coordinator.Coordinator/Test_GenerateLogs", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CoordinatorServer is the server API for Coordinator service.
 // All implementations must embed UnimplementedCoordinatorServer
 // for forward compatibility
 type CoordinatorServer interface {
-	// Sends a greeting
 	QueryLogs(context.Context, *QueryRequest) (*QueryReply, error)
+	Test_GenerateLogs(context.Context, *GenerateLogsRequest) (*GenerateLogsReply, error)
 	mustEmbedUnimplementedCoordinatorServer()
 }
 
@@ -58,6 +67,9 @@ type UnimplementedCoordinatorServer struct {
 
 func (UnimplementedCoordinatorServer) QueryLogs(context.Context, *QueryRequest) (*QueryReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QueryLogs not implemented")
+}
+func (UnimplementedCoordinatorServer) Test_GenerateLogs(context.Context, *GenerateLogsRequest) (*GenerateLogsReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Test_GenerateLogs not implemented")
 }
 func (UnimplementedCoordinatorServer) mustEmbedUnimplementedCoordinatorServer() {}
 
@@ -90,6 +102,24 @@ func _Coordinator_QueryLogs_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Coordinator_Test_GenerateLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoordinatorServer).Test_GenerateLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/coordinator.Coordinator/Test_GenerateLogs",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoordinatorServer).Test_GenerateLogs(ctx, req.(*GenerateLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Coordinator_ServiceDesc is the grpc.ServiceDesc for Coordinator service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -100,6 +130,10 @@ var Coordinator_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "QueryLogs",
 			Handler:    _Coordinator_QueryLogs_Handler,
+		},
+		{
+			MethodName: "Test_GenerateLogs",
+			Handler:    _Coordinator_Test_GenerateLogs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

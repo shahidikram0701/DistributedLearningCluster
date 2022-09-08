@@ -22,8 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LoggerClient interface {
-	// Sends a greeting
 	FindLogs(ctx context.Context, in *FindLogsRequest, opts ...grpc.CallOption) (*FindLogsReply, error)
+	Test_GenerateLogs(ctx context.Context, in *GenerateLogsRequest, opts ...grpc.CallOption) (*GenerateLogsReply, error)
 }
 
 type loggerClient struct {
@@ -43,12 +43,21 @@ func (c *loggerClient) FindLogs(ctx context.Context, in *FindLogsRequest, opts .
 	return out, nil
 }
 
+func (c *loggerClient) Test_GenerateLogs(ctx context.Context, in *GenerateLogsRequest, opts ...grpc.CallOption) (*GenerateLogsReply, error) {
+	out := new(GenerateLogsReply)
+	err := c.cc.Invoke(ctx, "/logger.Logger/Test_GenerateLogs", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LoggerServer is the server API for Logger service.
 // All implementations must embed UnimplementedLoggerServer
 // for forward compatibility
 type LoggerServer interface {
-	// Sends a greeting
 	FindLogs(context.Context, *FindLogsRequest) (*FindLogsReply, error)
+	Test_GenerateLogs(context.Context, *GenerateLogsRequest) (*GenerateLogsReply, error)
 	mustEmbedUnimplementedLoggerServer()
 }
 
@@ -58,6 +67,9 @@ type UnimplementedLoggerServer struct {
 
 func (UnimplementedLoggerServer) FindLogs(context.Context, *FindLogsRequest) (*FindLogsReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindLogs not implemented")
+}
+func (UnimplementedLoggerServer) Test_GenerateLogs(context.Context, *GenerateLogsRequest) (*GenerateLogsReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Test_GenerateLogs not implemented")
 }
 func (UnimplementedLoggerServer) mustEmbedUnimplementedLoggerServer() {}
 
@@ -90,6 +102,24 @@ func _Logger_FindLogs_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Logger_Test_GenerateLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LoggerServer).Test_GenerateLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/logger.Logger/Test_GenerateLogs",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LoggerServer).Test_GenerateLogs(ctx, req.(*GenerateLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Logger_ServiceDesc is the grpc.ServiceDesc for Logger service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -100,6 +130,10 @@ var Logger_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FindLogs",
 			Handler:    _Logger_FindLogs_Handler,
+		},
+		{
+			MethodName: "Test_GenerateLogs",
+			Handler:    _Logger_Test_GenerateLogs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -8,7 +8,7 @@ import (
 	"net"
 	"os/exec"
 
-	lg "cs425/mp1/logger_proto"
+	lg "cs425/mp1/proto/logger_proto"
 
 	"google.golang.org/grpc"
 )
@@ -31,6 +31,24 @@ func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.Find
 	res := string(out)
 
 	return &lg.FindLogsReply{Logs: res}, nil
+}
+
+func (s *server) Test_GenerateLogs(ctx context.Context, in *lg.GenerateLogsRequest) (*lg.GenerateLogsReply, error) {
+	filenumber := fmt.Sprint(in.GetFilenumber())
+	log.Printf("Received: %v", filenumber)
+	// TODO: error handling
+	command := "../test_log_scripts/log_gen" + filenumber + ".sh > ../../testlogs/vm" + filenumber + ".log"
+	log.Printf("command: %v", command)
+	var status string
+	_, err := (exec.Command("bash", "-c", command).Output())
+
+	if err != nil {
+		status = "Failed to generate logs"
+	} else {
+		status = "Successfully generated logs"
+	}
+
+	return &lg.GenerateLogsReply{Status: status}, nil
 }
 
 func main() {

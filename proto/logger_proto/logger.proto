@@ -6,8 +6,8 @@ option go_package = "cs425/mp1/logger";
 
 // The Distributed Logger service definition.
 service Logger {
-    // Sends a greeting
     rpc FindLogs (FindLogsRequest) returns (FindLogsReply) {}
+    rpc Test_GenerateLogs (GenerateLogsRequest) returns (GenerateLogsReply) {}
   }
   
   // The request message containing the user's name.
@@ -18,4 +18,12 @@ service Logger {
   // The response message containing the greetings
   message FindLogsReply {
     string logs = 1;
+  }
+
+  message GenerateLogsRequest {
+    int32 filenumber = 1;
+  }
+
+  message GenerateLogsReply {
+    string status = 1;
   }
