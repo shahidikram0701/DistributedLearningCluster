@@ -4,5 +4,4 @@
     do
     echo "Azure data explorer provides big data analytics and data-exploration capabilities."
     done
-  ...
 ) 2>&1 | tee test_log.log

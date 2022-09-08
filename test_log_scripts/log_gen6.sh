@@ -4,5 +4,4 @@
     do
     echo "Storsimple manages storage tasks between on-premises devices and cloud storage."
     done
-  ...
 ) 2>&1 | tee test_log.log
