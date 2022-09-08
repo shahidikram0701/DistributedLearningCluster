@@ -43,7 +43,7 @@ func queryServer(addr string, query string, responseChannel chan *lg.FindLogsRep
 	defer cancel()
 	r, err := c.FindLogs(ctx, &lg.FindLogsRequest{Query: query})
 	if err != nil {
-		log.Fatalf("could not greet: %v", err)
+		log.Printf("Could not connect to node: %v", addr)
 	}
 	// time.Sleep(time.Duration(sleeptime) * time.Second)
 	responseChannel <- r
@@ -70,7 +70,7 @@ func (s *server) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryR
 func generateLogsOnServer(addr string, responseChannel chan *lg.GenerateLogsReply, filenumber int) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		log.Printf("Could not connect to node: %v", addr)
 	}
 	defer conn.Close()
 	c := lg.NewLoggerClient(conn)
@@ -80,7 +80,7 @@ func generateLogsOnServer(addr string, responseChannel chan *lg.GenerateLogsRepl
 	defer cancel()
 	r, err := c.Test_GenerateLogs(ctx, &lg.GenerateLogsRequest{Filenumber: int32(filenumber)})
 	if err != nil {
-		log.Fatalf("could not greet: %v", err)
+		log.Fatalf("Failed to generate Logs: %v", err)
 	}
 	// time.Sleep(time.Duration(sleeptime) * time.Second)
 	responseChannel <- r
@@ -113,12 +113,10 @@ func main() {
 
 	if *devmode {
 		// local testing
-
 		addServerAddress("localhost:50052")
-		// addServerAddress("localhost:50053")
+		addServerAddress("localhost:50053")
 	} else {
 		// adding all the node endpoints to query
-
 		addServerAddress("172.22.156.122:50052")
 		addServerAddress("172.22.158.122:50052")
 		addServerAddress("172.22.94.122:50052")
@@ -135,5 +133,4 @@ func main() {
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
-
 }

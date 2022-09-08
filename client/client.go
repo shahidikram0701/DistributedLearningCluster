@@ -27,7 +27,7 @@ func main() {
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(*coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		log.Fatalf("Failed to establish connection with the coordinator")
 	}
 	defer conn.Close()
 	c := pb.NewCoordinatorClient(conn)
@@ -37,7 +37,7 @@ func main() {
 	defer cancel()
 	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: *query})
 	if err != nil {
-		log.Fatalf("could not greet: %v", err)
+		log.Fatalf("Failed to query logs: %v", err)
 	}
 	log.Printf(r.GetLogs())
 }
