@@ -19,6 +19,7 @@ service Coordinator {
   // The response message containing the greetings
   message QueryReply {
     string logs = 1;
+    int matches = 2;
   }
 
   message GenerateLogsRequest {

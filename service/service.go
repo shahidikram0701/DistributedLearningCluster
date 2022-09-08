@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os/exec"
+	"strings"
 
 	lg "cs425/mp1/proto/logger_proto"
 
@@ -29,8 +30,9 @@ func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.Find
 	// TODO: error handling
 	out, _ := (exec.Command("bash", "-c", "grep -HEc '"+query+"' ../../logs/*.log").Output())
 	res := string(out)
+	matches:= int32(strings.Split(res, ":")[1]);
 
-	return &lg.FindLogsReply{Logs: res}, nil
+	return &lg.FindLogsReply{Logs: res, Matches: matches}, nil
 }
 
 func (s *server) Test_GenerateLogs(ctx context.Context, in *lg.GenerateLogsRequest) (*lg.GenerateLogsReply, error) {
