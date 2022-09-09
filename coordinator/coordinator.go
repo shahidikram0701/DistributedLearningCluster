@@ -60,7 +60,7 @@ func (s *server) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryR
 		go queryServer(addr, in.GetQuery(), responseChannel, idx)
 	}
 	logs := ""
-	matches:= 0
+	var totalMatches int32 = 0
 	for i := 0; i < len(serverAddresses); i++ {
 		logQueryResponse := <-responseChannel
 		logs += logQueryResponse.GetLogs()

@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.5
-// source: coordinator.proto
+// source: coordinator_proto/coordinator.proto
 
 package coordinator
 
@@ -137,5 +137,5 @@ var Coordinator_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "coordinator.proto",
+	Metadata: "coordinator_proto/coordinator.proto",
 }

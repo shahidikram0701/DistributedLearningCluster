@@ -30,9 +30,16 @@ func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.Find
 	// TODO: error handling
 	out, _ := (exec.Command("bash", "-c", "grep -HEc '"+query+"' ../../logs/*.log").Output())
 	res := string(out)
-	matches:= int32(strings.Split(res, ":")[1]);
+	log.Printf(res)
+	log.Printf("\n\n\n")
 
-	return &lg.FindLogsReply{Logs: res, Matches: matches}, nil
+	parsed_result := strings.Split(res, ":")
+	for _, val := range parsed_result {
+		log.Printf(val)
+	}
+	// matches, _ := strconv.ParseInt(parsed_result[1], 10, 32)
+
+	return &lg.FindLogsReply{Logs: res, Matches: int32(3)}, nil
 }
 
 func (s *server) Test_GenerateLogs(ctx context.Context, in *lg.GenerateLogsRequest) (*lg.GenerateLogsReply, error) {

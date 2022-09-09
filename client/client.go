@@ -39,5 +39,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not greet: %v", err)
 	}
+	log.Printf("\n")
 	log.Printf(r.GetLogs())
+	log.Printf("\nTotal number of matches: %v", r.GetMatches())
 }
