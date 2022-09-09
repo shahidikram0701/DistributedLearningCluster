@@ -1,6 +1,6 @@
 #!/bin/bash
 (
-    for i in {1..1000}
+    for i in {1..2910}
     do
     printf '%s|%s|%d|%s|%s' \
         "20130101" \
@@ -18,4 +18,4 @@
         "$data"
     echo "Microsoft launched the open enclave sdk for cross-platform systems such as arm trustzone and intel sgx."
     done
-) 2>&1 | tee test_log.log
+)

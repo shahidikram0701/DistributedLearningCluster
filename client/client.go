@@ -35,7 +35,7 @@ func main() {
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: *query})
+	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: *query, IsTest: false})
 	if err != nil {
 		log.Fatalf("Failed to query logs: %v", err)
 	}

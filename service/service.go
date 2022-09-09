@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"os/exec"
 
 	lg "cs425/mp1/proto/logger_proto"
@@ -25,9 +26,21 @@ type server struct {
 // SayHello implements helloworld.GreeterServer
 func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.FindLogsReply, error) {
 	query := in.GetQuery()
+	isTest := in.GetIsTest()
 	// log.Printf("Received: %v", query)
 	// TODO: error handling
-	out, _ := (exec.Command("bash", "-c", "grep -HEc '"+query+"' ../../logs/*.log").Output())
+
+	var logFilePath string
+	if isTest {
+		logFilePath = "../../testlogs/*.log"
+	} else {
+		logFilePath = "../../logs/*.log"
+	}
+	grepCommand := fmt.Sprintf("grep -HEc '%v' %v", query, logFilePath)
+
+	log.Printf("Executing: %v", grepCommand)
+
+	out, _ := (exec.Command("bash", "-c", grepCommand).Output())
 	res := string(out)
 
 	return &lg.FindLogsReply{Logs: res}, nil
@@ -35,17 +48,21 @@ func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.Find
 
 func (s *server) Test_GenerateLogs(ctx context.Context, in *lg.GenerateLogsRequest) (*lg.GenerateLogsReply, error) {
 	filenumber := fmt.Sprint(in.GetFilenumber())
-	log.Printf("Received: %v", filenumber)
+	// log.Printf("Received: %v", filenumber)
 	// TODO: error handling
-	command := "../test_log_scripts/log_gen" + filenumber + ".sh > ../../testlogs/vm" + filenumber + ".log"
-	log.Printf("command: %v", command)
-	var status string
-	_, err := (exec.Command("bash", "-c", command).Output())
+	outputFile := fmt.Sprintf("../../testlogs/vm%v.log", filenumber)
+	command := "../test_log_scripts/log_gen" + filenumber + ".sh > " + outputFile
+	var status = "Successfully generated logs"
 
-	if err != nil {
-		status = "Failed to generate logs"
-	} else {
-		status = "Successfully generated logs"
+	if _, err := os.Stat(outputFile); err != nil {
+		log.Printf("command: %v", command)
+
+		_, err := (exec.Command("bash", "-c", command).Output())
+
+		if err != nil {
+			status = "Failed to generate logs"
+			log.Printf("Failed to generate logs")
+		}
 	}
 
 	return &lg.GenerateLogsReply{Status: status}, nil

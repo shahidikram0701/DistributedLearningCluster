@@ -1,6 +1,6 @@
 #!/bin/bash
 (
-    for i in {1..1000}
+    for i in {1..1201}
     do
     printf '%s|%s|%d|%s|%s' \
         "20130101" \
@@ -18,4 +18,4 @@
         "$data"
     echo "Microsoft launched azure iot edge, used to run azure services and artificial intelligence on iot devices."
     done
-) 2>&1 | tee test_log.log
+)

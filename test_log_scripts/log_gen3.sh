@@ -1,6 +1,6 @@
 #!/bin/bash
 (
-    for i in {1..1000}
+    for i in {1..2300}
     do
     printf '%s|%s|%d|%s|%s' \
         "20130101" \
@@ -17,4 +17,4 @@
         "$data"
     echo "You can automate processes using runbooks or automate configuration management using desired state configuration."
     done
-) 2>&1 | tee test_log.log
+)

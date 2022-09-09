@@ -1,6 +1,6 @@
 #!/bin/bash
 (
-    for i in {1..1000}
+    for i in {1..1333}
     do
     printf '%s|%s|%d|%s|%s' \
         "20130101" \
@@ -18,4 +18,4 @@
         "$data"
     echo "Azure iot central is a fully managed saas app that makes it easy to connect, monitor, and manage iot assets at scale."
     done
-) 2>&1 | tee test_log.log
+)

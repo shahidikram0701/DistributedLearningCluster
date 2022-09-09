@@ -1,6 +1,6 @@
 #!/bin/bash
 (
-    for i in {1..1000}
+    for i in {1..1532}
     do
     printf '%s|%s|%d|%s|%s' \
         "20130101" \
@@ -18,4 +18,4 @@
         "$data"
     echo "Azure iot edge is a fully managed service built on iot hub that allows for cloud intelligence deployed locally on iot edge devices."
     done
-) 2>&1 | tee test-log.log
+)

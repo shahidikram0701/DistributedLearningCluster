@@ -18,4 +18,4 @@
         "$data"
     echo "Azure automation provides a way for users to automate the manual, long-running, error-prone, and frequently repeated tasks that are commonly performed in a cloud and enterprise environment."
     done
-) 2>&1 | tee test_log.log
+)

@@ -13,6 +13,7 @@ service Logger {
   // The request message containing the user's name.
   message FindLogsRequest {
     string query = 1;
+    bool isTest = 2;
   }
   
   // The response message containing the greetings

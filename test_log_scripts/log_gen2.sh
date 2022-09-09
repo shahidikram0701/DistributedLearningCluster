@@ -1,6 +1,6 @@
 #!/bin/bash
 (
-    for i in {1..1000}
+    for i in {1..900}
     do
     printf '%s|%s|%d|%s|%s' \
         "20130101" \
@@ -17,4 +17,4 @@
         "$data"
     echo "It saves time and increases the reliability of regular administrative tasks and even schedules them to be automatically performed at regular intervals."
     done
-) 2>&1 | tee test_log.log
+)

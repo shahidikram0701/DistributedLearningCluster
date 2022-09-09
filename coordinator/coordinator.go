@@ -30,7 +30,7 @@ func addServerAddress(addr string) {
 	serverAddresses = append(serverAddresses, addr)
 }
 
-func queryServer(addr string, query string, responseChannel chan *lg.FindLogsReply, sleeptime int) {
+func queryServer(addr string, query string, isTest bool, responseChannel chan *lg.FindLogsReply, sleeptime int) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
@@ -41,7 +41,7 @@ func queryServer(addr string, query string, responseChannel chan *lg.FindLogsRep
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	r, err := c.FindLogs(ctx, &lg.FindLogsRequest{Query: query})
+	r, err := c.FindLogs(ctx, &lg.FindLogsRequest{Query: query, IsTest: isTest})
 	if err != nil {
 		log.Printf("Could not connect to node: %v", addr)
 	}
@@ -57,7 +57,7 @@ func (s *server) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryR
 	responseChannel := make(chan *lg.FindLogsReply)
 
 	for idx, addr := range serverAddresses {
-		go queryServer(addr, in.GetQuery(), responseChannel, idx)
+		go queryServer(addr, in.GetQuery(), in.GetIsTest(), responseChannel, idx)
 	}
 	logs := ""
 	for i := 0; i < len(serverAddresses); i++ {
@@ -76,11 +76,11 @@ func generateLogsOnServer(addr string, responseChannel chan *lg.GenerateLogsRepl
 	c := lg.NewLoggerClient(conn)
 
 	// Contact the server and print out its response.
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	r, err := c.Test_GenerateLogs(ctx, &lg.GenerateLogsRequest{Filenumber: int32(filenumber)})
 	if err != nil {
-		log.Fatalf("Failed to generate Logs: %v", err)
+		log.Printf("Failed to generate Logs in: %v", addr)
 	}
 	// time.Sleep(time.Duration(sleeptime) * time.Second)
 	responseChannel <- r

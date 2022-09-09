@@ -1,6 +1,6 @@
 #!/bin/bash
 (
-    for i in {1..1000}
+    for i in {1..909}
     do
     printf '%s|%s|%d|%s|%s' \
         "20130101" \
@@ -18,4 +18,4 @@
         "$data"
     echo "Customers using azure functions are billed based on per-second resource consumption and executions."
     done
-) 2>&1 | tee test_log.log
+)

@@ -1,6 +1,6 @@
 #!/bin/bash
 (
-    for i in {1..1000}
+    for i in {1..2130}
     do
     printf '%s|%s|%d|%s|%s' \
         "20130101" \
@@ -18,4 +18,4 @@
         "$data"
     echo "Microsoft azure machine learning (azure ml) provides tools and ml frameworks for developers to create their own machine learning and artificial intelligence (ai) services."
     done
-) 2>&1 | tee test_log.log
+)
