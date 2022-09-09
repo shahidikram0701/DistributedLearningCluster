@@ -60,11 +60,13 @@ func (s *server) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryR
 		go queryServer(addr, in.GetQuery(), in.GetIsTest(), responseChannel, idx)
 	}
 	logs := ""
+	totalMatches := 0
 	for i := 0; i < len(serverAddresses); i++ {
 		logQueryResponse := <-responseChannel
 		logs += logQueryResponse.GetLogs()
+		totalMatches += int(logQueryResponse.GetNumMatches())
 	}
-	return &pb.QueryReply{Logs: logs}, nil
+	return &pb.QueryReply{Logs: logs, TotalMatches: int64(totalMatches)}, nil
 }
 
 func generateLogsOnServer(addr string, responseChannel chan *lg.GenerateLogsReply, filenumber int) {

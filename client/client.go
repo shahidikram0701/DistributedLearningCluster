@@ -40,4 +40,5 @@ func main() {
 		log.Fatalf("Failed to query logs: %v", err)
 	}
 	log.Printf(r.GetLogs())
+	log.Printf("Total Matches: %v", r.GetTotalMatches())
 }

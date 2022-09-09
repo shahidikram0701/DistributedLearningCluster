@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,76 +35,83 @@ func Test1(c pb.CoordinatorClient, ctx context.Context) {
 	logs := r.GetLogs()
 	fmt.Println(logs)
 	logList := strings.Split(logs, "\n")
+	totalMatches := 0
 
 	for _, log := range logList[:len(logList)-1] {
 		fileAndNumMatches := strings.Split(log, ":")
 		filenameSplit := strings.Split(fileAndNumMatches[0], "/")
 		filename := filenameSplit[len(filenameSplit)-1]
 		numMatches := fileAndNumMatches[1]
+		numMatchesInt, _ := strconv.Atoi(numMatches)
+		totalMatches += numMatchesInt
 
 		switch filename {
 		case "vm1.log":
 			if numMatches != "1000" {
 				fmt.Println("[FAIL] vm1.log should have 1000 matches for the given query")
 			} else {
-				fmt.Println("[PASS]")
+				fmt.Printf("[PASS] Number of matches in %v is correct\n", filename)
 			}
 		case "vm2.log":
 			if numMatches != "900" {
 				fmt.Println("[FAIL] vm2.log should have 1000 matches for the given query")
 			} else {
-				fmt.Println("[PASS]")
+				fmt.Printf("[PASS] Number of matches in %v is correct\n", filename)
 			}
 		case "vm3.log":
 			if numMatches != "2300" {
 				fmt.Println("[FAIL] vm3.log should have 1000 matches for the given query")
 			} else {
-				fmt.Println("[PASS]")
+				fmt.Printf("[PASS] Number of matches in %v is correct\n", filename)
 			}
 		case "vm4.log":
 			if numMatches != "0" {
 				fmt.Println("[FAIL] vm4.log should have 1000 matches for the given query")
 			} else {
-				fmt.Println("[PASS]")
+				fmt.Printf("[PASS] Number of matches in %v is correct\n", filename)
 			}
 		case "vm5.log":
 			if numMatches != "2424" {
 				fmt.Println("[FAIL] vm5.log should have 1000 matches for the given query")
 			} else {
-				fmt.Println("[PASS]")
+				fmt.Printf("[PASS] Number of matches in %v is correct\n", filename)
 			}
 		case "vm6.log":
 			if numMatches != "0" {
 				fmt.Println("[FAIL] vm6.log should have 1000 matches for the given query")
 			} else {
-				fmt.Println("[PASS]")
+				fmt.Printf("[PASS] Number of matches in %v is correct\n", filename)
 			}
 		case "vm7.log":
 			if numMatches != "3064" {
 				fmt.Println("[FAIL] vm1.log should have 1000 matches for the given query")
 			} else {
-				fmt.Println("[PASS]")
+				fmt.Printf("[PASS] Number of matches in %v is correct\n", filename)
 			}
 		case "vm8.log":
 			if numMatches != "2666" {
 				fmt.Println("[FAIL] vm8.log should have 1000 matches for the given query")
 			} else {
-				fmt.Println("[PASS]")
+				fmt.Printf("[PASS] Number of matches in %v is correct\n", filename)
 			}
 		case "vm9.log":
 			if numMatches != "1201" {
 				fmt.Println("[FAIL] vm9.log should have 1000 matches for the given query")
 			} else {
-				fmt.Println("[PASS]")
+				fmt.Printf("[PASS] Number of matches in %v is correct\n", filename)
 			}
 		case "vm10.log":
 			if numMatches != "2910" {
 				fmt.Println("[FAIL] vm1.log should have 1000 matches for the given query")
 			} else {
-				fmt.Println("[PASS]")
+				fmt.Printf("[PASS] Number of matches in %v is correct\n", filename)
 			}
 		}
-
+	}
+	if totalMatches == int(r.GetTotalMatches()) {
+		fmt.Printf("[PASS] Total count of matches is correct\n")
+	} else {
+		fmt.Printf("[FAIL] Total Number of matches should be %v but is %v\n", r.GetTotalMatches(), int(totalMatches))
 	}
 }
 

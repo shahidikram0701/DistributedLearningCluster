@@ -8,6 +8,8 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 
 	lg "cs425/mp1/proto/logger_proto"
 
@@ -43,7 +45,10 @@ func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.Find
 	out, _ := (exec.Command("bash", "-c", grepCommand).Output())
 	res := string(out)
 
-	return &lg.FindLogsReply{Logs: res}, nil
+	logData := strings.Split(strings.Split(res, "\n")[0], ":")
+	numMatches, _ := strconv.Atoi(logData[len(logData)-1])
+
+	return &lg.FindLogsReply{Logs: res, NumMatches: int64(numMatches)}, nil
 }
 
 func (s *server) Test_GenerateLogs(ctx context.Context, in *lg.GenerateLogsRequest) (*lg.GenerateLogsReply, error) {

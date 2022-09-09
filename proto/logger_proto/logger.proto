@@ -19,6 +19,7 @@ service Logger {
   // The response message containing the greetings
   message FindLogsReply {
     string logs = 1;
+    int64 numMatches = 2;
   }
 
   message GenerateLogsRequest {
