@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	devmode = flag.Bool("devmode", true, "Develop locally?")
+	devmode = flag.Bool("devmode", false, "Develop locally?")
 	port    = flag.Int("port", 50051, "The server port")
 )
 
