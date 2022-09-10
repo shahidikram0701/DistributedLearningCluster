@@ -208,7 +208,7 @@ func Test2(c pb.CoordinatorClient, ctx context.Context) {
 func Test3(c pb.CoordinatorClient, ctx context.Context) {
 	log.Printf("TEST 3: Query doesn't exist")
 	log.Printf("\n\ngrep -Ec 'generation'\n\n")
-	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "t*", IsTest: true})
+	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "generation", IsTest: true})
 	if err != nil {
 		log.Fatalf("Failed to query logs: %v", err)
 	}
