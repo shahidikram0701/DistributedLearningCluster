@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"time"
 
@@ -39,6 +40,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to query logs: %v", err)
 	}
-	log.Printf(r.GetLogs())
+	log.Printf("Successfully fetched logs")
+	fmt.Printf(r.GetLogs())
 	log.Printf("Total Matches: %v", r.GetTotalMatches())
 }
