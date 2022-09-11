@@ -31,9 +31,13 @@ func addServerAddress(addr string) {
 }
 
 func queryServer(addr string, query string, isTest bool, responseChannel chan *lg.FindLogsReply, sleeptime int) {
+	tag := ""
+	if isTest {
+		tag = "[ TEST ]"
+	}
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		log.Printf("%vCould not connect to node: %v", tag, addr)
 	}
 	defer conn.Close()
 	c := lg.NewLoggerClient(conn)
@@ -43,7 +47,7 @@ func queryServer(addr string, query string, isTest bool, responseChannel chan *l
 	defer cancel()
 	r, err := c.FindLogs(ctx, &lg.FindLogsRequest{Query: query, IsTest: isTest})
 	if err != nil {
-		log.Printf("Could not connect to node: %v", addr)
+		log.Printf("%vCould not connect to node: %v", tag, addr)
 	}
 	// time.Sleep(time.Duration(sleeptime) * time.Second)
 	responseChannel <- r

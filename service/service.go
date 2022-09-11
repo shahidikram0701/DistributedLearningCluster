@@ -29,18 +29,23 @@ type server struct {
 func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.FindLogsReply, error) {
 	query := in.GetQuery()
 	isTest := in.GetIsTest()
+	tag := ""
+	if isTest {
+		tag = "[ TEST ]"
+	}
 	// log.Printf("Received: %v", query)
 	// TODO: error handling
 
 	var logFilePath string
-	if isTest {
-		logFilePath = "../../testlogs/*.log"
-	} else {
-		logFilePath = "../../logs/*.log"
-	}
+	// if isTest {
+	// 	logFilePath = "../../testlogs/*.log"
+	// } else {
+	// 	logFilePath = "../../logs/*.log"
+	// }
+	logFilePath = "../../logs/*.log"
 	grepCommand := fmt.Sprintf("grep -HEc '%v' %v", query, logFilePath)
 
-	log.Printf("Executing: %v", grepCommand)
+	log.Printf("%vExecuting: %v", tag, grepCommand)
 
 	out, _ := (exec.Command("bash", "-c", grepCommand).Output())
 	res := string(out)
