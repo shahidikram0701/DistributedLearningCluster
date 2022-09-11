@@ -24,6 +24,12 @@ type server struct {
 	lg.UnimplementedLoggerServer
 }
 
+/**
+* The RPC function for processing the request to fetch logs
+*
+* @param ctx: context
+* @param in: the query request
+ */
 func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.FindLogsReply, error) {
 	query := in.GetQuery()
 	isTest := in.GetIsTest()
@@ -43,6 +49,7 @@ func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.Find
 
 	log.Printf("%vExecuting: %v", tag, grepCommand)
 
+	// Exectute the underlying os grep command for the given
 	out, _ := (exec.Command("bash", "-c", grepCommand).Output())
 	res := string(out)
 
@@ -52,7 +59,15 @@ func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.Find
 	return &lg.FindLogsReply{Logs: res, NumMatches: int64(numMatches)}, nil
 }
 
+/**
+* The RPC function to process the generation of logs of service processes
+*
+* @param ctx: context
+* @param in: the query request
+ */
 func (s *server) Test_GenerateLogs(ctx context.Context, in *lg.GenerateLogsRequest) (*lg.GenerateLogsReply, error) {
+	// use the filenumber passed in the request to determine which script to execute to generate logs
+	// for the current process
 	filenumber := fmt.Sprint(in.GetFilenumber())
 	outputFile := fmt.Sprintf("../../testlogs/vm%v.log", filenumber)
 	command := "../test_log_scripts/log_gen" + filenumber + ".sh > " + outputFile
@@ -74,6 +89,7 @@ func (s *server) Test_GenerateLogs(ctx context.Context, in *lg.GenerateLogsReque
 
 func main() {
 	flag.Parse()
+	// write logs of the service process to service.log file
 	f, err := os.OpenFile("service.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Printf("error opening file: %v", err)
@@ -81,6 +97,8 @@ func main() {
 	defer f.Close()
 
 	log.SetOutput(f)
+
+	// service process listening to incoming tcp connections
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
