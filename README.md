@@ -1,7 +1,5 @@
 # [Group 37] Distributed Log Querier
 
-## 
-
 This project is an implementation of a basic distributed log querier. 
 
 ## Description
@@ -72,16 +70,16 @@ $ go mod download
 
 $ ./removelogs.sh 
 
-To start the coordinator and the service on the node)
+To start the coordinator and the service on the node
 
 $ ./run.sh
 
-To run the client and query for an arbitrary query:
+To run the client and query for an arbitrary query
 
 $ cd client
 $ go run client.go -query "searchQuery"
 
-To run the test client:
+To run the test client
 
 $ cd testclient
 $ go run testclient
