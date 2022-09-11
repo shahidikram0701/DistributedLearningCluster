@@ -499,4 +499,8 @@ func main() {
 	Test2(c, ctx)
 
 	Test3(c, ctx)
+
+	Test4(c, ctx)
+
+	Test5(c, ctx)
 }
