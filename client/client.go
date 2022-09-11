@@ -46,7 +46,6 @@ func main() {
 		defer conn.Close()
 		c := pb.NewCoordinatorClient(conn)
 
-		// Contact the server and print out its response.
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 

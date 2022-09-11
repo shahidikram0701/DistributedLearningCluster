@@ -51,7 +51,6 @@ func Test1() {
 		defer conn.Close()
 		c := pb.NewCoordinatorClient(conn)
 
-		// Contact the server and print out its response.
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		start := time.Now()
@@ -177,7 +176,6 @@ func Test2() {
 		defer conn.Close()
 		c := pb.NewCoordinatorClient(conn)
 
-		// Contact the server and print out its response.
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -304,7 +302,6 @@ func Test3() {
 		defer conn.Close()
 		c := pb.NewCoordinatorClient(conn)
 
-		// Contact the server and print out its response.
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -431,7 +428,6 @@ func Test4() {
 		defer conn.Close()
 		c := pb.NewCoordinatorClient(conn)
 
-		// Contact the server and print out its response.
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -558,7 +554,6 @@ func Test5() {
 		defer conn.Close()
 		c := pb.NewCoordinatorClient(conn)
 
-		// Contact the server and print out its response.
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 

@@ -20,12 +20,10 @@ var (
 	port = flag.Int("port", 50052, "The server port")
 )
 
-// server is used to implement helloworld.GreeterServer.
 type server struct {
 	lg.UnimplementedLoggerServer
 }
 
-// SayHello implements helloworld.GreeterServer
 func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.FindLogsReply, error) {
 	query := in.GetQuery()
 	isTest := in.GetIsTest()
@@ -33,8 +31,6 @@ func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.Find
 	if isTest {
 		tag = "[ TEST ]"
 	}
-	// log.Printf("Received: %v", query)
-	// TODO: error handling
 
 	var logFilePath string
 	// if isTest {
@@ -58,8 +54,6 @@ func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.Find
 
 func (s *server) Test_GenerateLogs(ctx context.Context, in *lg.GenerateLogsRequest) (*lg.GenerateLogsReply, error) {
 	filenumber := fmt.Sprint(in.GetFilenumber())
-	// log.Printf("Received: %v", filenumber)
-	// TODO: error handling
 	outputFile := fmt.Sprintf("../../testlogs/vm%v.log", filenumber)
 	command := "../test_log_scripts/log_gen" + filenumber + ".sh > " + outputFile
 	var status = "Successfully generated logs"

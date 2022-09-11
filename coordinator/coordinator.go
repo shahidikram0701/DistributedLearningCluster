@@ -30,7 +30,7 @@ func addServerAddress(addr string) {
 	serverAddresses = append(serverAddresses, addr)
 }
 
-func queryServer(addr string, query string, isTest bool, responseChannel chan *lg.FindLogsReply, sleeptime int) {
+func queryServer(addr string, query string, isTest bool, responseChannel chan *lg.FindLogsReply) {
 	tag := ""
 	if isTest {
 		tag = "[ TEST ]"
@@ -42,26 +42,21 @@ func queryServer(addr string, query string, isTest bool, responseChannel chan *l
 	defer conn.Close()
 	c := lg.NewLoggerClient(conn)
 
-	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	r, err := c.FindLogs(ctx, &lg.FindLogsRequest{Query: query, IsTest: isTest})
 	if err != nil {
 		log.Printf("%vCould not connect to node: %v", tag, addr)
 	}
-	// time.Sleep(time.Duration(sleeptime) * time.Second)
 	responseChannel <- r
-	// log.Printf("Greeting: %s", r.GetMessage())
 }
 
 func (s *server) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryReply, error) {
-	// log.Printf("Received: %v", in.GetQuery())
-
 	// Establish connections with the server nodes
 	responseChannel := make(chan *lg.FindLogsReply)
 
-	for idx, addr := range serverAddresses {
-		go queryServer(addr, in.GetQuery(), in.GetIsTest(), responseChannel, idx)
+	for _, addr := range serverAddresses {
+		go queryServer(addr, in.GetQuery(), in.GetIsTest(), responseChannel)
 	}
 	logs := ""
 	totalMatches := 0
@@ -81,16 +76,13 @@ func generateLogsOnServer(addr string, responseChannel chan *lg.GenerateLogsRepl
 	defer conn.Close()
 	c := lg.NewLoggerClient(conn)
 
-	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	r, err := c.Test_GenerateLogs(ctx, &lg.GenerateLogsRequest{Filenumber: int32(filenumber)})
 	if err != nil {
 		log.Printf("Failed to generate Logs in: %v", addr)
 	}
-	// time.Sleep(time.Duration(sleeptime) * time.Second)
 	responseChannel <- r
-	// log.Printf("Greeting: %s", r.GetMessage())
 }
 
 func (s *server) Test_GenerateLogs(ctx context.Context, in *pb.GenerateLogsRequest) (*pb.GenerateLogsReply, error) {

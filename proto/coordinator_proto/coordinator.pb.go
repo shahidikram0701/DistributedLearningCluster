@@ -20,7 +20,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The request message containing the user's name.
 type QueryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -76,7 +75,6 @@ func (x *QueryRequest) GetIsTest() bool {
 	return false
 }
 
-// The response message containing the greetings
 type QueryReply struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
