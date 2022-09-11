@@ -37,9 +37,9 @@ cs425_mp1_distributedlogquerier
 │    └───proto
 │    │   │
 │    │   └───coordinator_proto
-│    │       │   coordinator.proto
-│    │       │   coordinator.pb.go
-│    │       │   coordinator_grpc.pb.go
+│    │   │   │   coordinator.proto
+│    │   │   │   coordinator.pb.go
+│    │   │   │   coordinator_grpc.pb.go
 │    │   │
 │    │   └───logger_proto
 │    │       │   logger.proto
@@ -61,22 +61,25 @@ logs
 
 ## Running the code
 ```
-- git clone the repo
-- create a folder called logs which contains the log file pertaining to the server (check the directory structure for clarity)
+Setting up the code
 
+$ git clone https://gitlab.engr.illinois.edu/shahidi3/cs425_mp1_distributedlogquerier.git
+$ mkdir logs (should contain log pertaining to the node)
 $ cd cs425_mp1_distributedlogquerier
-
 $ go mod download
 
-$ ./removelogs.sh [optional] (to delete the previous logs of coordinator and the service)
+[optional] To delete the previous logs of coordinator and the service
 
-$ ./run.sh (to start the coordinator and the service on the node)
+$ ./removelogs.sh 
+
+To start the coordinator and the service on the node)
+
+$ ./run.sh
 
 To run the client and query for an arbitrary query:
 
 $ cd client
 $ go run client.go -query "searchQuery"
-
 
 To run the test client:
 
