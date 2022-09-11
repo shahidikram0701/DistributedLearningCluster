@@ -49,13 +49,18 @@ func main() {
 		// Contact the server and print out its response.
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
+
+		start := time.Now()
 		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: *query, IsTest: false})
+
 		if err != nil {
 			log.Printf("Failed to establish connection with the coordinator....Retrying")
 		} else {
+			duration := time.Since(start)
 			log.Printf("Successfully fetched logs")
 			fmt.Printf(r.GetLogs())
 			log.Printf("Total Matches: %v", r.GetTotalMatches())
+			log.Printf("\nExecution duration: %v", duration)
 			break
 		}
 	}

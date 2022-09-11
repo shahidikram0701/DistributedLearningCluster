@@ -27,8 +27,8 @@ var (
 )
 
 func Test1() {
-	log.Printf("TEST 1: Returns matches for normal query")
-	log.Printf("\n\ngrep -Ec 'privacy'\n\n")
+	log.Printf("\n\nTEST 1: Returns matches for normal query\n")
+	log.Printf("\ngrep -Ec 'privacy'\n")
 
 	flag.Parse()
 	var conn *grpc.ClientConn
@@ -42,7 +42,7 @@ func Test1() {
 			coordinatorIp = coordinators[coordinatorIndex]
 		}
 
-		log.Printf("Coordinator: %v", coordinatorIp)
+		log.Printf("Coordinator: %v\n", coordinatorIp)
 		conn, err = grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			log.Printf("Failed to establish connection with the coordinator....Retrying")
@@ -54,13 +54,15 @@ func Test1() {
 		// Contact the server and print out its response.
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-
+		start := time.Now()
 		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "privacy", IsTest: true})
 
 		if err != nil {
 			log.Printf("Failed to establish connection with the coordinator....Retrying")
 		} else {
+			duration := time.Since(start)
 			ValidateTest1(r)
+			log.Printf("\nExecution duration: %v", duration)
 			break
 		}
 	}
@@ -151,8 +153,8 @@ func ValidateTest1(r *pb.QueryReply) {
 }
 
 func Test2() {
-	log.Printf("TEST 2: should return matches for infrequent type query")
-	log.Printf("\n\ngrep -Ec 'http://www.burke.com/homepage.html'\n\n")
+	log.Printf("\n\nTEST 2: should return matches for infrequent type query\n")
+	log.Printf("\ngrep -Ec 'http://www.burke.com/homepage.html'\n")
 
 	flag.Parse()
 	var conn *grpc.ClientConn
@@ -166,7 +168,7 @@ func Test2() {
 			coordinatorIp = coordinators[coordinatorIndex]
 		}
 
-		log.Printf("Coordinator: %v", coordinatorIp)
+		log.Printf("Coordinator: %v\n", coordinatorIp)
 		conn, err = grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			log.Printf("Failed to establish connection with the coordinator....Retrying")
@@ -179,12 +181,15 @@ func Test2() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
+		start := time.Now()
 		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "http://www.burke.com/homepage.html", IsTest: true})
 
 		if err != nil {
 			log.Printf("Failed to establish connection with the coordinator....Retrying")
 		} else {
+			duration := time.Since(start)
 			ValidateTest2(r)
+			log.Printf("\nExecution duration: %v", duration)
 			break
 		}
 	}
@@ -275,8 +280,8 @@ func ValidateTest2(r *pb.QueryReply) {
 }
 
 func Test3() {
-	log.Printf("TEST 3: Regex query")
-	log.Printf("\n\ngrep -Ec 'http:/*'\n\n")
+	log.Printf("\n\nTEST 3: Regex query\n")
+	log.Printf("\ngrep -Ec 'http:/*'\n")
 
 	flag.Parse()
 	var conn *grpc.ClientConn
@@ -290,7 +295,7 @@ func Test3() {
 			coordinatorIp = coordinators[coordinatorIndex]
 		}
 
-		log.Printf("Coordinator: %v", coordinatorIp)
+		log.Printf("Coordinator: %v\n", coordinatorIp)
 		conn, err = grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			log.Printf("Failed to establish connection with the coordinator....Retrying")
@@ -303,12 +308,15 @@ func Test3() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
+		start := time.Now()
 		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "http:/*", IsTest: true})
 
 		if err != nil {
 			log.Printf("Failed to establish connection with the coordinator....Retrying")
 		} else {
+			duration := time.Since(start)
 			ValidateTest3(r)
+			log.Printf("\nExecution duration: %v", duration)
 			break
 		}
 	}
@@ -399,8 +407,8 @@ func ValidateTest3(r *pb.QueryReply) {
 }
 
 func Test4() {
-	log.Printf("TEST 4: Fetch all the logs in the month of August")
-	log.Printf("\n\ngrep -Ec '\\[(0?[1-9]|[12][0-9]|3[01])/Aug/([0-9]+(:[0-9]+)+) -[0-9]+]'\n\n")
+	log.Printf("\n\nTEST 4: Fetch all the logs in the month of August\n")
+	log.Printf("\ngrep -Ec '\\[(0?[1-9]|[12][0-9]|3[01])/Aug/([0-9]+(:[0-9]+)+) -[0-9]+]'\n")
 
 	flag.Parse()
 	var conn *grpc.ClientConn
@@ -414,7 +422,7 @@ func Test4() {
 			coordinatorIp = coordinators[coordinatorIndex]
 		}
 
-		log.Printf("Coordinator: %v", coordinatorIp)
+		log.Printf("Coordinator: %v\n", coordinatorIp)
 		conn, err = grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			log.Printf("Failed to establish connection with the coordinator....Retrying")
@@ -427,12 +435,15 @@ func Test4() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
+		start := time.Now()
 		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "\\[(0?[1-9]|[12][0-9]|3[01])/Aug/([0-9]+(:[0-9]+)+) -[0-9]+]", IsTest: true})
 
 		if err != nil {
 			log.Printf("Failed to establish connection with the coordinator....Retrying")
 		} else {
+			duration := time.Since(start)
 			ValidateTest4(r)
+			log.Printf("\nExecution duration: %v", duration)
 			break
 		}
 	}
@@ -523,8 +534,8 @@ func ValidateTest4(r *pb.QueryReply) {
 }
 
 func Test5() {
-	log.Printf("TEST 5: Query doesn't exist")
-	log.Printf("\n\ngrep -Ec 'this query doesnt exist'\n\n")
+	log.Printf("\n\nTEST 5: Query doesn't exist\n")
+	log.Printf("\ngrep -Ec 'this query doesnt exist'\n")
 
 	flag.Parse()
 	var conn *grpc.ClientConn
@@ -538,7 +549,7 @@ func Test5() {
 			coordinatorIp = coordinators[coordinatorIndex]
 		}
 
-		log.Printf("Coordinator: %v", coordinatorIp)
+		log.Printf("Coordinator: %v\n", coordinatorIp)
 		conn, err = grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			log.Printf("Failed to establish connection with the coordinator....Retrying")
@@ -551,12 +562,15 @@ func Test5() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
+		start := time.Now()
 		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "this query doesnt exist", IsTest: true})
 
 		if err != nil {
 			log.Printf("Failed to establish connection with the coordinator....Retrying")
 		} else {
+			duration := time.Since(start)
 			ValidateTest5(r)
+			log.Printf("\nExecution duration: %v", duration)
 			break
 		}
 	}
