@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -16,22 +17,56 @@ import (
 )
 
 const (
-	defaultQuery         = "shahid"
-	defaultCoordinatorIp = "172.22.156.122:50051"
+	defaultQuery = "shahid"
 )
 
 var (
-	coordinatorIp = flag.String("coordinatorip", defaultCoordinatorIp, "Coordinator IP")
-	query         = flag.String("query", defaultQuery, "Query to search for")
+	devmode      = flag.Bool("devmode", false, "Develop locally?")
+	query        = flag.String("query", defaultQuery, "Query to search for")
+	coordinators = []string{"172.22.156.122:50051", "172.22.158.122:50051", "172.22.94.122:50051", "172.22.156.123:50051", "172.22.158.123:50051", "172.22.94.123:50051", "172.22.156.124:50051", "172.22.158.124:50051", "172.22.94.124:50051", "172.22.156.125:50051"}
 )
 
-func Test1(c pb.CoordinatorClient, ctx context.Context) {
+func Test1() {
 	log.Printf("TEST 1: Returns matches for normal query")
 	log.Printf("\n\ngrep -Ec 'privacy'\n\n")
-	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "privacy", IsTest: true})
-	if err != nil {
-		log.Fatalf("Failed to query logs: %v", err)
+
+	flag.Parse()
+	var conn *grpc.ClientConn
+	var err error
+	var coordinatorIp string
+	for {
+		if *devmode {
+			coordinatorIp = "localhost:50051"
+		} else {
+			coordinatorIndex := rand.Intn(10)
+			coordinatorIp = coordinators[coordinatorIndex]
+		}
+
+		log.Printf("Coordinator: %v", coordinatorIp)
+		conn, err = grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			log.Printf("Failed to establish connection with the coordinator....Retrying")
+		}
+
+		defer conn.Close()
+		c := pb.NewCoordinatorClient(conn)
+
+		// Contact the server and print out its response.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "privacy", IsTest: true})
+
+		if err != nil {
+			log.Printf("Failed to establish connection with the coordinator....Retrying")
+		} else {
+			ValidateTest1(r)
+			break
+		}
 	}
+}
+
+func ValidateTest1(r *pb.QueryReply) {
 	logs := r.GetLogs()
 	fmt.Println(logs)
 	logList := strings.Split(logs, "\n")
@@ -115,13 +150,47 @@ func Test1(c pb.CoordinatorClient, ctx context.Context) {
 	}
 }
 
-func Test2(c pb.CoordinatorClient, ctx context.Context) {
+func Test2() {
 	log.Printf("TEST 2: should return matches for infrequent type query")
 	log.Printf("\n\ngrep -Ec 'http://www.burke.com/homepage.html'\n\n")
-	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "http://www.burke.com/homepage.html", IsTest: true})
-	if err != nil {
-		log.Fatalf("Failed to query logs: %v", err)
+
+	flag.Parse()
+	var conn *grpc.ClientConn
+	var err error
+	var coordinatorIp string
+	for {
+		if *devmode {
+			coordinatorIp = "localhost:50051"
+		} else {
+			coordinatorIndex := rand.Intn(10)
+			coordinatorIp = coordinators[coordinatorIndex]
+		}
+
+		log.Printf("Coordinator: %v", coordinatorIp)
+		conn, err = grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			log.Printf("Failed to establish connection with the coordinator....Retrying")
+		}
+
+		defer conn.Close()
+		c := pb.NewCoordinatorClient(conn)
+
+		// Contact the server and print out its response.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "http://www.burke.com/homepage.html", IsTest: true})
+
+		if err != nil {
+			log.Printf("Failed to establish connection with the coordinator....Retrying")
+		} else {
+			ValidateTest2(r)
+			break
+		}
 	}
+}
+
+func ValidateTest2(r *pb.QueryReply) {
 	logs := r.GetLogs()
 	fmt.Println(logs)
 	logList := strings.Split(logs, "\n")
@@ -205,13 +274,47 @@ func Test2(c pb.CoordinatorClient, ctx context.Context) {
 	}
 }
 
-func Test3(c pb.CoordinatorClient, ctx context.Context) {
+func Test3() {
 	log.Printf("TEST 3: Regex query")
 	log.Printf("\n\ngrep -Ec 'http:/*'\n\n")
-	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "http:/*", IsTest: true})
-	if err != nil {
-		log.Fatalf("Failed to query logs: %v", err)
+
+	flag.Parse()
+	var conn *grpc.ClientConn
+	var err error
+	var coordinatorIp string
+	for {
+		if *devmode {
+			coordinatorIp = "localhost:50051"
+		} else {
+			coordinatorIndex := rand.Intn(10)
+			coordinatorIp = coordinators[coordinatorIndex]
+		}
+
+		log.Printf("Coordinator: %v", coordinatorIp)
+		conn, err = grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			log.Printf("Failed to establish connection with the coordinator....Retrying")
+		}
+
+		defer conn.Close()
+		c := pb.NewCoordinatorClient(conn)
+
+		// Contact the server and print out its response.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "http:/*", IsTest: true})
+
+		if err != nil {
+			log.Printf("Failed to establish connection with the coordinator....Retrying")
+		} else {
+			ValidateTest3(r)
+			break
+		}
 	}
+}
+
+func ValidateTest3(r *pb.QueryReply) {
 	logs := r.GetLogs()
 	fmt.Println(logs)
 	logList := strings.Split(logs, "\n")
@@ -295,13 +398,47 @@ func Test3(c pb.CoordinatorClient, ctx context.Context) {
 	}
 }
 
-func Test4(c pb.CoordinatorClient, ctx context.Context) {
-	log.Printf("TEST 3: Fetch all the logs in the month of August")
+func Test4() {
+	log.Printf("TEST 4: Fetch all the logs in the month of August")
 	log.Printf("\n\ngrep -Ec '\\[(0?[1-9]|[12][0-9]|3[01])/Aug/([0-9]+(:[0-9]+)+) -[0-9]+]'\n\n")
-	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "\\[(0?[1-9]|[12][0-9]|3[01])/Aug/([0-9]+(:[0-9]+)+) -[0-9]+]", IsTest: true})
-	if err != nil {
-		log.Fatalf("Failed to query logs: %v", err)
+
+	flag.Parse()
+	var conn *grpc.ClientConn
+	var err error
+	var coordinatorIp string
+	for {
+		if *devmode {
+			coordinatorIp = "localhost:50051"
+		} else {
+			coordinatorIndex := rand.Intn(10)
+			coordinatorIp = coordinators[coordinatorIndex]
+		}
+
+		log.Printf("Coordinator: %v", coordinatorIp)
+		conn, err = grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			log.Printf("Failed to establish connection with the coordinator....Retrying")
+		}
+
+		defer conn.Close()
+		c := pb.NewCoordinatorClient(conn)
+
+		// Contact the server and print out its response.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "\\[(0?[1-9]|[12][0-9]|3[01])/Aug/([0-9]+(:[0-9]+)+) -[0-9]+]", IsTest: true})
+
+		if err != nil {
+			log.Printf("Failed to establish connection with the coordinator....Retrying")
+		} else {
+			ValidateTest4(r)
+			break
+		}
 	}
+}
+
+func ValidateTest4(r *pb.QueryReply) {
 	logs := r.GetLogs()
 	fmt.Println(logs)
 	logList := strings.Split(logs, "\n")
@@ -385,13 +522,47 @@ func Test4(c pb.CoordinatorClient, ctx context.Context) {
 	}
 }
 
-func Test5(c pb.CoordinatorClient, ctx context.Context) {
-	log.Printf("TEST 4: Query doesn't exist")
+func Test5() {
+	log.Printf("TEST 5: Query doesn't exist")
 	log.Printf("\n\ngrep -Ec 'this query doesnt exist'\n\n")
-	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "this query doesnt exist", IsTest: true})
-	if err != nil {
-		log.Fatalf("Failed to query logs: %v", err)
+
+	flag.Parse()
+	var conn *grpc.ClientConn
+	var err error
+	var coordinatorIp string
+	for {
+		if *devmode {
+			coordinatorIp = "localhost:50051"
+		} else {
+			coordinatorIndex := rand.Intn(10)
+			coordinatorIp = coordinators[coordinatorIndex]
+		}
+
+		log.Printf("Coordinator: %v", coordinatorIp)
+		conn, err = grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			log.Printf("Failed to establish connection with the coordinator....Retrying")
+		}
+
+		defer conn.Close()
+		c := pb.NewCoordinatorClient(conn)
+
+		// Contact the server and print out its response.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "this query doesnt exist", IsTest: true})
+
+		if err != nil {
+			log.Printf("Failed to establish connection with the coordinator....Retrying")
+		} else {
+			ValidateTest5(r)
+			break
+		}
 	}
+}
+
+func ValidateTest5(r *pb.QueryReply) {
 	logs := r.GetLogs()
 	fmt.Println(logs)
 	logList := strings.Split(logs, "\n")
@@ -476,31 +647,14 @@ func Test5(c pb.CoordinatorClient, ctx context.Context) {
 }
 
 func main() {
-	flag.Parse()
-	// Set up a connection to the server.
-	conn, err := grpc.Dial(*coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("Failed to establish connection with the coordinator")
-	}
-	defer conn.Close()
-	c := pb.NewCoordinatorClient(conn)
 
-	// Contact the server and print out its response.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	r, err := c.Test_GenerateLogs(ctx, &pb.GenerateLogsRequest{})
-	if err != nil {
-		log.Fatalf("Failed to generate Logs: %v", err)
-	}
-	log.Println(r.GetStatus())
+	Test1()
 
-	Test1(c, ctx)
+	Test2()
 
-	Test2(c, ctx)
+	Test3()
 
-	Test3(c, ctx)
+	Test4()
 
-	Test4(c, ctx)
-
-	Test5(c, ctx)
+	Test5()
 }
