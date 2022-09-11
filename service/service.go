@@ -74,6 +74,13 @@ func (s *server) Test_GenerateLogs(ctx context.Context, in *lg.GenerateLogsReque
 
 func main() {
 	flag.Parse()
+	f, err := os.OpenFile("service.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Printf("error opening file: %v", err)
+	}
+	defer f.Close()
+
+	log.SetOutput(f)
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
