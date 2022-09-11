@@ -34,6 +34,8 @@ func Test1() {
 	var conn *grpc.ClientConn
 	var err error
 	var coordinatorIp string
+	start := time.Now()
+
 	for {
 		if *devmode {
 			coordinatorIp = "localhost:50051"
@@ -53,7 +55,6 @@ func Test1() {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		start := time.Now()
 		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "privacy", IsTest: true})
 
 		if err != nil {
@@ -159,6 +160,7 @@ func Test2() {
 	var conn *grpc.ClientConn
 	var err error
 	var coordinatorIp string
+	start := time.Now()
 	for {
 		if *devmode {
 			coordinatorIp = "localhost:50051"
@@ -179,7 +181,6 @@ func Test2() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		start := time.Now()
 		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "http://www.burke.com/homepage.html", IsTest: true})
 
 		if err != nil {
@@ -285,6 +286,8 @@ func Test3() {
 	var conn *grpc.ClientConn
 	var err error
 	var coordinatorIp string
+	start := time.Now()
+
 	for {
 		if *devmode {
 			coordinatorIp = "localhost:50051"
@@ -305,7 +308,6 @@ func Test3() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		start := time.Now()
 		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "http:/*", IsTest: true})
 
 		if err != nil {
@@ -411,6 +413,8 @@ func Test4() {
 	var conn *grpc.ClientConn
 	var err error
 	var coordinatorIp string
+	start := time.Now()
+
 	for {
 		if *devmode {
 			coordinatorIp = "localhost:50051"
@@ -431,7 +435,6 @@ func Test4() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		start := time.Now()
 		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "\\[(0?[1-9]|[12][0-9]|3[01])/Aug/([0-9]+(:[0-9]+)+) -[0-9]+]", IsTest: true})
 
 		if err != nil {
@@ -537,6 +540,8 @@ func Test5() {
 	var conn *grpc.ClientConn
 	var err error
 	var coordinatorIp string
+	start := time.Now()
+
 	for {
 		if *devmode {
 			coordinatorIp = "localhost:50051"
@@ -557,7 +562,6 @@ func Test5() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		start := time.Now()
 		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: "this query doesnt exist", IsTest: true})
 
 		if err != nil {

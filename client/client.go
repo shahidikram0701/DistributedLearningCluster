@@ -29,6 +29,7 @@ func main() {
 	var conn *grpc.ClientConn
 	var err error
 	var coordinatorIp string
+	start := time.Now()
 	for {
 		if *devmode {
 			coordinatorIp = "localhost:50051"
@@ -49,7 +50,6 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		start := time.Now()
 		r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: *query, IsTest: false})
 
 		if err != nil {
