@@ -1,3 +1,4 @@
+#!/bin/bash
 cd coordinator/
 go run coordinator.go &
 cd ../service
