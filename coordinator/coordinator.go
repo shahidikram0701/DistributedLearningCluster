@@ -53,11 +53,21 @@ func queryServer(addr string, query string, isTest bool, responseChannel chan *l
 }
 
 func (s *server) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryReply, error) {
+	query := in.GetQuery()
+	isTest := in.GetIsTest()
+	tag := ""
+	if isTest {
+		tag = "[ TEST ]"
+	}
+	grepCommand := fmt.Sprintf("grep -HEc '%v'", query)
+
+	log.Printf("%vExecuting: %v", tag, grepCommand)
+
 	// Establish connections with the server nodes
 	responseChannel := make(chan *lg.FindLogsReply)
 
 	for _, addr := range serverAddresses {
-		go queryServer(addr, in.GetQuery(), in.GetIsTest(), responseChannel)
+		go queryServer(addr, query, isTest, responseChannel)
 	}
 	logs := ""
 	totalMatches := 0
