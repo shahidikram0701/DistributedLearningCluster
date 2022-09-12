@@ -26,6 +26,9 @@ var (
 	coordinators = []string{"172.22.156.122:50051", "172.22.158.122:50051", "172.22.94.122:50051", "172.22.156.123:50051", "172.22.158.123:50051", "172.22.94.123:50051", "172.22.156.124:50051", "172.22.158.124:50051", "172.22.94.124:50051", "172.22.156.125:50051"}
 )
 
+/*
+* Test 1 - Run grep for a fairly frequent query
+ */
 func Test1() {
 	log.Printf("\n\nTEST 1: Returns matches for normal query\n")
 	log.Printf("\ngrep -Ec 'privacy'\n")
@@ -35,7 +38,7 @@ func Test1() {
 	var err error
 	var coordinatorIp string
 	start := time.Now()
-
+	// Try to establish connection to a up and running coordinator process and fire the query
 	for {
 		if *devmode {
 			coordinatorIp = "localhost:50051"
@@ -61,6 +64,7 @@ func Test1() {
 			log.Printf("Failed to establish connection with the coordinator....Retrying")
 		} else {
 			duration := time.Since(start)
+			// Validate the response received for the given query
 			ValidateTest1(r)
 			log.Printf("\nExecution duration: %v", duration)
 			break
@@ -68,6 +72,11 @@ func Test1() {
 	}
 }
 
+/*
+* Validate the response of the Test1
+*
+* @param r: response for the given query
+ */
 func ValidateTest1(r *pb.QueryReply) {
 	logs := r.GetLogs()
 	fmt.Println(logs)
@@ -152,6 +161,9 @@ func ValidateTest1(r *pb.QueryReply) {
 	}
 }
 
+/*
+* Test 2 - Run grep for an infrequent query
+ */
 func Test2() {
 	log.Printf("\n\nTEST 2: should return matches for infrequent type query\n")
 	log.Printf("\ngrep -Ec 'http://www.burke.com/homepage.html'\n")
@@ -194,6 +206,11 @@ func Test2() {
 	}
 }
 
+/*
+* Validate the response of the Test2
+*
+* @param r: response for the given query
+ */
 func ValidateTest2(r *pb.QueryReply) {
 	logs := r.GetLogs()
 	fmt.Println(logs)
@@ -278,6 +295,9 @@ func ValidateTest2(r *pb.QueryReply) {
 	}
 }
 
+/*
+* Test 3 - Run grep for a simple regex matching to a frequent query
+ */
 func Test3() {
 	log.Printf("\n\nTEST 3: Regex query\n")
 	log.Printf("\ngrep -Ec 'http:/*'\n")
@@ -321,6 +341,11 @@ func Test3() {
 	}
 }
 
+/*
+* Validate the response of the Test3
+*
+* @param r: response for the given query
+ */
 func ValidateTest3(r *pb.QueryReply) {
 	logs := r.GetLogs()
 	fmt.Println(logs)
@@ -405,6 +430,9 @@ func ValidateTest3(r *pb.QueryReply) {
 	}
 }
 
+/*
+* Test 4 - Run grep for a complex regex pattern fetching all logs month of August
+ */
 func Test4() {
 	log.Printf("\n\nTEST 4: Fetch all the logs in the month of August\n")
 	log.Printf("\ngrep -Ec '\\[(0?[1-9]|[12][0-9]|3[01])/Aug/([0-9]+(:[0-9]+)+) -[0-9]+]'\n")
@@ -448,6 +476,11 @@ func Test4() {
 	}
 }
 
+/*
+* Validate the response of the Test4
+*
+* @param r: response for the given query
+ */
 func ValidateTest4(r *pb.QueryReply) {
 	logs := r.GetLogs()
 	fmt.Println(logs)
@@ -532,6 +565,9 @@ func ValidateTest4(r *pb.QueryReply) {
 	}
 }
 
+/*
+* Test 5 - Run grep for a query that has no matches
+ */
 func Test5() {
 	log.Printf("\n\nTEST 5: Query doesn't exist\n")
 	log.Printf("\ngrep -Ec 'this query doesnt exist'\n")
@@ -575,6 +611,11 @@ func Test5() {
 	}
 }
 
+/*
+* Validate the response of the Test5
+*
+* @param r: response for the given query
+ */
 func ValidateTest5(r *pb.QueryReply) {
 	logs := r.GetLogs()
 	fmt.Println(logs)
