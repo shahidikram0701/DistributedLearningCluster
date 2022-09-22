@@ -1,4 +1,4 @@
-module cs425/mp1
+module cs425/mp
 
 go 1.19
 

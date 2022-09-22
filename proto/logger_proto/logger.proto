@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package logger;
 
-option go_package = "cs425/mp1/logger";
+option go_package = "cs425/mp/logger";
 
 // The Distributed Logger service definition.
 service Logger {

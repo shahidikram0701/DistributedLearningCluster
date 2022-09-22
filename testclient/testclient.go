@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	pb "cs425/mp1/proto/coordinator_proto"
+	pb "cs425/mp/proto/coordinator_proto"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
