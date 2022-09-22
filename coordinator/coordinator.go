@@ -1,24 +1,18 @@
-package main
+package coordinator
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"net"
-	"os"
+	"sync"
 	"time"
 
-	pb "cs425/mp1/proto/coordinator_proto"
-	lg "cs425/mp1/proto/logger_proto"
+	pb "cs425/mp/proto/coordinator_proto"
+	lg "cs425/mp/proto/logger_proto"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-)
-
-var (
-	devmode = flag.Bool("devmode", false, "Develop locally?")
-	port    = flag.Int("port", 50051, "The server port")
 )
 
 // list of machines acting as workers
@@ -158,24 +152,15 @@ func (s *server) Test_GenerateLogs(ctx context.Context, in *pb.GenerateLogsReque
 	return &pb.GenerateLogsReply{Status: status}, nil
 }
 
-func main() {
-	flag.Parse()
-	// configuring the log to be emitted to a log file
-	f, err := os.OpenFile("coordinator.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		log.Printf("error opening file: %v", err)
-	}
-	defer f.Close()
-
-	log.SetOutput(f)
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+func StartCoordinatorService(port int, devmode bool, wg *sync.WaitGroup) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
 	pb.RegisterCoordinatorServer(s, &server{})
 
-	if *devmode {
+	if devmode {
 		// local testing
 		addServerAddress("localhost:50052")
 		addServerAddress("localhost:50053")
@@ -196,5 +181,6 @@ func main() {
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
+		wg.Done()
 	}
 }

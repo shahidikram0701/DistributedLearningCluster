@@ -1,2 +1,2 @@
 #!/bin/bash
-pkill coordinator; pkill service;
+pkill coordinator; pkill process;

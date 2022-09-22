@@ -1,6 +1,7 @@
 #!/bin/bash
+cd commands
 cd coordinator/
 go run coordinator.go &
-cd ../service
-go run service.go &
-cd ../
+cd ../process
+go run process.go &
+cd ../..

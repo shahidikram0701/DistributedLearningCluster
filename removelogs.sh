@@ -1,3 +1,2 @@
 #!/bin/bash
-rm coordinator/coordinator.log;
-rm service/service.log;
+find ./commands/ -type f -name '*.log' -delete

@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package introducer;
+
+option go_package = "cs425/mp/introducer";
+
+// The Introducer service
+service Introducer {
+    rpc Introduce (IntroduceRequest) returns (IntroduceReply) {}
+  }
+  
+  message IntroduceRequest {
+    string ip = 1;
+    int64 port = 2;
+    string timestamp = 3;
+  }
+  
+  message IntroduceReply {
+    bytes membershipList = 1;
+  }
