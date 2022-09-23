@@ -31,6 +31,7 @@ type MembershipListItem struct {
 	Id                string
 	State             NodeState
 	IncarnationNumber int
+	UDPPort           int
 }
 
 func (memListItem MembershipListItem) String() string {
@@ -132,9 +133,9 @@ func (ml *MembershipList) Get(index int) *MembershipListItem {
 	i := index
 
 	if index < 0 {
-		i = (len - i) % len
+		i = (len - (index * -1)) % len
 	} else if index >= len {
-		i = i % len
+		i = index % len
 	}
 
 	return &ml.items[i]

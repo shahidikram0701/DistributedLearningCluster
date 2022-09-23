@@ -7,18 +7,20 @@ import (
 	"sync"
 
 	intro "cs425/mp/introducer"
+	process "cs425/mp/process"
 )
 
 var (
-	port      = flag.Int("port", 50053, "The port where the introducer runs")
-	devmode   = flag.Bool("devmode", false, "Develop locally?")
-	logtofile = false
+	port          = flag.Int("port", 50053, "The port where the introducer runs")
+	devmode       = flag.Bool("devmode", false, "Develop locally?")
+	udpserverport = flag.Int("udpserverport", 20000, "Port of the UDP server")
+	logtofile     = false
 )
 
 func main() {
 	wg := new(sync.WaitGroup)
 
-	wg.Add(1)
+	wg.Add(5)
 	flag.Parse()
 
 	if logtofile {
@@ -32,7 +34,10 @@ func main() {
 	}
 
 	// Start the introducer
-	intro.StartIntroducerAndListenToConnections(*devmode, *port, wg)
+	go intro.StartIntroducerAndListenToConnections(*devmode, *port, *udpserverport, wg)
+
+	log.Printf("Starting the UDP server\n")
+	go process.StartUdpServer(*udpserverport, wg)
 
 	wg.Wait()
 }

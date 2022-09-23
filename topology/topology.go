@@ -2,28 +2,33 @@ package topology
 
 import (
 	ml "cs425/mp/membershiplist"
+	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
 
 var (
-	T_FAIL      = 2 // 2 second
-	T_DELETE    = 2 // 2 second
-	T_LEAVE     = 1 // 1 second
-	T_STABILISE = 2 // 2 second
+	T_FAIL      = 2  // 2 second
+	T_DELETE    = 2  // 2 second
+	T_LEAVE     = 1  // 1 second
+	T_STABILISE = 10 // 10 second
 )
 
 type topologyInner struct {
-	self           node
-	predecessor    node
-	successor      node
-	superSuccessor node
+	self           Node
+	predecessor    Node
+	successor      Node
+	superSuccessor Node
+
+	numberOfProcesses int
 }
 
-type node struct {
-	index int
-	id    string
+type Node struct {
+	index         int
+	id            string
+	udpserverport int
 }
 
 type Topology struct {
@@ -31,14 +36,32 @@ type Topology struct {
 	ring topologyInner
 }
 
-func InitialiseTopology(selfId string, index int) *Topology {
+func InitialiseTopology(selfId string, index int, udpserverport int) *Topology {
 	var topology *Topology
 	topology = new(Topology)
 	topology.ring.self.id = selfId
+	topology.ring.numberOfProcesses = 1
+	topology.ring.self.udpserverport = udpserverport
 
 	log.Printf("Initialised Topology: %v", topology)
 
 	return topology
+}
+
+func (node *Node) GetUDPAddrInfo() (string, int) {
+	splitId := strings.Split(node.id, ":")
+	// fmt.Println(splitId)
+
+	return splitId[0], node.udpserverport
+}
+
+func (topo *Topology) String() string {
+	return fmt.Sprintf("%v - %v - %v - %v\n",
+		topo.ring.predecessor.id,
+		topo.ring.self.id,
+		topo.ring.successor.id,
+		topo.ring.superSuccessor.id,
+	)
 }
 
 func (topo *Topology) StabiliseTheTopology(wg *sync.WaitGroup, memberList *ml.MembershipList) {
@@ -95,9 +118,12 @@ func stabiliseTopology(topo *Topology, memberList *ml.MembershipList) {
 		}
 
 		if value.Id == topo.ring.self.id {
-			topo.ring.predecessor.id = memberList.Get(i - 1).Id
-			topo.ring.successor.id = memberList.Get(i + 1).Id
-			topo.ring.superSuccessor.id = memberList.Get(i + 2).Id
+			pred := memberList.Get(i - 1)
+			succ := memberList.Get(i + 1)
+			ssucc := memberList.Get(i + 2)
+			topo.ring.predecessor.id, topo.ring.predecessor.udpserverport = pred.Id, pred.UDPPort
+			topo.ring.successor.id, topo.ring.successor.udpserverport = succ.Id, succ.UDPPort
+			topo.ring.superSuccessor.id, topo.ring.superSuccessor.udpserverport = ssucc.Id, ssucc.UDPPort
 		}
 
 		// if value.Id == topo.ring.self.id {
@@ -119,6 +145,7 @@ func stabiliseTopology(topo *Topology, memberList *ml.MembershipList) {
 	}
 
 	memberList.Clean()
+	topo.ring.numberOfProcesses = i
 }
 
 func (topo *Topology) updateSelfIndex(newIndex int) {
@@ -128,9 +155,37 @@ func (topo *Topology) updateSelfIndex(newIndex int) {
 	topo.ring.self.index = newIndex
 }
 
-func (topo *Topology) getNeighbors() (node, node, node) {
-	topo.Lock()
-	defer topo.Unlock()
+func (topo *Topology) GetPredecessor() Node {
+	topo.RLock()
+	defer topo.RUnlock()
+
+	return topo.ring.predecessor
+}
+
+func (topo *Topology) GetSuccessor() Node {
+	topo.RLock()
+	defer topo.RUnlock()
+
+	return topo.ring.successor
+}
+
+func (topo *Topology) GetSuperSuccessor() Node {
+	topo.RLock()
+	defer topo.RUnlock()
+
+	return topo.ring.superSuccessor
+}
+
+func (topo *Topology) GetNeighbors() (Node, Node, Node) {
+	topo.RLock()
+	defer topo.RUnlock()
 
 	return topo.ring.predecessor, topo.ring.successor, topo.ring.superSuccessor
+}
+
+func (topo *Topology) GetNumberOfNodes() int {
+	topo.RLock()
+	defer topo.RUnlock()
+
+	return topo.ring.numberOfProcesses
 }

@@ -99,6 +99,8 @@ func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte
 	}
 
 	// Handle rpc options
+	// fmt.Println("\n\n\n\nmethodname: ", requestRPCCall.MethodName, "\n\nargs", requestRPCCall.Args, "\n\n\n", "")
+
 	response, err := server.callMethod(requestRPCCall.MethodName, requestRPCCall.Args)
 	if err != nil {
 		log.Printf("Couldn't call method " + err.Error())

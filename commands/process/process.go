@@ -16,6 +16,7 @@ var (
 	logtofile         = false
 	introducerAddress = "shahidi3@fa22-cs425-3701.cs.illinois.edu"
 	introducerPort    = 50053
+	udpserverport     = flag.Int("udpserverport", 20000, "Port of the UDP server")
 )
 
 func main() {
@@ -23,7 +24,7 @@ func main() {
 	flag.Parse()
 	log.Printf("port: %v", *port)
 	wg := new(sync.WaitGroup)
-	wg.Add(3)
+	wg.Add(4)
 	if logtofile {
 		// write logs of the service process to service.log file
 		f, err := os.OpenFile("process.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
@@ -40,7 +41,9 @@ func main() {
 
 	// go process.StartLogServer(*log_process_port, wg)
 
-	go process.JoinNetwork(fmt.Sprintf("%s:%d", introducerAddress, introducerPort), *port, wg)
+	go process.StartUdpServer(*udpserverport, wg)
+
+	go process.JoinNetwork(fmt.Sprintf("%s:%d", introducerAddress, introducerPort), *port, *udpserverport, wg)
 
 	// Wait for the wait group to be done
 	wg.Wait()

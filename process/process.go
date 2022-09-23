@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"os"
 	"os/exec"
@@ -122,7 +123,7 @@ func GetOutboundIP() net.IP {
 }
 
 // Handlers of Failure detection
-func JoinNetwork(introducerAddress string, newProcessPort int, wg *sync.WaitGroup) {
+func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int, wg *sync.WaitGroup) {
 	var conn *grpc.ClientConn
 	var err error
 	log.Printf("Establishing connection to introducer process at %v", introducerAddress)
@@ -141,9 +142,10 @@ func JoinNetwork(introducerAddress string, newProcessPort int, wg *sync.WaitGrou
 
 	// Call the RPC function on the introducer process to join the network
 	r, err := c.Introduce(ctx, &intro_proto.IntroduceRequest{
-		Ip:        fmt.Sprintf("%v", GetOutboundIP()),
-		Port:      int64(newProcessPort),
-		Timestamp: fmt.Sprintf("%d", time.Now().Nanosecond()),
+		Ip:            fmt.Sprintf("%v", GetOutboundIP()),
+		Port:          int64(newProcessPort),
+		Timestamp:     fmt.Sprintf("%d", time.Now().Nanosecond()),
+		Udpserverport: int64(udpserverport),
 	})
 
 	if err != nil {
@@ -162,19 +164,72 @@ func JoinNetwork(introducerAddress string, newProcessPort int, wg *sync.WaitGrou
 		myId := r.ProcessId
 
 		log.Printf("Initialising Topology")
-		network_topology = topology.InitialiseTopology(myId, myIndex)
+		network_topology = topology.InitialiseTopology(myId, myIndex, udpserverport)
 
 		log.Printf("Starting the topology stabilisation")
 		network_topology.StabiliseTheTopology(wg, memberList)
 
-		log.Printf("Self MembershipList\n%v", memberList)
-		log.Printf("Successfully connected to introducer and joined network")
+		SendPings(wg, network_topology)
 
 	}
 	wg.Done()
 }
 
-func leaveGroup() {
+func SendPings(wg *sync.WaitGroup, network_topology *topology.Topology) {
+	ticker := time.NewTicker(1 * time.Second)
+	quit := make(chan struct{})
+	go func() {
+		getNodeToPing := getWhichNeighbourToPing(network_topology)
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Println("\n\nPINGGGGGGGG\n\n", "")
+				sendPing(getNodeToPing)
+				// close(quit)
+			case <-quit:
+				ticker.Stop()
+				wg.Done()
+				return
+			}
+		}
+	}()
+}
+
+func sendPing(getNode func() topology.Node) {
+	nodeToPing := getNode()
+
+	if (nodeToPing == topology.Node{}) {
+		log.Printf("No node to ping\n")
+		return
+	}
+	ip, port := nodeToPing.GetUDPAddrInfo()
+
+	log.Printf("Sending Ping to %v:%v\n", ip, port)
+	SendPing(ip, port)
+	log.Printf("Sent Ping to %v:%v\n", ip, port)
+
+}
+
+func getWhichNeighbourToPing(network_topology *topology.Topology) func() topology.Node {
+	i := -1
+
+	return func() topology.Node {
+		i = (i + 1) % int(math.Min(3, float64(network_topology.GetNumberOfNodes())))
+
+		// after one iteration, shuffle the order
+		// right now its always predecessor (0), successor (1) and superSuccessor (2)
+
+		switch i {
+		case 0:
+			return network_topology.GetPredecessor()
+		case 1:
+			return network_topology.GetSuccessor()
+		case 2:
+			return network_topology.GetSuperSuccessor()
+		}
+
+		return network_topology.GetPredecessor()
+	}
 }
 
 func getId() {
