@@ -36,7 +36,7 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, wg *sync.Wait
 	// Adding the introducer to the membership list
 	memberList.Append(ml.MembershipListItem{
 		Id:                fmt.Sprintf("%s:%d:%d", introducerAddress, port, time.Now().UnixNano()),
-		State:             ml.Alive,
+		State:             ml.NodeState{Timestamp: time.Now(), Status: ml.Alive},
 		IncarnationNumber: 0,
 	})
 
@@ -64,9 +64,9 @@ func (s *server) Introduce(ctx context.Context, in *intro.IntroduceRequest) (*in
 	log.Printf("Introducing %s to the system", newProcessId)
 
 	// Adding the new process to Introducer's membership list
-	memberList.Append(ml.MembershipListItem{
+	index := memberList.Append(ml.MembershipListItem{
 		Id:                newProcessId,
-		State:             ml.Alive,
+		State:             ml.NodeState{Status: ml.Alive, Timestamp: time.Now()},
 		IncarnationNumber: 0,
 	})
 
@@ -76,6 +76,8 @@ func (s *server) Introduce(ctx context.Context, in *intro.IntroduceRequest) (*in
 	reply := intro.IntroduceReply{}
 	if serialisedMemberList, err := json.Marshal(memberList.GetList()); err == nil {
 		reply.MembershipList = serialisedMemberList
+		reply.Index = int64(index)
+		reply.ProcessId = newProcessId
 	} else {
 		log.Printf("Error Marshalling the membership list to be sent\n%v", err)
 	}

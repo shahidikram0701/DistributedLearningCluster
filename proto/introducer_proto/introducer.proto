@@ -17,4 +17,6 @@ service Introducer {
   
   message IntroduceReply {
     bytes membershipList = 1;
+    int64 index = 2; // index of the newly added node in the membershipList
+    string processId = 3;
   }

@@ -16,6 +16,7 @@ import (
 	ml "cs425/mp/membershiplist"
 	intro_proto "cs425/mp/proto/introducer_proto"
 	lg "cs425/mp/proto/logger_proto"
+	topology "cs425/mp/topology"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -25,16 +26,9 @@ type server struct {
 	lg.UnimplementedLoggerServer
 }
 
-// type topology struct {
-// 	self           int
-// 	predecessor    int
-// 	successor      int
-// 	superSuccessor int
-// }
-
 var (
-	memberList *ml.MembershipList
-	// neighborNodes *topology
+	memberList       *ml.MembershipList
+	network_topology *topology.Topology
 )
 
 /**
@@ -164,14 +158,20 @@ func JoinNetwork(introducerAddress string, newProcessPort int, wg *sync.WaitGrou
 		log.Printf("Received Membership List from the introducer\n")
 		log.Printf("Intialising self memberList")
 		memberList = ml.NewMembershipList(membershipList)
+		myIndex := int(r.Index)
+		myId := r.ProcessId
+
+		log.Printf("Initialising Topology")
+		network_topology = topology.InitialiseTopology(myId, myIndex)
+
+		log.Printf("Starting the topology stabilisation")
+		network_topology.StabiliseTheTopology(wg, memberList)
+
 		log.Printf("Self MembershipList\n%v", memberList)
 		log.Printf("Successfully connected to introducer and joined network")
 
 	}
 	wg.Done()
-}
-
-func stabiliseTheTopology() {
 }
 
 func leaveGroup() {

@@ -23,7 +23,7 @@ func main() {
 	flag.Parse()
 	log.Printf("port: %v", *port)
 	wg := new(sync.WaitGroup)
-	wg.Add(2)
+	wg.Add(3)
 	if logtofile {
 		// write logs of the service process to service.log file
 		f, err := os.OpenFile("process.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)

@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.5
-// source: introducer_proto/introducer.proto
+// source: introducer.proto
 
 package introducer
 
@@ -101,5 +101,5 @@ var Introducer_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "introducer_proto/introducer.proto",
+	Metadata: "introducer.proto",
 }
