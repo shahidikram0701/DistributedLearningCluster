@@ -13,7 +13,7 @@ import (
 var (
 	log_process_port  = flag.Int("log_process_port", 50052, "The logger process port")
 	devmode           = flag.Bool("devmode", false, "Develop locally?")
-	logtofile         = false
+	logtofile         = true
 	introducerAddress = "shahidi3@fa22-cs425-3701.cs.illinois.edu"
 	introducerPort    = 50053
 	udpserverport     = flag.Int("udpserverport", 20000, "Port of the UDP server")
@@ -27,7 +27,7 @@ func main() {
 	wg.Add(4)
 	if logtofile {
 		// write logs of the service process to service.log file
-		f, err := os.OpenFile("process.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		f, err := os.OpenFile(fmt.Sprintf("process-%v.log", *port), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
 			log.Printf("error opening file: %v", err)
 		}
@@ -39,12 +39,33 @@ func main() {
 		introducerAddress = "localhost"
 	}
 
-	// go process.StartLogServer(*log_process_port, wg)
+	introAddr := fmt.Sprintf("%s:%d", introducerAddress, introducerPort)
 
-	go process.StartUdpServer(*udpserverport, wg)
+	process.Run(*port, *udpserverport, *log_process_port, wg, introAddr)
 
-	go process.JoinNetwork(fmt.Sprintf("%s:%d", introducerAddress, introducerPort), *port, *udpserverport, wg)
+	for {
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - exit (To exit)\n\n\t: ")
+		// var then variable name then variable type
+		var command string
+
+		// Taking input from user
+		fmt.Scanln(&command)
+
+		switch command {
+		case "leave":
+			process.LeaveNetwork()
+		case "printmembershiplist":
+			fmt.Println(process.GetMemberList().GetList())
+		case "printtopology":
+			fmt.Println(process.GetNetworkTopology())
+		case "exit":
+			os.Exit(3)
+		}
+
+	}
 
 	// Wait for the wait group to be done
-	wg.Wait()
+	// wg.Wait()
+
+	// log.Printf("MAIN DIED")
 }

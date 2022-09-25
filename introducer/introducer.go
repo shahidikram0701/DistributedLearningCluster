@@ -22,9 +22,26 @@ type server struct {
 }
 
 var (
-	memberList       *ml.MembershipList
 	network_topology *topology.Topology
+	memberList       *ml.MembershipList = ml.NewMembershipList()
 )
+
+func GetMemberList() *ml.MembershipList {
+	// fmt.Println("\n\nINTRO getMemberList\n\n", "")
+	return memberList
+}
+
+func GetNetworkTopology() *topology.Topology {
+	return network_topology
+}
+
+func Run(devmode bool, port int, udpserverport int, wg *sync.WaitGroup) {
+	// Start the introducer
+	go StartIntroducerAndListenToConnections(devmode, port, udpserverport, wg)
+
+	// log.Printf("Starting the UDP server\n")
+	go process.StartUdpServer(GetMemberList, udpserverport, wg)
+}
 
 func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport int, wg *sync.WaitGroup) {
 	introducerAddress := "shahidi3@fa22-cs425-3701.cs.illinois.edu"
@@ -34,8 +51,7 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 	}
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 
-	memberList = ml.NewMembershipList()
-	id := fmt.Sprintf("%s:%d:%d", introducerAddress, port, time.Now())
+	id := fmt.Sprintf("%s:%d:%v", introducerAddress, port, time.Now())
 	// Adding the introducer to the membership list
 	memberList.Append(ml.MembershipListItem{
 		Id:                id,
@@ -44,13 +60,15 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 		UDPPort:           udpserverport,
 	})
 
+	log.Println("\n\nINITIALISED ML\n\n", "")
+
 	log.Printf("Initialising Topology")
 	network_topology = topology.InitialiseTopology(id, 0, udpserverport)
 
 	log.Printf("Starting the topology stabilisation")
-	network_topology.StabiliseTheTopology(wg, memberList)
+	go network_topology.StabiliseTheTopology(wg, memberList)
 
-	process.SendPings(wg, network_topology)
+	process.SendPings(wg, network_topology, GetMemberList())
 
 	if err != nil {
 		log.Printf("failed to listen: %v", err)
@@ -74,7 +92,7 @@ func (s *server) Introduce(ctx context.Context, in *intro.IntroduceRequest) (*in
 	// create an id for the new process
 	newProcessId := fmt.Sprintf("%s:%d:%s", requestorIP, requestorPort, requestorTimestamp)
 
-	log.Printf("Introducing %s to the system", newProcessId)
+	log.Printf("Introducing process %s to the system", newProcessId)
 
 	// Adding the new process to Introducer's membership list
 	index := memberList.Append(ml.MembershipListItem{

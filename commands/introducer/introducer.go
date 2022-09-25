@@ -2,19 +2,19 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"sync"
 
 	intro "cs425/mp/introducer"
-	process "cs425/mp/process"
 )
 
 var (
 	port          = flag.Int("port", 50053, "The port where the introducer runs")
 	devmode       = flag.Bool("devmode", false, "Develop locally?")
 	udpserverport = flag.Int("udpserverport", 20000, "Port of the UDP server")
-	logtofile     = false
+	logtofile     = true
 )
 
 func main() {
@@ -33,11 +33,24 @@ func main() {
 		log.SetOutput(f)
 	}
 
-	// Start the introducer
-	go intro.StartIntroducerAndListenToConnections(*devmode, *port, *udpserverport, wg)
+	intro.Run(*devmode, *port, *udpserverport, wg)
 
-	log.Printf("Starting the UDP server\n")
-	go process.StartUdpServer(*udpserverport, wg)
+	for {
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - exit (To exit)\n\n\t: ")
+		// var then variable name then variable type
+		var command string
 
-	wg.Wait()
+		// Taking input from user
+		fmt.Scanln(&command)
+
+		switch command {
+		case "printmembershiplist":
+			fmt.Println(intro.GetMemberList().GetList())
+		case "printtopology":
+			fmt.Println(intro.GetNetworkTopology())
+		case "exit":
+			os.Exit(3)
+		}
+
+	}
 }

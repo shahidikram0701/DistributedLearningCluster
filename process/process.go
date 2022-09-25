@@ -28,9 +28,29 @@ type server struct {
 }
 
 var (
-	memberList       *ml.MembershipList
 	network_topology *topology.Topology
+	memberList       *ml.MembershipList
 )
+
+var (
+	T_PING_SECOND = 0.5 // second
+)
+
+func GetMemberList() *ml.MembershipList {
+	// fmt.Printf("EXECUTING PROCESS ML THIS")
+	return memberList
+}
+
+func GetNetworkTopology() *topology.Topology {
+	return network_topology
+}
+
+func Run(port int, udpserverport int, log_process_port int, wg *sync.WaitGroup, introAddr string) {
+	// go process.StartLogServer(*log_process_port, wg)
+
+	go JoinNetwork(introAddr, port, udpserverport, wg)
+	go StartUdpServer(GetMemberList, udpserverport, wg)
+}
 
 /**
 * The RPC function for processing the request to fetch logs
@@ -166,25 +186,32 @@ func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int
 		log.Printf("Initialising Topology")
 		network_topology = topology.InitialiseTopology(myId, myIndex, udpserverport)
 
-		log.Printf("Starting the topology stabilisation")
-		network_topology.StabiliseTheTopology(wg, memberList)
+		var exited = make(chan bool)
 
-		SendPings(wg, network_topology)
+		log.Printf("Starting the topology stabilisation")
+		go network_topology.StabiliseTheTopology(wg, memberList)
+
+		go SendPings(wg, network_topology, memberList)
+
+		<-exited
 
 	}
 	wg.Done()
 }
 
-func SendPings(wg *sync.WaitGroup, network_topology *topology.Topology) {
-	ticker := time.NewTicker(1 * time.Second)
+func SendPings(wg *sync.WaitGroup, network_topology *topology.Topology, memberList *ml.MembershipList) {
+	ticker := time.NewTicker(time.Duration(T_PING_SECOND*1000) * time.Millisecond)
 	quit := make(chan struct{})
 	go func() {
 		getNodeToPing := getWhichNeighbourToPing(network_topology)
 		for {
 			select {
 			case <-ticker.C:
-				fmt.Println("\n\nPINGGGGGGGG\n\n", "")
-				sendPing(getNodeToPing)
+				// fmt.Println("\n\nPINGGGGGGGG\n\n", "")
+				// fmt.Println("\n\n\n\n", memberList, "\n\n\n\n", "")
+				log.Printf("\n\nSEND PING\n\n")
+				SendPing(getNodeToPing, network_topology, memberList)
+				log.Printf("\n\nPING DONEE\n\n")
 				// close(quit)
 			case <-quit:
 				ticker.Stop()
@@ -193,21 +220,6 @@ func SendPings(wg *sync.WaitGroup, network_topology *topology.Topology) {
 			}
 		}
 	}()
-}
-
-func sendPing(getNode func() topology.Node) {
-	nodeToPing := getNode()
-
-	if (nodeToPing == topology.Node{}) {
-		log.Printf("No node to ping\n")
-		return
-	}
-	ip, port := nodeToPing.GetUDPAddrInfo()
-
-	log.Printf("Sending Ping to %v:%v\n", ip, port)
-	SendPing(ip, port)
-	log.Printf("Sent Ping to %v:%v\n", ip, port)
-
 }
 
 func getWhichNeighbourToPing(network_topology *topology.Topology) func() topology.Node {
@@ -221,10 +233,13 @@ func getWhichNeighbourToPing(network_topology *topology.Topology) func() topolog
 
 		switch i {
 		case 0:
+			log.Printf("Piging predecessor\n")
 			return network_topology.GetPredecessor()
 		case 1:
+			log.Printf("Piging successor\n")
 			return network_topology.GetSuccessor()
 		case 2:
+			log.Printf("Piging supersuccessor\n")
 			return network_topology.GetSuperSuccessor()
 		}
 
@@ -232,8 +247,11 @@ func getWhichNeighbourToPing(network_topology *topology.Topology) func() topolog
 	}
 }
 
-func getId() {
-}
-
-func runFailureDetector() {
+func LeaveNetwork() {
+	log.Printf("Leaving Network\n")
+	// fmt.Printf("Leaving Network\n")
+	me := network_topology.GetSelfNodeId()
+	memberList.MarkLeave(me)
+	time.Sleep(3 * time.Second)
+	os.Exit(3)
 }

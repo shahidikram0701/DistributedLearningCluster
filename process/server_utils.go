@@ -1,6 +1,7 @@
 package process
 
 import (
+	ml "cs425/mp/membershiplist"
 	"cs425/mp/util"
 	"encoding/json"
 	"errors"
@@ -91,7 +92,7 @@ func (server *Server) callMethod(methodName string, args interface{}) (string, e
 }
 
 // Handle the rpc call of methods
-func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte, n int) {
+func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte, n int, memberList *ml.MembershipList) {
 	var requestRPCCall util.RPCBase
 	err := json.Unmarshal(buf[:n], &requestRPCCall)
 	if err != nil {
@@ -100,7 +101,21 @@ func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte
 
 	// Handle rpc options
 	// fmt.Println("\n\n\n\nmethodname: ", requestRPCCall.MethodName, "\n\nargs", requestRPCCall.Args, "\n\n\n", "")
+	args := make([]interface{}, 0)
+	var serialisedMemberList []byte
+	// fmt.Println("\n\n\n\nHEREEEEEE\n\n\n\n", memberList)
 
+	if memberList == nil {
+		serialisedMemberList, _ = json.Marshal(GetMemberList().GetList())
+
+	} else {
+		serialisedMemberList, _ = json.Marshal(memberList.GetList())
+
+	}
+
+	// serialisedMemberList, _ := json.Marshal(GetMemberList().GetList())
+	args = append(args, string(serialisedMemberList))
+	requestRPCCall.Args = args
 	response, err := server.callMethod(requestRPCCall.MethodName, requestRPCCall.Args)
 	if err != nil {
 		log.Printf("Couldn't call method " + err.Error())
@@ -124,7 +139,7 @@ func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte
 
 // Listen in server.addr for calls of the rpc
 // Recive as params a channel that handle when we get a error
-func (server *Server) ListenServer(exit chan bool) {
+func (server *Server) ListenServer(exit chan bool, memberList *ml.MembershipList) {
 	//log.Printf("Listen server at " + server.addr)
 	pc, err := net.ListenPacket("udp", server.addr)
 	if err != nil {
@@ -133,13 +148,13 @@ func (server *Server) ListenServer(exit chan bool) {
 	defer pc.Close()
 
 	for {
-		buf := make([]byte, 1024)
+		buf := make([]byte, 4096)
 		n, addr, err := pc.ReadFrom(buf)
 		if err != nil {
 			server.Error = err
 			break
 		}
-		go server.handleOptions(pc, addr, buf, n)
+		go server.handleOptions(pc, addr, buf, n, memberList)
 
 	}
 	exit <- true
