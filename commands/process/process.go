@@ -14,7 +14,7 @@ var (
 	log_process_port  = flag.Int("log_process_port", 50052, "The logger process port")
 	devmode           = flag.Bool("devmode", false, "Develop locally?")
 	logtofile         = true
-	introducerAddress = "shahidi3@fa22-cs425-3701.cs.illinois.edu"
+	introducerAddress = "172.22.156.122"
 	introducerPort    = 50053
 	udpserverport     = flag.Int("udpserverport", 20000, "Port of the UDP server")
 )

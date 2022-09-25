@@ -44,7 +44,7 @@ func Run(devmode bool, port int, udpserverport int, wg *sync.WaitGroup) {
 }
 
 func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport int, wg *sync.WaitGroup) {
-	introducerAddress := "shahidi3@fa22-cs425-3701.cs.illinois.edu"
+	introducerAddress := "172.22.156.122"
 
 	if devmode {
 		introducerAddress = "localhost"
