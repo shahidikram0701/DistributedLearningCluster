@@ -27,7 +27,6 @@ var (
 )
 
 func GetMemberList() *ml.MembershipList {
-	// fmt.Println("\n\nINTRO getMemberList\n\n", "")
 	return memberList
 }
 
@@ -39,7 +38,6 @@ func Run(devmode bool, port int, udpserverport int, wg *sync.WaitGroup) {
 	// Start the introducer
 	go StartIntroducerAndListenToConnections(devmode, port, udpserverport, wg)
 
-	// log.Printf("Starting the UDP server\n")
 	go process.StartUdpServer(GetMemberList, udpserverport, wg)
 }
 
@@ -52,7 +50,7 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 
 	id := fmt.Sprintf("%s:%d:%v", introducerAddress, port, time.Now())
-	// Adding the introducer to the membership list
+	// Adding itself(introducer) to the membership list
 	memberList.Append(ml.MembershipListItem{
 		Id:                id,
 		State:             ml.NodeState{Timestamp: time.Now(), Status: ml.Alive},
@@ -68,11 +66,15 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 	log.Printf("Starting the topology stabilisation")
 	go network_topology.StabiliseTheTopology(wg, memberList)
 
+	// Pings it's neighbours for failure detection
 	process.SendPings(wg, network_topology, GetMemberList())
 
 	if err != nil {
 		log.Printf("failed to listen: %v", err)
 	}
+
+	// Create, register and start the TCP server to listen to gRPC calls from processes that
+	// wants to join the node
 	s := grpc.NewServer()
 	intro.RegisterIntroducerServer(s, &server{})
 	log.Printf("server listening at %v", lis.Addr())
@@ -82,7 +84,7 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 	}
 }
 
-// RPC server handler
+// RPC server handler - processes that wants to join the cluster call Introduce
 func (s *server) Introduce(ctx context.Context, in *intro.IntroduceRequest) (*intro.IntroduceReply, error) {
 	requestorIP := in.Ip
 	requestorPort := in.Port

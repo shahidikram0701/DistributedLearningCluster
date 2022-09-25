@@ -15,6 +15,7 @@ type topologyInner struct {
 	successor      Node
 	superSuccessor Node
 
+	// Holds the number of neighbouring processes (can be less than 3 in case the total node count is <3)
 	numberOfProcesses int
 }
 
@@ -51,13 +52,10 @@ func InitialiseTopology(selfId string, index int, udpserverport int) *Topology {
 
 func (node *Node) GetUDPAddrInfo() (string, int) {
 	splitId := strings.Split(node.id, ":")
-	// fmt.Println(splitId)
-
 	return splitId[0], node.udpserverport
 }
 
 func (node *Node) GetId() string {
-
 	return node.id
 }
 
@@ -74,6 +72,8 @@ func (topo *Topology) GetSelfNodeId() string {
 	return topo.selfId
 }
 
+// Runs every T_STABILISE (10s). This thread iterates through the membership list and adjusts
+// the topology
 func (topo *Topology) StabiliseTheTopology(wg *sync.WaitGroup, memberList *ml.MembershipList) {
 	ticker := time.NewTicker(time.Duration(T_STABILISE) * time.Second)
 	quit := make(chan struct{})
@@ -115,20 +115,10 @@ func get(items []ml.MembershipListItem, index int) *ml.MembershipListItem {
 }
 
 func stabiliseTopology(topo *Topology, memberList *ml.MembershipList) {
-
 	list := memberList.UpdateStates()
-
 	log.Printf("Updated States in MembershipList\n%v\n", memberList)
-
-	// memberListLength := memberList.Len()
-
-	// pprevious := memberList.Get(memberListLength - 2)
-	// previous := memberList.Get(memberListLength - 1)
 	i := 0
-	// fmt.Printf("\n\n[Acquire LOCK]<Topology.stabiliseTopology>\n\n")
 	topo.Lock()
-
-	// fmt.Printf("\n\n[LOCK]<Topology.stabiliseTopology>\n\n")
 
 	for _, value := range list {
 		if value.Id == topo.ring.self.id {
@@ -142,19 +132,14 @@ func stabiliseTopology(topo *Topology, memberList *ml.MembershipList) {
 		i++
 	}
 	topo.Unlock()
-	// fmt.Printf("\n\n[Released LOCK]<Topology.stabiliseTopology>\n\n")
 	memberList.Clean()
 	topo.ring.numberOfProcesses = i
 }
 
 func (topo *Topology) updateSelfIndex(newIndex int) {
-	// fmt.Printf("\n\n[Acquire LOCK]<Topology.updateSelfIndex>\n\n")
 	topo.Lock()
 	defer topo.Unlock()
-	// fmt.Printf("\n\n[LOCK]<Topology.updateSelfIndex>\n\n")
 	topo.ring.self.index = newIndex
-
-	// fmt.Printf("\n\n[Release LOCK]<Topology.updateSelfIndex>\n\n")
 }
 
 func (topo *Topology) GetPredecessor() Node {

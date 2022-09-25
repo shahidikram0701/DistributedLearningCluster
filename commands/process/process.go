@@ -26,7 +26,7 @@ func main() {
 	wg := new(sync.WaitGroup)
 	wg.Add(4)
 	if logtofile {
-		// write logs of the service process to service.log file
+		// write logs of the service process to process.log file
 		f, err := os.OpenFile(fmt.Sprintf("process-%v.log", *port), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
 			log.Printf("error opening file: %v", err)
@@ -41,11 +41,11 @@ func main() {
 
 	introAddr := fmt.Sprintf("%s:%d", introducerAddress, introducerPort)
 
+	// Joins the network and starts the UDP server
 	process.Run(*port, *udpserverport, *log_process_port, wg, introAddr)
 
 	for {
 		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - exit (To exit)\n\n\t: ")
-		// var then variable name then variable type
 		var command string
 
 		// Taking input from user
@@ -66,6 +66,4 @@ func main() {
 
 	// Wait for the wait group to be done
 	// wg.Wait()
-
-	// log.Printf("MAIN DIED")
 }

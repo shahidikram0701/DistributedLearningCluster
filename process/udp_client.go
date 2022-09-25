@@ -10,8 +10,6 @@ import (
 	"net"
 )
 
-// var exitC = make(chan bool)
-
 func SendPing(getNode func() topology.Node, network_topology *topology.Topology, memberList *ml.MembershipList) {
 	nodeToPing := getNode()
 
@@ -25,6 +23,7 @@ func SendPing(getNode func() topology.Node, network_topology *topology.Topology,
 	}
 	pingSendingNode := network_topology.GetSelfNodeId()
 
+	// update self incarnation number in the membership list
 	memberList.UpdateSelfIncarnationNumber(pingSendingNode)
 
 	ip, port := nodeToPing.GetUDPAddrInfo()
@@ -38,16 +37,13 @@ func SendPing(getNode func() topology.Node, network_topology *topology.Topology,
 	}
 
 	log.Printf("[ UDP Client ]Established connection to %s \n", service)
-	// log.Printf("[ UDP Client ][ UDP Client ]Remote UDP address : %s \n", conn.RemoteAddr().String())
-	// log.Printf("[ UDP Client ]Local UDP client address : %s \n", conn.LocalAddr().String())
-
 	defer conn.Close()
 
 	args := make([]interface{}, 0)
 	rpcbase := &util.RPCBase{
 		MethodName: "Ping",
 	}
-	// serialisedMemberList, _ := json.Marshal(memberList.GetList())
+
 	args = append(args, "Ping")
 	rpcbase.Args = args
 
@@ -57,19 +53,15 @@ func SendPing(getNode func() topology.Node, network_topology *topology.Topology,
 
 	}
 
-	// fmt.Println("\n\n\n\n", toSend, "\n\n\n\n", "")
-
 	message := []byte(string(toSend))
 
 	_, err = conn.Write(message)
-
 	if err != nil {
 		log.Printf("[ UDP Client ]Errorrr: %v\n" + err.Error())
 	}
 
 	// receive message from server
 	buffer := make([]byte, 4096)
-	// n, addr, err := conn.ReadFromUDP(buffer)
 
 	n, _, err := conn.ReadFromUDP(buffer)
 
@@ -78,8 +70,6 @@ func SendPing(getNode func() topology.Node, network_topology *topology.Topology,
 	if err != nil {
 		log.Printf("[ UDP Client ]Error Unmarshaling response\n%v\n", err)
 	}
-	// fmt.Println("ITERATION ", i)
-	// fmt.Println("UDP Server : ", addr)
 
 	var membershipList []ml.MembershipListItem
 	unmarshallingError := json.Unmarshal([]byte(response.Response), &membershipList)
@@ -88,6 +78,5 @@ func SendPing(getNode func() topology.Node, network_topology *topology.Topology,
 		memberList.MarkSus(nodeToPing.GetId())
 	} else {
 		memberList.Merge(membershipList)
-		// fmt.Printf("[UDP Client] DONE MERGING")
 	}
 }

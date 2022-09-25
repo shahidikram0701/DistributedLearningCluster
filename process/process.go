@@ -37,7 +37,6 @@ var (
 )
 
 func GetMemberList() *ml.MembershipList {
-	// fmt.Printf("EXECUTING PROCESS ML THIS")
 	return memberList
 }
 
@@ -142,7 +141,7 @@ func GetOutboundIP() net.IP {
 	return localAddr.IP
 }
 
-// Handlers of Failure detection
+// Creates a TCP gRPC client and calls introduce
 func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int, wg *sync.WaitGroup) {
 	var conn *grpc.ClientConn
 	var err error
@@ -199,6 +198,8 @@ func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int
 	wg.Done()
 }
 
+// Pings the neighbours every T_PING_SECOND for failure detection. This also sends the
+// membership list as part of the ping.
 func SendPings(wg *sync.WaitGroup, network_topology *topology.Topology, memberList *ml.MembershipList) {
 	ticker := time.NewTicker(time.Duration(T_PING_SECOND*1000) * time.Millisecond)
 	quit := make(chan struct{})
@@ -207,12 +208,10 @@ func SendPings(wg *sync.WaitGroup, network_topology *topology.Topology, memberLi
 		for {
 			select {
 			case <-ticker.C:
-				// fmt.Println("\n\nPINGGGGGGGG\n\n", "")
-				// fmt.Println("\n\n\n\n", memberList, "\n\n\n\n", "")
 				log.Printf("\n\nSEND PING\n\n")
+				// Failure detection-membership list dissemination happens over UDP
 				SendPing(getNodeToPing, network_topology, memberList)
 				log.Printf("\n\nPING DONEE\n\n")
-				// close(quit)
 			case <-quit:
 				ticker.Stop()
 				wg.Done()
@@ -222,14 +221,12 @@ func SendPings(wg *sync.WaitGroup, network_topology *topology.Topology, memberLi
 	}()
 }
 
+// Shuffles the ping order for neighbour nodes
 func getWhichNeighbourToPing(network_topology *topology.Topology) func() topology.Node {
 	i := -1
 
 	return func() topology.Node {
 		i = (i + 1) % int(math.Min(3, float64(network_topology.GetNumberOfNodes())))
-
-		// after one iteration, shuffle the order
-		// right now its always predecessor (0), successor (1) and superSuccessor (2)
 
 		switch i {
 		case 0:
@@ -247,9 +244,10 @@ func getWhichNeighbourToPing(network_topology *topology.Topology) func() topolog
 	}
 }
 
+// Called when a process wants to leave the cluster. A delay is given to ensure membership list
+// propagation to all nodes
 func LeaveNetwork() {
 	log.Printf("Leaving Network\n")
-	// fmt.Printf("Leaving Network\n")
 	me := network_topology.GetSelfNodeId()
 	memberList.MarkLeave(me)
 	time.Sleep(3 * time.Second)

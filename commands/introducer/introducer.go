@@ -33,11 +33,11 @@ func main() {
 		log.SetOutput(f)
 	}
 
+	// Start the introducer(has the TCP server) and UDP server processes
 	intro.Run(*devmode, *port, *udpserverport, wg)
 
 	for {
 		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - exit (To exit)\n\n\t: ")
-		// var then variable name then variable type
 		var command string
 
 		// Taking input from user
