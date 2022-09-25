@@ -158,22 +158,22 @@ func (topo *Topology) updateSelfIndex(newIndex int) {
 }
 
 func (topo *Topology) GetPredecessor() Node {
-	// topo.RLock()
-	// defer topo.RUnlock()
+	topo.RLock()
+	defer topo.RUnlock()
 
 	return topo.ring.predecessor
 }
 
 func (topo *Topology) GetSuccessor() Node {
-	// topo.RLock()
-	// defer topo.RUnlock()
+	topo.RLock()
+	defer topo.RUnlock()
 
 	return topo.ring.successor
 }
 
 func (topo *Topology) GetSuperSuccessor() Node {
-	// topo.RLock()
-	// defer topo.RUnlock()
+	topo.RLock()
+	defer topo.RUnlock()
 
 	return topo.ring.superSuccessor
 }
@@ -186,8 +186,8 @@ func (topo *Topology) GetNeighbors() (Node, Node, Node) {
 }
 
 func (topo *Topology) GetNumberOfNodes() int {
-	// topo.RLock()
-	// defer topo.RUnlock()
+	topo.RLock()
+	defer topo.RUnlock()
 
 	return topo.ring.numberOfProcesses
 }
