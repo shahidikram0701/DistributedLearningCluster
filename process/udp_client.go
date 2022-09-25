@@ -88,6 +88,6 @@ func SendPing(getNode func() topology.Node, network_topology *topology.Topology,
 		memberList.MarkSus(nodeToPing.GetId())
 	} else {
 		memberList.Merge(membershipList)
-		fmt.Printf("[UDP Client] DONE MERGING")
+		// fmt.Printf("[UDP Client] DONE MERGING")
 	}
 }

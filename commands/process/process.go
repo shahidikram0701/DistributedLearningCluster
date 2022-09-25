@@ -43,8 +43,29 @@ func main() {
 
 	process.Run(*port, *udpserverport, *log_process_port, wg, introAddr)
 
-	// Wait for the wait group to be done
-	wg.Wait()
+	for {
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - exit (To exit)\n\n\t: ")
+		// var then variable name then variable type
+		var command string
 
-	log.Printf("MAIN DIED")
+		// Taking input from user
+		fmt.Scanln(&command)
+
+		switch command {
+		case "leave":
+			process.LeaveNetwork()
+		case "printmembershiplist":
+			fmt.Println(process.GetMemberList().GetList())
+		case "printtopology":
+			fmt.Println(process.GetNetworkTopology())
+		case "exit":
+			os.Exit(3)
+		}
+
+	}
+
+	// Wait for the wait group to be done
+	// wg.Wait()
+
+	// log.Printf("MAIN DIED")
 }

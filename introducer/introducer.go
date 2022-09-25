@@ -26,9 +26,13 @@ var (
 	memberList       *ml.MembershipList = ml.NewMembershipList()
 )
 
-func getMemberList() *ml.MembershipList {
+func GetMemberList() *ml.MembershipList {
 	// fmt.Println("\n\nINTRO getMemberList\n\n", "")
 	return memberList
+}
+
+func GetNetworkTopology() *topology.Topology {
+	return network_topology
 }
 
 func Run(devmode bool, port int, udpserverport int, wg *sync.WaitGroup) {
@@ -36,7 +40,7 @@ func Run(devmode bool, port int, udpserverport int, wg *sync.WaitGroup) {
 	go StartIntroducerAndListenToConnections(devmode, port, udpserverport, wg)
 
 	// log.Printf("Starting the UDP server\n")
-	go process.StartUdpServer(getMemberList, udpserverport, wg)
+	go process.StartUdpServer(GetMemberList, udpserverport, wg)
 }
 
 func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport int, wg *sync.WaitGroup) {
@@ -64,7 +68,7 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 	log.Printf("Starting the topology stabilisation")
 	go network_topology.StabiliseTheTopology(wg, memberList)
 
-	process.SendPings(wg, network_topology, getMemberList())
+	process.SendPings(wg, network_topology, GetMemberList())
 
 	if err != nil {
 		log.Printf("failed to listen: %v", err)

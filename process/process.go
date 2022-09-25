@@ -41,6 +41,10 @@ func GetMemberList() *ml.MembershipList {
 	return memberList
 }
 
+func GetNetworkTopology() *topology.Topology {
+	return network_topology
+}
+
 func Run(port int, udpserverport int, log_process_port int, wg *sync.WaitGroup, introAddr string) {
 	// go process.StartLogServer(*log_process_port, wg)
 
@@ -241,4 +245,13 @@ func getWhichNeighbourToPing(network_topology *topology.Topology) func() topolog
 
 		return network_topology.GetPredecessor()
 	}
+}
+
+func LeaveNetwork() {
+	log.Printf("Leaving Network\n")
+	// fmt.Printf("Leaving Network\n")
+	me := network_topology.GetSelfNodeId()
+	memberList.MarkLeave(me)
+	time.Sleep(3 * time.Second)
+	os.Exit(3)
 }

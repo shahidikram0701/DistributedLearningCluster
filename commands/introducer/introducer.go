@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -34,5 +35,22 @@ func main() {
 
 	intro.Run(*devmode, *port, *udpserverport, wg)
 
-	wg.Wait()
+	for {
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - exit (To exit)\n\n\t: ")
+		// var then variable name then variable type
+		var command string
+
+		// Taking input from user
+		fmt.Scanln(&command)
+
+		switch command {
+		case "printmembershiplist":
+			fmt.Println(intro.GetMemberList().GetList())
+		case "printtopology":
+			fmt.Println(intro.GetNetworkTopology())
+		case "exit":
+			os.Exit(3)
+		}
+
+	}
 }

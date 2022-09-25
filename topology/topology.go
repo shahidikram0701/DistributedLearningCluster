@@ -125,10 +125,10 @@ func stabiliseTopology(topo *Topology, memberList *ml.MembershipList) {
 	// pprevious := memberList.Get(memberListLength - 2)
 	// previous := memberList.Get(memberListLength - 1)
 	i := 0
-	fmt.Printf("\n\n[Acquire LOCK]<Topology.stabiliseTopology>\n\n")
+	// fmt.Printf("\n\n[Acquire LOCK]<Topology.stabiliseTopology>\n\n")
 	topo.Lock()
 
-	fmt.Printf("\n\n[LOCK]<Topology.stabiliseTopology>\n\n")
+	// fmt.Printf("\n\n[LOCK]<Topology.stabiliseTopology>\n\n")
 
 	for _, value := range list {
 		if value.Id == topo.ring.self.id {
@@ -142,19 +142,19 @@ func stabiliseTopology(topo *Topology, memberList *ml.MembershipList) {
 		i++
 	}
 	topo.Unlock()
-	fmt.Printf("\n\n[Released LOCK]<Topology.stabiliseTopology>\n\n")
+	// fmt.Printf("\n\n[Released LOCK]<Topology.stabiliseTopology>\n\n")
 	memberList.Clean()
 	topo.ring.numberOfProcesses = i
 }
 
 func (topo *Topology) updateSelfIndex(newIndex int) {
-	fmt.Printf("\n\n[Acquire LOCK]<Topology.updateSelfIndex>\n\n")
+	// fmt.Printf("\n\n[Acquire LOCK]<Topology.updateSelfIndex>\n\n")
 	topo.Lock()
 	defer topo.Unlock()
-	fmt.Printf("\n\n[LOCK]<Topology.updateSelfIndex>\n\n")
+	// fmt.Printf("\n\n[LOCK]<Topology.updateSelfIndex>\n\n")
 	topo.ring.self.index = newIndex
 
-	fmt.Printf("\n\n[Release LOCK]<Topology.updateSelfIndex>\n\n")
+	// fmt.Printf("\n\n[Release LOCK]<Topology.updateSelfIndex>\n\n")
 }
 
 func (topo *Topology) GetPredecessor() Node {
@@ -190,4 +190,14 @@ func (topo *Topology) GetNumberOfNodes() int {
 	// defer topo.RUnlock()
 
 	return topo.ring.numberOfProcesses
+}
+
+func (topo *Topology) ClearTopology() {
+	topo.Lock()
+	defer topo.Unlock()
+
+	topo.ring.predecessor = Node{}
+	topo.ring.successor = Node{}
+	topo.ring.superSuccessor = Node{}
+
 }
