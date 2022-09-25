@@ -4,22 +4,30 @@ import (
 	"fmt"
 	"log"
 	"sync"
+
+	ml "cs425/mp/membershiplist"
 )
 
 type Handler int
 
 var exitS = make(chan bool)
 
-func (h *Handler) Ping() string {
-	return "Pong"
+func (h *Handler) Ping(memberList string) string {
+	// log.Printf("[ UDP Server ]Handling Ping")
+
+	log.Printf("\n\nPONG: %v\n\n", memberList)
+
+	return memberList
 }
 
-func StartUdpServer(port int, wg *sync.WaitGroup) {
+func StartUdpServer(getMembershipList func() *ml.MembershipList, port int, wg *sync.WaitGroup) {
 	var h Handler
 	server := NewServer(h, fmt.Sprintf(":%v", port))
+
+	// log.Printf("[UDP Server]MembershipList: %v\n", getMembershipList())
 	// listen to incoming udp packets
 	var exited = make(chan bool)
-	go server.ListenServer(exited)
+	go server.ListenServer(exited, getMembershipList())
 	log.Printf("[UDP Server]server listening at :%v", port)
 
 	if s := <-exited; s {

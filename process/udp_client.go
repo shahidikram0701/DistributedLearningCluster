@@ -1,6 +1,8 @@
 package process
 
 import (
+	ml "cs425/mp/membershiplist"
+	"cs425/mp/topology"
 	"cs425/mp/util"
 	"encoding/json"
 	"fmt"
@@ -10,8 +12,24 @@ import (
 
 // var exitC = make(chan bool)
 
-func SendPing(toIP string, toPort int) {
-	service := fmt.Sprintf("%s:%d", toIP, toPort)
+func SendPing(getNode func() topology.Node, network_topology *topology.Topology, memberList *ml.MembershipList) {
+	nodeToPing := getNode()
+
+	if (nodeToPing == topology.Node{}) {
+		log.Printf("No node to ping\n")
+		return
+	}
+	if memberList == nil {
+		log.Printf("memberList is not initialised")
+		return
+	}
+	pingSendingNode := network_topology.GetSelfNodeId()
+
+	memberList.UpdateSelfIncarnationNumber(pingSendingNode)
+
+	ip, port := nodeToPing.GetUDPAddrInfo()
+	log.Printf("[ UDP Client ]Pinging %v:%v\n", ip, port)
+	service := fmt.Sprintf("%s:%d", ip, port)
 	RemoteAddr, err := net.ResolveUDPAddr("udp", service)
 
 	conn, err := net.DialUDP("udp", nil, RemoteAddr)
@@ -29,7 +47,8 @@ func SendPing(toIP string, toPort int) {
 	rpcbase := &util.RPCBase{
 		MethodName: "Ping",
 	}
-
+	// serialisedMemberList, _ := json.Marshal(memberList.GetList())
+	args = append(args, "Ping")
 	rpcbase.Args = args
 
 	toSend, err := json.Marshal(rpcbase)
@@ -49,7 +68,7 @@ func SendPing(toIP string, toPort int) {
 	}
 
 	// receive message from server
-	buffer := make([]byte, 1024)
+	buffer := make([]byte, 4096)
 	// n, addr, err := conn.ReadFromUDP(buffer)
 
 	n, _, err := conn.ReadFromUDP(buffer)
@@ -61,7 +80,14 @@ func SendPing(toIP string, toPort int) {
 	}
 	// fmt.Println("ITERATION ", i)
 	// fmt.Println("UDP Server : ", addr)
-	log.Printf("[ UDP Client ]Received from UDP server : %v\n", response.Response)
 
-	// exitC <- true
+	var membershipList []ml.MembershipListItem
+	unmarshallingError := json.Unmarshal([]byte(response.Response), &membershipList)
+	if unmarshallingError != nil {
+		log.Printf("Error while unmarshalling the membershipList\n%v", unmarshallingError)
+		memberList.MarkSus(nodeToPing.GetId())
+	} else {
+		memberList.Merge(membershipList)
+		fmt.Printf("[UDP Client] DONE MERGING")
+	}
 }
