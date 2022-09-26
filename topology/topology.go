@@ -9,32 +9,40 @@ import (
 	"time"
 )
 
+// Type of the topology ring
 type topologyInner struct {
 	self           Node
 	predecessor    Node
 	successor      Node
 	superSuccessor Node
 
-	// Holds the number of neighbouring processes (can be less than 3 in case the total node count is <3)
+	// Holds the number of processes in the membership list
 	numberOfProcesses int
 }
 
+// Type of the each process
 type Node struct {
 	index         int
 	id            string
 	udpserverport int
 }
 
+// Type of the topology
 type Topology struct {
 	sync.RWMutex
 	ring   topologyInner
 	selfId string
 }
 
+// TIME interval to continuously run stabilise protocol
 var (
 	T_STABILISE = 1 // 10 second
 )
 
+/**
+* Initialise the topology for the process
+* Mark the predecessor, successor and supersuccessor of the process
+ */
 func InitialiseTopology(selfId string, index int, udpserverport int) *Topology {
 	var topology *Topology
 	topology = new(Topology)
@@ -50,15 +58,24 @@ func InitialiseTopology(selfId string, index int, udpserverport int) *Topology {
 	return topology
 }
 
+/**
+* Method to get the address of the UDP endpoint to ping
+ */
 func (node *Node) GetUDPAddrInfo() (string, int) {
 	splitId := strings.Split(node.id, ":")
 	return splitId[0], node.udpserverport
 }
 
+/**
+* Get the node id
+ */
 func (node *Node) GetId() string {
 	return node.id
 }
 
+/**
+* Method overrding the String method
+ */
 func (topo *Topology) String() string {
 	return fmt.Sprintf("%v - %v - %v - %v\n",
 		topo.ring.predecessor.id,
@@ -68,12 +85,17 @@ func (topo *Topology) String() string {
 	)
 }
 
+/**
+* Get current process's id
+ */
 func (topo *Topology) GetSelfNodeId() string {
 	return topo.selfId
 }
 
-// Runs every T_STABILISE (10s). This thread iterates through the membership list and adjusts
-// the topology
+/**
+* Runs every T_STABILISE (10s)
+* This thread iterates through the membership list and adjusts the topology
+ */
 func (topo *Topology) StabiliseTheTopology(wg *sync.WaitGroup, memberList *ml.MembershipList) {
 	ticker := time.NewTicker(time.Duration(T_STABILISE) * time.Second)
 	quit := make(chan struct{})
@@ -101,6 +123,9 @@ func (topo *Topology) StabiliseTheTopology(wg *sync.WaitGroup, memberList *ml.Me
 	}()
 }
 
+/**
+* Get item at a particular index in the membership list in a cyclic way
+ */
 func get(items []ml.MembershipListItem, index int) *ml.MembershipListItem {
 	len := len(items)
 	i := index
@@ -114,6 +139,9 @@ func get(items []ml.MembershipListItem, index int) *ml.MembershipListItem {
 	return &items[i]
 }
 
+/**
+* Procedure responsible for updating the neighbours of each node in the membership list
+ */
 func stabiliseTopology(topo *Topology, memberList *ml.MembershipList) {
 	list := memberList.UpdateStates()
 	log.Printf("Updated States in MembershipList\n%v\n", memberList)
@@ -136,12 +164,18 @@ func stabiliseTopology(topo *Topology, memberList *ml.MembershipList) {
 	topo.ring.numberOfProcesses = i
 }
 
+/**
+* Update the index of self process
+ */
 func (topo *Topology) updateSelfIndex(newIndex int) {
 	topo.Lock()
 	defer topo.Unlock()
 	topo.ring.self.index = newIndex
 }
 
+/**
+* Method to access the predecessor
+ */
 func (topo *Topology) GetPredecessor() Node {
 	topo.RLock()
 	defer topo.RUnlock()
@@ -149,6 +183,9 @@ func (topo *Topology) GetPredecessor() Node {
 	return topo.ring.predecessor
 }
 
+/**
+* Method to access the Successor
+ */
 func (topo *Topology) GetSuccessor() Node {
 	topo.RLock()
 	defer topo.RUnlock()
@@ -156,6 +193,9 @@ func (topo *Topology) GetSuccessor() Node {
 	return topo.ring.successor
 }
 
+/**
+* Method to access the Super Sucessor
+ */
 func (topo *Topology) GetSuperSuccessor() Node {
 	topo.RLock()
 	defer topo.RUnlock()
@@ -163,6 +203,9 @@ func (topo *Topology) GetSuperSuccessor() Node {
 	return topo.ring.superSuccessor
 }
 
+/**
+* Method to access the neighbors of the current process from the topology
+ */
 func (topo *Topology) GetNeighbors() (Node, Node, Node) {
 	topo.RLock()
 	defer topo.RUnlock()
@@ -170,6 +213,9 @@ func (topo *Topology) GetNeighbors() (Node, Node, Node) {
 	return topo.ring.predecessor, topo.ring.successor, topo.ring.superSuccessor
 }
 
+/**
+* Method to get the current number of nodes in the ring
+ */
 func (topo *Topology) GetNumberOfNodes() int {
 	topo.RLock()
 	defer topo.RUnlock()
@@ -177,6 +223,9 @@ func (topo *Topology) GetNumberOfNodes() int {
 	return topo.ring.numberOfProcesses
 }
 
+/**
+* Method to clear the topology
+ */
 func (topo *Topology) ClearTopology() {
 	topo.Lock()
 	defer topo.Unlock()

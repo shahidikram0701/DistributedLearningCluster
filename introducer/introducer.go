@@ -26,21 +26,35 @@ var (
 	memberList       *ml.MembershipList = ml.NewMembershipList()
 )
 
+/**
+* Get the Membership list of this process
+ */
 func GetMemberList() *ml.MembershipList {
 	return memberList
 }
 
+/**
+* Get the Network topology of this process
+ */
 func GetNetworkTopology() *topology.Topology {
 	return network_topology
 }
 
+/**
+* Bootstrap the introducer
+ */
 func Run(devmode bool, port int, udpserverport int, wg *sync.WaitGroup) {
-	// Start the introducer
+	// Start the introducer and listen to TCP connections on one thread
 	go StartIntroducerAndListenToConnections(devmode, port, udpserverport, wg)
 
+	// Start the UDP server on another thread
 	go process.StartUdpServer(GetMemberList, udpserverport, wg)
 }
 
+/**
+* Start the TCP server for the introducer to listen to join requests from
+* processes
+ */
 func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport int, wg *sync.WaitGroup) {
 	introducerAddress := "172.22.156.122"
 
@@ -58,15 +72,13 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 		UDPPort:           udpserverport,
 	})
 
-	log.Println("\n\nINITIALISED ML\n\n", "")
-
 	log.Printf("Initialising Topology")
 	network_topology = topology.InitialiseTopology(id, 0, udpserverport)
 
 	log.Printf("Starting the topology stabilisation")
 	go network_topology.StabiliseTheTopology(wg, memberList)
 
-	// Pings it's neighbours for failure detection
+	// Ping neighbours for failure detection
 	process.SendPings(wg, network_topology, GetMemberList())
 
 	if err != nil {
@@ -84,7 +96,10 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 	}
 }
 
-// RPC server handler - processes that wants to join the cluster call Introduce
+/**
+* Start the TCP server for the introducer to listen to join requests from
+* processes
+ */
 func (s *server) Introduce(ctx context.Context, in *intro.IntroduceRequest) (*intro.IntroduceReply, error) {
 	requestorIP := in.Ip
 	requestorPort := in.Port
@@ -105,8 +120,6 @@ func (s *server) Introduce(ctx context.Context, in *intro.IntroduceRequest) (*in
 	})
 
 	// Introducer needs to send the complete membership list to the new node
-	log.Printf("Updated membership list: %v", memberList)
-
 	reply := intro.IntroduceReply{}
 	if serialisedMemberList, err := json.Marshal(memberList.GetList()); err == nil {
 		reply.MembershipList = serialisedMemberList

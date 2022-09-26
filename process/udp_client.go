@@ -10,15 +10,19 @@ import (
 	"net"
 )
 
+/**
+* Procedure that handles sending of a ping
+ */
 func SendPing(getNode func() topology.Node, network_topology *topology.Topology, memberList *ml.MembershipList) {
 	nodeToPing := getNode()
 
+	// If the topology is not yet initialised, hang on!
 	if (nodeToPing == topology.Node{}) {
 		log.Printf("No node to ping\n")
 		return
 	}
 	if memberList == nil {
-		log.Printf("memberList is not initialised")
+		log.Printf("MemberList is not initialised\n")
 		return
 	}
 	pingSendingNode := network_topology.GetSelfNodeId()
@@ -27,7 +31,9 @@ func SendPing(getNode func() topology.Node, network_topology *topology.Topology,
 	memberList.UpdateSelfIncarnationNumber(pingSendingNode)
 
 	ip, port := nodeToPing.GetUDPAddrInfo()
+
 	log.Printf("[ UDP Client ]Pinging %v:%v\n", ip, port)
+
 	service := fmt.Sprintf("%s:%d", ip, port)
 	RemoteAddr, err := net.ResolveUDPAddr("udp", service)
 
@@ -52,7 +58,6 @@ func SendPing(getNode func() topology.Node, network_topology *topology.Topology,
 		log.Printf("[ UDP Client ]Error marshalling the udp packet\n%v\n", err)
 
 	}
-
 	message := []byte(string(toSend))
 
 	_, err = conn.Write(message)
@@ -72,11 +77,15 @@ func SendPing(getNode func() topology.Node, network_topology *topology.Topology,
 	}
 
 	var membershipList []ml.MembershipListItem
+
+	// Unmarshalling the membership list received in the response to the ping sent
 	unmarshallingError := json.Unmarshal([]byte(response.Response), &membershipList)
 	if unmarshallingError != nil {
-		log.Printf("Error while unmarshalling the membershipList\n%v", unmarshallingError)
+		log.Printf("Error while unmarshalling the membershipList\n%v\n", unmarshallingError)
+		// Marking the process as suspicious
 		memberList.MarkSus(nodeToPing.GetId())
 	} else {
+		// Merging the received Membership
 		memberList.Merge(membershipList)
 	}
 }

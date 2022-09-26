@@ -20,12 +20,16 @@ type Server struct {
 	addr string
 }
 
-// Create a new instance of *Server struct
+/**
+* Create a new instance of *Server struct
+ */
 func NewServer(i interface{}, addr string) *Server {
 	return &Server{caller: i, addr: addr}
 }
 
-// Call methods associated to Server.caller using reflection
+/**
+* Call methods associated to Server.caller using reflection
+ */
 func (server *Server) callMethod(methodName string, args interface{}) (string, error) {
 
 	var ptr, value, finalMethod reflect.Value
@@ -90,7 +94,9 @@ func (server *Server) callMethod(methodName string, args interface{}) (string, e
 	return "", errors.New("error calling method")
 }
 
-// Handle the rpc call of methods
+/**
+* Handle the rpc call of methods
+ */
 func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte, n int, memberList *ml.MembershipList) {
 	var requestRPCCall util.RPCBase
 	err := json.Unmarshal(buf[:n], &requestRPCCall)
@@ -133,8 +139,9 @@ func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte
 
 }
 
-// Listen in server.addr for calls of the rpc
-// Receive as params a channel that handles when we get a error
+/**
+* Listen in server.addr for calls of the rpc
+ */
 func (server *Server) ListenServer(exit chan bool, memberList *ml.MembershipList) {
 	pc, err := net.ListenPacket("udp", server.addr)
 	if err != nil {

@@ -41,8 +41,8 @@ func main() {
 
 	introAddr := fmt.Sprintf("%s:%d", introducerAddress, introducerPort)
 
-	// Joins the network and starts the UDP server
-	process.Run(*port, *udpserverport, *log_process_port, wg, introAddr)
+	// Start the process
+	process.Run(*port, *udpserverport, *log_process_port, wg, introAddr, *devmode)
 
 	for {
 		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - exit (To exit)\n\n\t: ")

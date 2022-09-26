@@ -36,18 +36,31 @@ var (
 	T_PING_SECOND = 0.5 // second
 )
 
+/**
+* Get the membership list at this process
+ */
 func GetMemberList() *ml.MembershipList {
 	return memberList
 }
 
+/**
+* Get the network topology of this process
+ */
 func GetNetworkTopology() *topology.Topology {
 	return network_topology
 }
 
-func Run(port int, udpserverport int, log_process_port int, wg *sync.WaitGroup, introAddr string) {
-	// go process.StartLogServer(*log_process_port, wg)
-
+/**
+* Bootstrapping the process
+ */
+func Run(port int, udpserverport int, log_process_port int, wg *sync.WaitGroup, introAddr string, devmode bool) {
+	if !devmode {
+		go StartLogServer(log_process_port, wg)
+	}
+	// Join the network. Get membership list from Introducer and update topology
 	go JoinNetwork(introAddr, port, udpserverport, wg)
+
+	// Start the UDP server to listen to pings and pongs
 	go StartUdpServer(GetMemberList, udpserverport, wg)
 }
 
@@ -114,6 +127,9 @@ func (s *server) Test_GenerateLogs(ctx context.Context, in *lg.GenerateLogsReque
 	return &lg.GenerateLogsReply{Status: status}, nil
 }
 
+/**
+* Start the log server which listens to requests to fetch logs
+ */
 func StartLogServer(port int, wg *sync.WaitGroup) {
 	// service process listening to incoming tcp connections
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
@@ -129,6 +145,9 @@ func StartLogServer(port int, wg *sync.WaitGroup) {
 	}
 }
 
+/**
+* Get process's outbound address to add to membership list
+ */
 func GetOutboundIP() net.IP {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
@@ -141,7 +160,9 @@ func GetOutboundIP() net.IP {
 	return localAddr.IP
 }
 
-// Creates a TCP gRPC client and calls introduce
+/**
+* Issue a request to the introducer to join the network
+ */
 func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int, wg *sync.WaitGroup) {
 	var conn *grpc.ClientConn
 	var err error
@@ -174,22 +195,23 @@ func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int
 		var membershipList []ml.MembershipListItem
 		unmarshallingError := json.Unmarshal(r.MembershipList, &membershipList)
 		if unmarshallingError != nil {
-			log.Printf("Error while unmarshalling the membershipList\n%v", unmarshallingError)
+			log.Printf("Error while unmarshalling the membershipList: %v\n", unmarshallingError)
 		}
+
 		log.Printf("Received Membership List from the introducer\n")
-		log.Printf("Intialising self memberList")
 		memberList = ml.NewMembershipList(membershipList)
 		myIndex := int(r.Index)
 		myId := r.ProcessId
+		log.Printf("Intialised self memberList\n")
 
-		log.Printf("Initialising Topology")
 		network_topology = topology.InitialiseTopology(myId, myIndex, udpserverport)
-
+		log.Printf("Initialised Topology: %v\n", network_topology)
 		var exited = make(chan bool)
 
-		log.Printf("Starting the topology stabilisation")
+		log.Printf("Starting the topology stabilisation\n")
 		go network_topology.StabiliseTheTopology(wg, memberList)
 
+		log.Printf("Starting the SWIM ping-pongs\n")
 		go SendPings(wg, network_topology, memberList)
 
 		<-exited
@@ -198,20 +220,17 @@ func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int
 	wg.Done()
 }
 
-// Pings the neighbours every T_PING_SECOND for failure detection. This also sends the
-// membership list as part of the ping.
+// Pings the neighbours every T_PING_SECOND for failure detection
 func SendPings(wg *sync.WaitGroup, network_topology *topology.Topology, memberList *ml.MembershipList) {
 	ticker := time.NewTicker(time.Duration(T_PING_SECOND*1000) * time.Millisecond)
 	quit := make(chan struct{})
+
 	go func() {
 		getNodeToPing := getWhichNeighbourToPing(network_topology)
 		for {
 			select {
 			case <-ticker.C:
-				log.Printf("\n\nSEND PING\n\n")
-				// Failure detection-membership list dissemination happens over UDP
 				SendPing(getNodeToPing, network_topology, memberList)
-				log.Printf("\n\nPING DONEE\n\n")
 			case <-quit:
 				ticker.Stop()
 				wg.Done()
@@ -221,31 +240,43 @@ func SendPings(wg *sync.WaitGroup, network_topology *topology.Topology, memberLi
 	}()
 }
 
-// Shuffles the ping order for neighbour nodes
+/**
+* Get which of the predecessor, successor or super successor
+* is to be pinged in the current protocol period
+ */
 func getWhichNeighbourToPing(network_topology *topology.Topology) func() topology.Node {
 	i := -1
 
 	return func() topology.Node {
+		// Minimum number of nodes needed for neighbours = 3
+		// If the number of processes joined so far is less than 3
+		// consider that for looping over the neighbours
 		i = (i + 1) % int(math.Min(3, float64(network_topology.GetNumberOfNodes())))
 
 		switch i {
 		case 0:
-			log.Printf("Piging predecessor\n")
-			return network_topology.GetPredecessor()
+			predecessor := network_topology.GetPredecessor()
+			log.Printf("Piging predecessor: %v\n", predecessor)
+			return predecessor
 		case 1:
-			log.Printf("Piging successor\n")
-			return network_topology.GetSuccessor()
+			successor := network_topology.GetSuccessor()
+			log.Printf("Piging successor: %v\n", successor)
+			return successor
 		case 2:
-			log.Printf("Piging supersuccessor\n")
-			return network_topology.GetSuperSuccessor()
+			supersuccessor := network_topology.GetSuperSuccessor()
+			log.Printf("Piging supersuccessor: %v\n", supersuccessor)
+			return supersuccessor
 		}
 
 		return network_topology.GetPredecessor()
 	}
 }
 
-// Called when a process wants to leave the cluster. A delay is given to ensure membership list
-// propagation to all nodes
+/**
+* Called when a process wants to leave the cluster. A delay is given to ensure
+* membership list propagation to all nodes
+ */
+
 func LeaveNetwork() {
 	log.Printf("Leaving Network\n")
 	me := network_topology.GetSelfNodeId()

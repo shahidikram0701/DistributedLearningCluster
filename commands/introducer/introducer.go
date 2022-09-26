@@ -33,7 +33,7 @@ func main() {
 		log.SetOutput(f)
 	}
 
-	// Start the introducer(has the TCP server) and UDP server processes
+	// Start the introducer
 	intro.Run(*devmode, *port, *udpserverport, wg)
 
 	for {
