@@ -20,14 +20,17 @@ type Server struct {
 	addr string
 }
 
-// Create a new instance of *Server struct
+/**
+* Create a new instance of *Server struct
+ */
 func NewServer(i interface{}, addr string) *Server {
 	return &Server{caller: i, addr: addr}
 }
 
-// Call methods associated to Server.caller using reflection
+/**
+* Call methods associated to Server.caller using reflection
+ */
 func (server *Server) callMethod(methodName string, args interface{}) (string, error) {
-	//log.Printf("Calling method dynamically")
 
 	var ptr, value, finalMethod reflect.Value
 
@@ -91,7 +94,9 @@ func (server *Server) callMethod(methodName string, args interface{}) (string, e
 	return "", errors.New("error calling method")
 }
 
-// Handle the rpc call of methods
+/**
+* Handle the rpc call of methods
+ */
 func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte, n int, memberList *ml.MembershipList) {
 	var requestRPCCall util.RPCBase
 	err := json.Unmarshal(buf[:n], &requestRPCCall)
@@ -100,10 +105,8 @@ func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte
 	}
 
 	// Handle rpc options
-	// fmt.Println("\n\n\n\nmethodname: ", requestRPCCall.MethodName, "\n\nargs", requestRPCCall.Args, "\n\n\n", "")
 	args := make([]interface{}, 0)
 	var serialisedMemberList []byte
-	// fmt.Println("\n\n\n\nHEREEEEEE\n\n\n\n", memberList)
 
 	if memberList == nil {
 		serialisedMemberList, _ = json.Marshal(GetMemberList().GetList())
@@ -113,7 +116,6 @@ func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte
 
 	}
 
-	// serialisedMemberList, _ := json.Marshal(GetMemberList().GetList())
 	args = append(args, string(serialisedMemberList))
 	requestRPCCall.Args = args
 	response, err := server.callMethod(requestRPCCall.MethodName, requestRPCCall.Args)
@@ -137,10 +139,10 @@ func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte
 
 }
 
-// Listen in server.addr for calls of the rpc
-// Recive as params a channel that handle when we get a error
+/**
+* Listen in server.addr for calls of the rpc
+ */
 func (server *Server) ListenServer(exit chan bool, memberList *ml.MembershipList) {
-	//log.Printf("Listen server at " + server.addr)
 	pc, err := net.ListenPacket("udp", server.addr)
 	if err != nil {
 		log.Printf("Error Listening to packet\n%v\n", err)

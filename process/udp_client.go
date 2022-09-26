@@ -10,25 +10,30 @@ import (
 	"net"
 )
 
-// var exitC = make(chan bool)
-
+/**
+* Procedure that handles sending of a ping
+ */
 func SendPing(getNode func() topology.Node, network_topology *topology.Topology, memberList *ml.MembershipList) {
 	nodeToPing := getNode()
 
+	// If the topology is not yet initialised, hang on!
 	if (nodeToPing == topology.Node{}) {
 		log.Printf("No node to ping\n")
 		return
 	}
 	if memberList == nil {
-		log.Printf("memberList is not initialised")
+		log.Printf("MemberList is not initialised\n")
 		return
 	}
 	pingSendingNode := network_topology.GetSelfNodeId()
 
+	// update self incarnation number in the membership list
 	memberList.UpdateSelfIncarnationNumber(pingSendingNode)
 
 	ip, port := nodeToPing.GetUDPAddrInfo()
+
 	log.Printf("[ UDP Client ]Pinging %v:%v\n", ip, port)
+
 	service := fmt.Sprintf("%s:%d", ip, port)
 	RemoteAddr, err := net.ResolveUDPAddr("udp", service)
 
@@ -38,16 +43,13 @@ func SendPing(getNode func() topology.Node, network_topology *topology.Topology,
 	}
 
 	log.Printf("[ UDP Client ]Established connection to %s \n", service)
-	// log.Printf("[ UDP Client ][ UDP Client ]Remote UDP address : %s \n", conn.RemoteAddr().String())
-	// log.Printf("[ UDP Client ]Local UDP client address : %s \n", conn.LocalAddr().String())
-
 	defer conn.Close()
 
 	args := make([]interface{}, 0)
 	rpcbase := &util.RPCBase{
 		MethodName: "Ping",
 	}
-	// serialisedMemberList, _ := json.Marshal(memberList.GetList())
+
 	args = append(args, "Ping")
 	rpcbase.Args = args
 
@@ -56,20 +58,15 @@ func SendPing(getNode func() topology.Node, network_topology *topology.Topology,
 		log.Printf("[ UDP Client ]Error marshalling the udp packet\n%v\n", err)
 
 	}
-
-	// fmt.Println("\n\n\n\n", toSend, "\n\n\n\n", "")
-
 	message := []byte(string(toSend))
 
 	_, err = conn.Write(message)
-
 	if err != nil {
 		log.Printf("[ UDP Client ]Errorrr: %v\n" + err.Error())
 	}
 
 	// receive message from server
 	buffer := make([]byte, 4096)
-	// n, addr, err := conn.ReadFromUDP(buffer)
 
 	n, _, err := conn.ReadFromUDP(buffer)
 
@@ -78,16 +75,17 @@ func SendPing(getNode func() topology.Node, network_topology *topology.Topology,
 	if err != nil {
 		log.Printf("[ UDP Client ]Error Unmarshaling response\n%v\n", err)
 	}
-	// fmt.Println("ITERATION ", i)
-	// fmt.Println("UDP Server : ", addr)
 
 	var membershipList []ml.MembershipListItem
+
+	// Unmarshalling the membership list received in the response to the ping sent
 	unmarshallingError := json.Unmarshal([]byte(response.Response), &membershipList)
 	if unmarshallingError != nil {
-		log.Printf("Error while unmarshalling the membershipList\n%v", unmarshallingError)
+		log.Printf("Error while unmarshalling the membershipList\n%v\n", unmarshallingError)
+		// Marking the process as suspicious
 		memberList.MarkSus(nodeToPing.GetId())
 	} else {
+		// Merging the received Membership
 		memberList.Merge(membershipList)
-		// fmt.Printf("[UDP Client] DONE MERGING")
 	}
 }

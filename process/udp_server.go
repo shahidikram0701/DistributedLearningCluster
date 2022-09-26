@@ -12,19 +12,20 @@ type Handler int
 
 var exitS = make(chan bool)
 
+/**
+* Handle the ping request
+ */
 func (h *Handler) Ping(memberList string) string {
-	// log.Printf("[ UDP Server ]Handling Ping")
-
 	log.Printf("\n\nPONG: %v\n\n", memberList)
-
 	return memberList
 }
 
+/**
+* Start the UDP server
+ */
 func StartUdpServer(getMembershipList func() *ml.MembershipList, port int, wg *sync.WaitGroup) {
 	var h Handler
 	server := NewServer(h, fmt.Sprintf(":%v", port))
-
-	// log.Printf("[UDP Server]MembershipList: %v\n", getMembershipList())
 	// listen to incoming udp packets
 	var exited = make(chan bool)
 	go server.ListenServer(exited, getMembershipList())

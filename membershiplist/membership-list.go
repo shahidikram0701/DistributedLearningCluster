@@ -9,12 +9,14 @@ import (
 
 type NodeStatus int
 
+// Define timeouts
 var (
 	T_FAIL   = 1 // 2 second
 	T_DELETE = 1 // 2 second
 	T_LEAVE  = 2 // 2 second
 )
 
+// Enum for Node status
 const (
 	Alive NodeStatus = iota
 	Suspicious
@@ -23,16 +25,19 @@ const (
 	Left
 )
 
+// Type of Membership list
 type MembershipList struct {
 	sync.RWMutex
 	items []MembershipListItem
 }
 
+// Type of NodeState
 type NodeState struct {
 	Status    NodeStatus
 	Timestamp time.Time
 }
 
+// Type of each item in the Membership list
 type MembershipListItem struct {
 	Id                string
 	State             NodeState
@@ -40,14 +45,23 @@ type MembershipListItem struct {
 	UDPPort           int
 }
 
+/**
+* Overriding the String method for the type MembershipListItem
+ */
 func (memListItem MembershipListItem) String() string {
 	return fmt.Sprintf("[%s || %v ||  %d\n]", memListItem.Id, memListItem.State, memListItem.IncarnationNumber)
 }
 
+/**
+* Overriding the String method for the type NodeState
+ */
 func (nodeState NodeState) String() string {
 	return fmt.Sprintf("%v at %v", nodeState.Status, nodeState.Timestamp)
 }
 
+/**
+* Overriding the String method for the type NodeStatus
+ */
 func (nodeStatus NodeStatus) String() string {
 	switch nodeStatus {
 	case Alive:
@@ -65,7 +79,9 @@ func (nodeStatus NodeStatus) String() string {
 	}
 }
 
-// NewMembershipList creates a new concurrent Membership list
+/**
+* Create a new instance of a thread safe Membership list
+ */
 func NewMembershipList(listItems ...([]MembershipListItem)) *MembershipList {
 	var cs *MembershipList
 	if len(listItems) == 0 {
@@ -81,25 +97,25 @@ func NewMembershipList(listItems ...([]MembershipListItem)) *MembershipList {
 	return cs
 }
 
-// Appends an item to the membership list
+/**
+* Appends an item to the membership list
+ */
 func (ml *MembershipList) Append(item MembershipListItem) int {
-	// fmt.Printf("\n\n[Acquire LOCK]<MembershipList.Append>\n\n")
 	ml.Lock()
 	defer ml.Unlock()
-
-	// fmt.Printf("\n\n[LOCK]<MembershipList.Append>\n\n")
 
 	ml.items = append(ml.items, item)
 
 	indexOfInsertedItem := len(ml.items) - 1
 
-	// fmt.Printf("\n\n[Release LOCK]<MembershipList.Append>\n\n")
 	return indexOfInsertedItem
 }
 
-// Iterates over the items in the membership list
-// Each item is sent over a channel, so that
-// we can iterate over the slice using the builin range keyword
+/**
+* Iterates over the items in the membership list
+* Each item is sent over a channel, so that
+* we can iterate over the slice using the builin range keyword
+ */
 func (ml *MembershipList) Iter() <-chan MembershipListItem {
 	c := make(chan MembershipListItem)
 
@@ -116,7 +132,9 @@ func (ml *MembershipList) Iter() <-chan MembershipListItem {
 	return c
 }
 
-// Len is the number of items in the concurrent slice.
+/**
+* Method to get length of MembershipList
+ */
 func (ml *MembershipList) Len() int {
 	ml.RLock()
 	defer ml.RUnlock()
@@ -124,25 +142,30 @@ func (ml *MembershipList) Len() int {
 	return len(ml.items)
 }
 
+/**
+* Method to get the membership list
+ */
 func (ml *MembershipList) GetList() []MembershipListItem {
 	return ml.items
 }
 
+/**
+* Overriding the String method of the type MembershipList
+ */
 func (ml *MembershipList) String() string {
 	return fmt.Sprintf("%v", ml.items)
 }
 
+/**
+* Method to clean the MembershipList
+* Accessed by the stabilisation protocol
+ */
 func (ml *MembershipList) Clean() {
 	log.Printf("Cleaning Membership list")
-	// fmt.Printf("\n\n[Acquire LOCK]<MembershipList.Clean>\n\n")
-	// log.Printf("\n\nMembershipList.Clean()\n\n")
 	ml.Lock()
 	defer ml.Unlock()
-
-	// fmt.Printf("\n\n[LOCK]<MembershipList.Clean>\n\n")
-
-	log.Printf("Deleting processes that Failed and the ones that Left voluntarily")
-	log.Printf("Current MembershipList: \n%v", ml.items)
+	// Deleting processes that Failed and the ones that Left voluntarily
+	log.Printf("Old MembershipList: \n%v", ml.items)
 	var newItems []MembershipListItem
 	for _, item := range ml.items {
 		if item.State.Status != Delete {
@@ -154,111 +177,72 @@ func (ml *MembershipList) Clean() {
 
 	ml.items = newItems
 
-	log.Printf("Cleaned Membership List")
-	log.Printf("Current MembershipList: \n%v", ml.items)
-
-	// log.Printf("\n\nDONE: MembershipList.Clean()\n\n")
-
-	// fmt.Printf("\n\n[Release LOCK]<MembershipList.Clean>\n\n")
-
+	log.Printf("New MembershipList: \n%v", ml.items)
 }
 
+/**
+* Method to update the Incarnation number of the process
+ */
 func (ml *MembershipList) UpdateSelfIncarnationNumber(myId string) {
-	// log.Printf("\n\nMembershipList.UpdateSelfIncarnationNumber\n\n")
-	// fmt.Printf("\n\n[Acquire LOCK]<MembershipList.UpdateSelfIncarnationNumber>\n\n")
 	ml.Lock()
 	defer ml.Unlock()
 
-	// fmt.Printf("\n\n[LOCK]<MembershipList.UpdateSelfIncarnationNumber>\n\n")
-
 	log.Printf("Updating my (%v) Incarnation Number\n", myId)
-	// log.Printf("MembershipList: %v\n", ml.items)
-	// fmt.Printf("Updating my (%v) Incarnation Number\n", myId)
-	// fmt.Printf("MembershipList: %v\n", ml.items)
 	for i := 0; i < len(ml.items); i++ {
-		// fmt.Printf("item.Id = %v\n", ml.items[i].Id)
 		if ml.items[i].Id == myId {
-			// fmt.Printf("Match at i = %v\n\n", i)
 			ml.items[i].IncarnationNumber = ml.items[i].IncarnationNumber + 1
 			break
 		}
 
 	}
-	// log.Printf("\n\nMembershipList.UpdateSelfIncarnationNumber\n\n")
-	// fmt.Printf("New MembershipList: %v\n", ml.items)
-
-	// fmt.Printf("\n\n[Release LOCK]<MembershipList.UpdateSelfIncarnationNumber>\n\n")
 }
 
+/**
+* Method to mark a process as Suspicious in the Membership List
+ */
 func (ml *MembershipList) MarkSus(nodeId string) {
-	// log.Printf("\n\nMembershipList.MarkSus\n\n")
-
-	// fmt.Printf("\n\n[Acquire LOCK]<MembershipList.MarkSus>\n\n")
 	ml.Lock()
 	defer ml.Unlock()
 
-	// fmt.Printf("\n\n[LOCK]<MembershipList.MarkSus>\n\n")
-
 	log.Printf("Marking node (%v) Suspicious\n", nodeId)
-	// log.Printf("MembershipList: %v\n", ml.items)
-	// fmt.Printf("Updating my (%v) Incarnation Number\n", myId)
-	// fmt.Printf("MembershipList: %v\n", ml.items)
 	for i := 0; i < len(ml.items); i++ {
-		// fmt.Printf("item.Id = %v\n", ml.items[i].Id)
 		if ml.items[i].Id == nodeId && ml.items[i].State.Status == Alive {
-			// fmt.Printf("Match at i = %v\n\n", i)
 			ml.items[i].State.Status = Suspicious
 			ml.items[i].State.Timestamp = time.Now()
 			break
 		}
 
 	}
-	// log.Printf("\n\nDONE: MembershipList.MarkSus\n\n")
-	// fmt.Printf("\n\n[Release LOCK]<MembershipList.MarkSus>\n\n")
 }
 
+/**
+* Method to mark the node as wanting to leave
+ */
 func (ml *MembershipList) MarkLeave(nodeId string) {
-	// log.Printf("\n\nMembershipList.MarkSus\n\n")
-
-	// fmt.Printf("\n\n[Acquire LOCK]<MembershipList.MarkSus>\n\n")
 	ml.Lock()
 	defer ml.Unlock()
 
-	// fmt.Printf("\n\n[LOCK]<MembershipList.MarkSus>\n\n")
-
 	log.Printf("Marking node (%v) as Left\n", nodeId)
-	// log.Printf("MembershipList: %v\n", ml.items)
-	// fmt.Printf("Updating my (%v) Incarnation Number\n", myId)
-	// fmt.Printf("MembershipList: %v\n", ml.items)
 	for i := 0; i < len(ml.items); i++ {
-		// fmt.Printf("item.Id = %v\n", ml.items[i].Id)
 		if ml.items[i].Id == nodeId {
-			// fmt.Printf("Match at i = %v\n\n", i)
 			ml.items[i].State.Status = Left
 			ml.items[i].State.Timestamp = time.Now()
 			break
 		}
 
 	}
-	// log.Printf("\n\nDONE: MembershipList.MarkSus\n\n")
-	// fmt.Printf("\n\n[Release LOCK]<MembershipList.MarkSus>\n\n")
 }
 
+/**
+* Method that merges a new Membership list with itself
+ */
 func (m1 *MembershipList) Merge(m2 []MembershipListItem) {
-	// log.Printf("\n\nMembershipList.Merge\n\n")
-	// fmt.Printf("\n\n[Acquire LOCK]<MembershipList.Merge>\n\n")
 	m1.Lock()
 	defer m1.Unlock()
-
-	// fmt.Printf("\n\n[LOCK]<MembershipList.Merge>\n\n")
 
 	log.Printf("Merging Membership lists\n")
 	log.Printf("Current Membership List\n%v\v\n", m1.items)
 	log.Printf("Received Membership List\n%v\v\n", m2)
-
-	// fmt.Printf("Merging Membership lists\n")
-	// fmt.Printf("Current Membership List\n%v\v", m1.items)
-	// fmt.Printf("Received Membership List\n%v\v", m2)
 
 	var newItems []MembershipListItem
 
@@ -266,21 +250,22 @@ func (m1 *MembershipList) Merge(m2 []MembershipListItem) {
 	j := 0
 
 	for i < len(m1.items) && j < len(m2) {
-		// fmt.Printf("%v; ", i)
 		m1Item := m1.items[i]
 		m2Item := m2[j]
 
 		if m1Item.Id == m2Item.Id {
-			// log.Printf("here\n")
+			// States Failed, Delete and Left in the current list to be maintained
 			if m1Item.State.Status == Failed || m1Item.State.Status == Delete || m1Item.State.Status == Left {
 				newItems = append(newItems, m1Item)
 			} else {
+				// From the incoming list, Failed, Delete and Left States are given prime importance
 				if (m2Item.State.Status == Failed || m2Item.State.Status == Delete || m2Item.State.Status == Left) &&
 					(m1Item.State.Status != m2Item.State.Status) {
 					m1Item.State = m2Item.State
 					m1Item.State.Timestamp = time.Now()
 					newItems = append(newItems, m1Item)
 				} else {
+					// For other states, update based on increased incarnation number
 					if m2Item.IncarnationNumber > m1Item.IncarnationNumber {
 						m1Item.State = m2Item.State
 						m1Item.State.Timestamp = time.Now()
@@ -291,96 +276,61 @@ func (m1 *MembershipList) Merge(m2 []MembershipListItem) {
 					}
 				}
 			}
-
-			// if m2Item.IncarnationNumber > m1Item.IncarnationNumber {
-			// 	m1Item.State = m2Item.State
-			// 	m1Item.State.Timestamp = time.Now()
-			// 	m1Item.IncarnationNumber = m2Item.IncarnationNumber
-			// 	newItems = append(newItems, m1Item)
-
-			// } else if m2Item.IncarnationNumber == m1Item.IncarnationNumber {
-			// 	if m2Item.State.Status == Suspicious || m2Item.State.Status == Failed {
-			// 		m1Item.State = m2Item.State
-			// 		m1Item.State.Timestamp = time.Now()
-			// 	}
-			// } else {
-			// 	if m2Item.State.Status == Failed || m2Item.State.Status == Delete {
-			// 		m1Item.State = m2Item.State
-			// 		m1Item.State.Timestamp = time.Now()
-			// 	}
-			// }
-
-			// newItems = append(newItems, m1Item)
-
 			i++
 			j++
 		} else {
-			// m1Item.State.Status == Left || m1Item.State.Status == Delete || m2Item.State.Status == Failed
-			// newItems = append(newItems, m1Item)
 			j++
 		}
 	}
-	// I had more list items
+	// Current list has more itemss
 	for i < len(m1.items) {
-		// log.Printf("here2\n")
-		// m[j].State.Timestamp = time.Now()
 		newItems = append(newItems, m1.items[i])
 		i++
 	}
 
-	// I should know about more items
+	// There are new processes that need to be added to current membership list
 	for j < len(m2) {
-		// log.Printf("here3\n")
-		m2[j].State.Timestamp = time.Now()
-		newItems = append(newItems, m2[j])
+		if m2[j].State.Status == Alive || m2[j].State.Status == Suspicious {
+			m2[j].State.Timestamp = time.Now()
+			newItems = append(newItems, m2[j])
+		}
 		j++
 	}
 
 	m1.items = newItems
 
 	log.Printf("New Membership List: \n%v\n\n", newItems)
-	// fmt.Printf("Membership List: \n%v\n\n\n", newItems)
-
-	// log.Printf("\n\nDONE: MembershipList.Merge\n\n")
-
-	// fmt.Printf("\n\n[Release LOCK]<MembershipList.Merge>\n\n")
-
 }
 
+/**
+* Update the states of the items in the membership list
+* Run by the stabilisation protocol
+ */
 func (ml *MembershipList) UpdateStates() []MembershipListItem {
 	log.Printf("Updating states of processes in Membership List\n")
-	// fmt.Printf("\n\n[Acquire LOCK]<MembershipList.UpdateStates>\n\n")
-	// fmt.Printf("Updating states of processes in Membership List\n")
 	ml.Lock()
 	defer ml.Unlock()
 
-	// fmt.Printf("\n\n[LOCK]<MembershipList.UpdateStates>\n\n")
-	// fmt.Printf("Acquried Lock")
 	currentTime := time.Now().Unix()
 
 	for i := 0; i < len(ml.items); i++ {
-		// log.Printf("\n previous = %v\n", previous.Id)
-		// log.Printf("\n pprevious = %v\n", pprevious.Id)
-		// log.Printf("\nml.item[i]: %v\n", ml.items[i].Id)
-		// log.Printf("\nself: %v\n", topo.ring.self.id)
-
 		if ml.items[i].State.Status == Suspicious &&
 			(currentTime-ml.items[i].State.Timestamp.Unix() >= int64(T_FAIL)) {
+			// If the process is Suspicious for more than T_FAIL seconds, mark it as failed
 			ml.items[i].State.Status = Failed
-			// ml.items[i].IncarnationNumber++
+
 		} else if ml.items[i].State.Status == Failed &&
 			(currentTime-ml.items[i].State.Timestamp.Unix() >= int64(T_DELETE)) {
+			// If the process is in the Failed state for more than T_DELETE seconds,
+			//  move it to Delete state
 			ml.items[i].State.Status = Delete
-			// ml.items[i].IncarnationNumber++
+
 		} else if ml.items[i].State.Status == Left &&
 			(currentTime-ml.items[i].State.Timestamp.Unix() >= int64(T_LEAVE)) {
+			// If the process is in the Left state for more than T_LEAVE seconds, mark it to be deleted
 			ml.items[i].State.Status = Delete
-			// ml.items[i].IncarnationNumber++
 		}
 	}
-
-	// log.Printf("\n\nDONE: Updating states of processes in Membership List\n\n")
-	// fmt.Printf("\n\n[Release LOCK]<MembershipList.UpdateStates>\n\n")
 
 	return ml.items
 
