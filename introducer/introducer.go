@@ -59,11 +59,11 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 	introducerAddress := "172.22.156.122"
 
 	if devmode {
-		introducerAddress = "localhost"
+		introducerAddress = "192.168.64.6"
 	}
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 
-	id := fmt.Sprintf("%s:%d:%v", introducerAddress, port, time.Now())
+	id := fmt.Sprintf("%s:%d:%v", introducerAddress, port, time.Now().Nanosecond())
 	// Adding itself(introducer) to the membership list
 	memberList.Append(ml.MembershipListItem{
 		Id:                id,

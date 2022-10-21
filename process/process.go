@@ -8,28 +8,22 @@ import (
 	"math"
 	"net"
 	"os"
-	"os/exec"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
+	"cs425/mp/config"
 	ml "cs425/mp/membershiplist"
 	intro_proto "cs425/mp/proto/introducer_proto"
-	lg "cs425/mp/proto/logger_proto"
 	topology "cs425/mp/topology"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type server struct {
-	lg.UnimplementedLoggerServer
-}
-
 var (
 	network_topology *topology.Topology
 	memberList       *ml.MembershipList
+	isCoordinator    bool
 )
 
 var (
@@ -51,119 +45,34 @@ func GetNetworkTopology() *topology.Topology {
 }
 
 /**
+* Check if the current process is a designated coordinator process
+ */
+func IsCoordinator() bool {
+	return isCoordinator
+}
+
+/**
 * Bootstrapping the process
  */
-func Run(port int, udpserverport int, log_process_port int, wg *sync.WaitGroup, introAddr string, devmode bool) {
-	if !devmode {
-		go StartLogServer(log_process_port, wg)
-	}
+func Run(port int, udpserverport int, log_process_port int, coordinator_process_port int, wg *sync.WaitGroup, introAddr string, devmode bool, outboundIp net.IP) {
+	// Start the coordinator server
+	go StartCoordinatorService(coordinator_process_port, devmode, wg)
+
+	// Start the logger server
+	go StartLogServer(log_process_port, wg)
+
 	// Join the network. Get membership list from Introducer and update topology
-	go JoinNetwork(introAddr, port, udpserverport, wg)
+	go JoinNetwork(introAddr, port, udpserverport, outboundIp, wg)
 
 	// Start the UDP server to listen to pings and pongs
 	go StartUdpServer(GetMemberList, udpserverport, wg)
 }
 
 /**
-* The RPC function for processing the request to fetch logs
-*
-* @param ctx: context
-* @param in: the query request
- */
-func (s *server) FindLogs(ctx context.Context, in *lg.FindLogsRequest) (*lg.FindLogsReply, error) {
-	query := in.GetQuery()
-	isTest := in.GetIsTest()
-	tag := ""
-	if isTest {
-		tag = "[ TEST ]"
-	}
-
-	var logFilePath string
-	// if isTest {
-	// 	logFilePath = "../../testlogs/*.log"
-	// } else {
-	// 	logFilePath = "../../logs/*.log"
-	// }
-	logFilePath = "../../../logs/*.log"
-	grepCommand := fmt.Sprintf("grep -HEc '%v' %v", query, logFilePath)
-
-	log.Printf("%vExecuting: %v", tag, grepCommand)
-
-	// Exectute the underlying os grep command for the given
-	out, _ := (exec.Command("bash", "-c", grepCommand).Output())
-	res := string(out)
-
-	logData := strings.Split(strings.Split(res, "\n")[0], ":")
-	numMatches, _ := strconv.Atoi(logData[len(logData)-1])
-
-	return &lg.FindLogsReply{Logs: res, NumMatches: int64(numMatches)}, nil
-}
-
-/**
-* The RPC function to process the generation of logs of service processes
-*
-* @param ctx: context
-* @param in: the query request
- */
-func (s *server) Test_GenerateLogs(ctx context.Context, in *lg.GenerateLogsRequest) (*lg.GenerateLogsReply, error) {
-	// use the filenumber passed in the request to determine which script to execute to generate logs
-	// for the current process
-	filenumber := fmt.Sprint(in.GetFilenumber())
-	outputFile := fmt.Sprintf("../../testlogs/vm%v.log", filenumber)
-	command := "../test_log_scripts/log_gen" + filenumber + ".sh > " + outputFile
-	var status = "Successfully generated logs"
-
-	if _, err := os.Stat(outputFile); err != nil {
-		log.Printf("command: %v", command)
-
-		_, err := (exec.Command("bash", "-c", command).Output())
-
-		if err != nil {
-			status = "Failed to generate logs"
-			log.Printf("Failed to generate logs")
-		}
-	}
-
-	return &lg.GenerateLogsReply{Status: status}, nil
-}
-
-/**
-* Start the log server which listens to requests to fetch logs
- */
-func StartLogServer(port int, wg *sync.WaitGroup) {
-	// service process listening to incoming tcp connections
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	s := grpc.NewServer()
-	lg.RegisterLoggerServer(s, &server{})
-	log.Printf("server listening at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-		wg.Done()
-	}
-}
-
-/**
-* Get process's outbound address to add to membership list
- */
-func GetOutboundIP() net.IP {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		log.Printf("Couldn't get the IP address of the process\n%v", err)
-	}
-	defer conn.Close()
-
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-
-	return localAddr.IP
-}
-
-/**
 * Issue a request to the introducer to join the network
  */
-func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int, wg *sync.WaitGroup) {
+func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int, outboundIp net.IP, wg *sync.WaitGroup) {
+	conf := config.GetConfig("../../config/config.json")
 	var conn *grpc.ClientConn
 	var err error
 	log.Printf("Establishing connection to introducer process at %v", introducerAddress)
@@ -182,7 +91,7 @@ func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int
 
 	// Call the RPC function on the introducer process to join the network
 	r, err := c.Introduce(ctx, &intro_proto.IntroduceRequest{
-		Ip:            fmt.Sprintf("%v", GetOutboundIP()),
+		Ip:            fmt.Sprintf("%v", outboundIp),
 		Port:          int64(newProcessPort),
 		Timestamp:     fmt.Sprintf("%d", time.Now().Nanosecond()),
 		Udpserverport: int64(udpserverport),
@@ -199,6 +108,9 @@ func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int
 		}
 
 		log.Printf("Received Membership List from the introducer\n")
+		if len(membershipList) <= conf.NumOfCoordinators+1 {
+			isCoordinator = true
+		}
 		memberList = ml.NewMembershipList(membershipList)
 		myIndex := int(r.Index)
 		myId := r.ProcessId
@@ -251,7 +163,8 @@ func getWhichNeighbourToPing(network_topology *topology.Topology) func() topolog
 		// Minimum number of nodes needed for neighbours = 3
 		// If the number of processes joined so far is less than 3
 		// consider that for looping over the neighbours
-		i = (i + 1) % int(math.Min(3, float64(network_topology.GetNumberOfNodes())))
+		numberOfNodesInTopology := network_topology.GetNumberOfNodes()
+		i = (i + 1) % int(math.Min(3, float64(numberOfNodesInTopology)))
 
 		switch i {
 		case 0:

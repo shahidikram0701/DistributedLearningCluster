@@ -1,8 +1,10 @@
 package membershiplist
 
 import (
+	"cs425/mp/config"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
@@ -333,5 +335,25 @@ func (ml *MembershipList) UpdateStates() []MembershipListItem {
 	}
 
 	return ml.items
+}
 
+func (ml *MembershipList) GetCoordinatorNode() string {
+	ml.RLock()
+	defer ml.RUnlock()
+
+	conf := config.GetConfig("../../config/config.json")
+
+	introducerAddr := conf.IntroducerAddress
+	if len(ml.items) >= 2 {
+		ip := strings.Split(ml.items[0].Id, ":")[0]
+		if ip == introducerAddr {
+			coordinator := strings.Split(ml.items[1].Id, ":")[0]
+			log.Printf("Current Coordinator is: %v\n", coordinator)
+			return coordinator
+		} else {
+			log.Printf("Current Coordinator is: %v\n", ip)
+			return ip
+		}
+	}
+	return ""
 }
