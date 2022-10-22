@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"cs425/mp/config"
 	ml "cs425/mp/membershiplist"
 	intro_proto "cs425/mp/proto/introducer_proto"
 	topology "cs425/mp/topology"
@@ -23,7 +22,6 @@ import (
 var (
 	network_topology *topology.Topology
 	memberList       *ml.MembershipList
-	isCoordinator    bool
 )
 
 var (
@@ -47,8 +45,8 @@ func GetNetworkTopology() *topology.Topology {
 /**
 * Check if the current process is a designated coordinator process
  */
-func IsCoordinator() bool {
-	return isCoordinator
+func GetAllCoordinators() []string {
+	return memberList.GetAllCoordinators()
 }
 
 /**
@@ -72,7 +70,6 @@ func Run(port int, udpserverport int, log_process_port int, coordinator_process_
 * Issue a request to the introducer to join the network
  */
 func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int, outboundIp net.IP, wg *sync.WaitGroup) {
-	conf := config.GetConfig("../../config/config.json")
 	var conn *grpc.ClientConn
 	var err error
 	log.Printf("Establishing connection to introducer process at %v", introducerAddress)
@@ -108,9 +105,6 @@ func JoinNetwork(introducerAddress string, newProcessPort int, udpserverport int
 		}
 
 		log.Printf("Received Membership List from the introducer\n")
-		if len(membershipList) <= conf.NumOfCoordinators+1 {
-			isCoordinator = true
-		}
 		memberList = ml.NewMembershipList(membershipList)
 		myIndex := int(r.Index)
 		myId := r.ProcessId

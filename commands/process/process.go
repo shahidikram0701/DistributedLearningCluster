@@ -67,7 +67,7 @@ func main() {
 	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorPort, wg, introAddr, *devmode, outboundIp)
 
 	for {
-		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - `${query-string}` (Enter a query string to search in the logs)\n\t - iscoordinator (Check if the current process is a coordinator or a backup-coordinator)\n\t - exit (To exit)\n\n\t: ")
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - `${query-string}` (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\t: ")
 		var command string
 
 		// Taking input from user
@@ -80,8 +80,8 @@ func main() {
 			fmt.Println(process.GetMemberList().GetList())
 		case "printtopology":
 			fmt.Println(process.GetNetworkTopology())
-		case "iscoordinator":
-			fmt.Printf("%v\n", process.IsCoordinator())
+		case "getallcoordinators":
+			fmt.Printf("%v\n", process.GetAllCoordinators())
 		case "exit":
 			os.Exit(3)
 		default:

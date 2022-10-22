@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"sync"
 	"time"
 
+	"cs425/mp/config"
 	ml "cs425/mp/membershiplist"
 	"cs425/mp/process"
 	intro "cs425/mp/proto/introducer_proto"
@@ -24,6 +26,7 @@ type server struct {
 var (
 	network_topology *topology.Topology
 	memberList       *ml.MembershipList = ml.NewMembershipList()
+	coordinatorList  map[string]bool
 )
 
 /**
@@ -56,6 +59,7 @@ func Run(devmode bool, port int, udpserverport int, wg *sync.WaitGroup) {
 * processes
  */
 func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport int, wg *sync.WaitGroup) {
+	coordinatorList = make(map[string]bool)
 	introducerAddress := "172.22.156.122"
 
 	if devmode {
@@ -70,6 +74,7 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 		State:             ml.NodeState{Timestamp: time.Now(), Status: ml.Alive},
 		IncarnationNumber: 0,
 		UDPPort:           udpserverport,
+		IsCoordinator:     false,
 	})
 
 	log.Printf("Initialising Topology")
@@ -101,6 +106,11 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 * processes
  */
 func (s *server) Introduce(ctx context.Context, in *intro.IntroduceRequest) (*intro.IntroduceReply, error) {
+	if _, err := os.Stat("../../config/config.json"); os.IsNotExist(err) {
+		log.Panicf("No config file found: %v\n", err)
+	}
+	conf := config.GetConfig("../../config/config.json")
+
 	requestorIP := in.Ip
 	requestorPort := in.Port
 	requestorTimestamp := in.Timestamp
@@ -111,12 +121,24 @@ func (s *server) Introduce(ctx context.Context, in *intro.IntroduceRequest) (*in
 
 	log.Printf("Introducing process %s to the system", newProcessId)
 
+	ipAndPort := fmt.Sprintf("%s:%d", requestorIP, requestorPort)
+	isCoordinator := false
+	if len(coordinatorList) < conf.NumOfCoordinators {
+		isCoordinator = true
+		coordinatorList[ipAndPort] = true
+	} else {
+		if _, ok := coordinatorList[ipAndPort]; ok {
+			isCoordinator = true
+		}
+	}
+
 	// Adding the new process to Introducer's membership list
 	index := memberList.Append(ml.MembershipListItem{
 		Id:                newProcessId,
 		State:             ml.NodeState{Status: ml.Alive, Timestamp: time.Now()},
 		IncarnationNumber: 0,
 		UDPPort:           int(udpserverport),
+		IsCoordinator:     isCoordinator,
 	})
 
 	// Introducer needs to send the complete membership list to the new node

@@ -1,7 +1,6 @@
 package membershiplist
 
 import (
-	"cs425/mp/config"
 	"fmt"
 	"log"
 	"strings"
@@ -45,13 +44,14 @@ type MembershipListItem struct {
 	State             NodeState
 	IncarnationNumber int
 	UDPPort           int
+	IsCoordinator     bool
 }
 
 /**
 * Overriding the String method for the type MembershipListItem
  */
 func (memListItem MembershipListItem) String() string {
-	return fmt.Sprintf("[%s || %v ||  %d\n]", memListItem.Id, memListItem.State, memListItem.IncarnationNumber)
+	return fmt.Sprintf("[%s || %v || %d || %v\n]", memListItem.Id, memListItem.State, memListItem.IncarnationNumber, memListItem.IsCoordinator)
 }
 
 /**
@@ -341,19 +341,23 @@ func (ml *MembershipList) GetCoordinatorNode() string {
 	ml.RLock()
 	defer ml.RUnlock()
 
-	conf := config.GetConfig("../../config/config.json")
-
-	introducerAddr := conf.IntroducerAddress
-	if len(ml.items) >= 2 {
-		ip := strings.Split(ml.items[0].Id, ":")[0]
-		if ip == introducerAddr {
-			coordinator := strings.Split(ml.items[1].Id, ":")[0]
-			log.Printf("Current Coordinator is: %v\n", coordinator)
-			return coordinator
-		} else {
-			log.Printf("Current Coordinator is: %v\n", ip)
-			return ip
+	for _, value := range ml.items {
+		if value.IsCoordinator {
+			return strings.Split(value.Id, ":")[0]
 		}
 	}
 	return ""
+}
+
+func (ml *MembershipList) GetAllCoordinators() []string {
+	ml.RLock()
+	defer ml.RUnlock()
+
+	var coordinators []string
+	for _, value := range ml.items {
+		if value.IsCoordinator {
+			coordinators = append(coordinators, strings.Split(value.Id, ":")[0])
+		}
+	}
+	return coordinators
 }
