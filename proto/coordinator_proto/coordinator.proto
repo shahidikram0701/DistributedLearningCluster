@@ -1,13 +1,13 @@
 syntax = "proto3";
 
-package coordinator;
+package process;
 
-option go_package = "cs425/mp/coordinator";
+option go_package = "cs425/mp/process";
 
 // The Coordinator service
-service Coordinator {
+service CoordinatorServiceForLogs {
     rpc QueryLogs (QueryRequest) returns (QueryReply) {}
-    rpc Test_GenerateLogs (GenerateLogsRequest) returns (GenerateLogsReply) {}
+    rpc Test_Coordinator_GenerateLogs (Test_Coordinator_GenerateLogsRequest) returns (Test_Coordinator_GenerateLogsReply) {}
   }
   
   message QueryRequest {
@@ -20,9 +20,9 @@ service Coordinator {
     int64 totalMatches = 2;
   }
 
-  message GenerateLogsRequest {
+  message Test_Coordinator_GenerateLogsRequest {
   }
 
-  message GenerateLogsReply {
+  message Test_Coordinator_GenerateLogsReply {
     string status = 1;
   }

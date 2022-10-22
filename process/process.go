@@ -12,6 +12,7 @@ import (
 	"time"
 
 	ml "cs425/mp/membershiplist"
+	pb "cs425/mp/proto/coordinator_proto"
 	intro_proto "cs425/mp/proto/introducer_proto"
 	topology "cs425/mp/topology"
 
@@ -52,9 +53,9 @@ func GetAllCoordinators() []string {
 /**
 * Bootstrapping the process
  */
-func Run(port int, udpserverport int, log_process_port int, coordinator_process_port int, wg *sync.WaitGroup, introAddr string, devmode bool, outboundIp net.IP) {
+func Run(port int, udpserverport int, log_process_port int, coordinatorServiceForLogsPort int, wg *sync.WaitGroup, introAddr string, devmode bool, outboundIp net.IP) {
 	// Start the coordinator server
-	go StartCoordinatorService(coordinator_process_port, devmode, wg)
+	go StartCoordinatorService(coordinatorServiceForLogsPort, devmode, wg)
 
 	// Start the logger server
 	go StartLogServer(log_process_port, wg)
@@ -64,6 +65,48 @@ func Run(port int, udpserverport int, log_process_port int, coordinator_process_
 
 	// Start the UDP server to listen to pings and pongs
 	go StartUdpServer(GetMemberList, udpserverport, wg)
+}
+
+func SendLogQueryRequest(coordinatorServiceForLogsPort int, query string) {
+	coordinatorIp := memberList.GetCoordinatorNode()
+	if coordinatorIp == "" {
+		log.Printf("No master Node\n")
+		return
+	}
+	// start a clock to time the execution time of the querying
+	start := time.Now()
+	coordinatorIp = fmt.Sprintf("%s:%d", coordinatorIp, coordinatorServiceForLogsPort)
+	conn, err := grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("Failed to establish connection with the coordinator....Retrying")
+	}
+
+	defer conn.Close()
+
+	// Initialise a client to connect to the coordinator process
+	c := pb.NewCoordinatorServiceForLogsClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Call the RPC function on the coordinator process to process the query
+	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: query, IsTest: false})
+
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("Failed to establish connection with the coordinator....Retrying")
+	} else {
+		// mark the current time as the end time since the processing began
+		duration := time.Since(start)
+
+		// log the result and execution time
+		log.Printf("Successfully fetched logs")
+		fmt.Printf(r.GetLogs())
+		log.Printf("Total Matches: %v", r.GetTotalMatches())
+		log.Printf("\nExecution duration: %v", duration)
+
+	}
 }
 
 /**

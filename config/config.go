@@ -7,14 +7,14 @@ import (
 )
 
 type Configuration struct {
-	LoggerPort          int    `json:"LoggerPort"`
-	LogToFile           bool   `json:"LogToFile"`
-	IntroducerAddress   string `json:"IntroducerAddress"`
-	IntroducerPort      int    `json:"IntroducerPort"`
-	UdpServerPort       int    `json:"UdpServerPort"`
-	CoordinatorPort     int    `json:"CoordinatorPort"`
-	FailureDetectorPort int    `json:"FailureDetectorPort"`
-	NumOfCoordinators   int    `json:"NumOfCoordinators"`
+	LoggerPort                   int    `json:"LoggerPort"`
+	LogToFile                    bool   `json:"LogToFile"`
+	IntroducerAddress            string `json:"IntroducerAddress"`
+	IntroducerPort               int    `json:"IntroducerPort"`
+	UdpServerPort                int    `json:"UdpServerPort"`
+	CoordinatorServiceLoggerPort int    `json:"CoordinatorServiceLoggerPort"`
+	FailureDetectorPort          int    `json:"FailureDetectorPort"`
+	NumOfCoordinators            int    `json:"NumOfCoordinators"`
 }
 
 func GetConfig(configFilePath string, params ...string) Configuration {

@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.5
-// source: coordinator_proto/coordinator.proto
+// source: coordinator.proto
 
-package coordinator
+package process
 
 import (
 	context "context"
@@ -18,124 +18,125 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// CoordinatorClient is the client API for Coordinator service.
+// CoordinatorServiceForLogsClient is the client API for CoordinatorServiceForLogs service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type CoordinatorClient interface {
+type CoordinatorServiceForLogsClient interface {
 	QueryLogs(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryReply, error)
-	Test_GenerateLogs(ctx context.Context, in *GenerateLogsRequest, opts ...grpc.CallOption) (*GenerateLogsReply, error)
+	Test_Coordinator_GenerateLogs(ctx context.Context, in *Test_Coordinator_GenerateLogsRequest, opts ...grpc.CallOption) (*Test_Coordinator_GenerateLogsReply, error)
 }
 
-type coordinatorClient struct {
+type coordinatorServiceForLogsClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewCoordinatorClient(cc grpc.ClientConnInterface) CoordinatorClient {
-	return &coordinatorClient{cc}
+func NewCoordinatorServiceForLogsClient(cc grpc.ClientConnInterface) CoordinatorServiceForLogsClient {
+	return &coordinatorServiceForLogsClient{cc}
 }
 
-func (c *coordinatorClient) QueryLogs(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryReply, error) {
+func (c *coordinatorServiceForLogsClient) QueryLogs(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryReply, error) {
 	out := new(QueryReply)
-	err := c.cc.Invoke(ctx, "/coordinator.Coordinator/QueryLogs", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/process.CoordinatorServiceForLogs/QueryLogs", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *coordinatorClient) Test_GenerateLogs(ctx context.Context, in *GenerateLogsRequest, opts ...grpc.CallOption) (*GenerateLogsReply, error) {
-	out := new(GenerateLogsReply)
-	err := c.cc.Invoke(ctx, "/coordinator.Coordinator/Test_GenerateLogs", in, out, opts...)
+func (c *coordinatorServiceForLogsClient) Test_Coordinator_GenerateLogs(ctx context.Context, in *Test_Coordinator_GenerateLogsRequest, opts ...grpc.CallOption) (*Test_Coordinator_GenerateLogsReply, error) {
+	out := new(Test_Coordinator_GenerateLogsReply)
+	err := c.cc.Invoke(ctx, "/process.CoordinatorServiceForLogs/Test_Coordinator_GenerateLogs", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// CoordinatorServer is the server API for Coordinator service.
-// All implementations must embed UnimplementedCoordinatorServer
+// CoordinatorServiceForLogsServer is the server API for CoordinatorServiceForLogs service.
+// All implementations must embed UnimplementedCoordinatorServiceForLogsServer
 // for forward compatibility
-type CoordinatorServer interface {
+type CoordinatorServiceForLogsServer interface {
 	QueryLogs(context.Context, *QueryRequest) (*QueryReply, error)
-	Test_GenerateLogs(context.Context, *GenerateLogsRequest) (*GenerateLogsReply, error)
-	mustEmbedUnimplementedCoordinatorServer()
+	Test_Coordinator_GenerateLogs(context.Context, *Test_Coordinator_GenerateLogsRequest) (*Test_Coordinator_GenerateLogsReply, error)
+	mustEmbedUnimplementedCoordinatorServiceForLogsServer()
 }
 
-// UnimplementedCoordinatorServer must be embedded to have forward compatible implementations.
-type UnimplementedCoordinatorServer struct {
+// UnimplementedCoordinatorServiceForLogsServer must be embedded to have forward compatible implementations.
+type UnimplementedCoordinatorServiceForLogsServer struct {
 }
 
-func (UnimplementedCoordinatorServer) QueryLogs(context.Context, *QueryRequest) (*QueryReply, error) {
+func (UnimplementedCoordinatorServiceForLogsServer) QueryLogs(context.Context, *QueryRequest) (*QueryReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QueryLogs not implemented")
 }
-func (UnimplementedCoordinatorServer) Test_GenerateLogs(context.Context, *GenerateLogsRequest) (*GenerateLogsReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Test_GenerateLogs not implemented")
+func (UnimplementedCoordinatorServiceForLogsServer) Test_Coordinator_GenerateLogs(context.Context, *Test_Coordinator_GenerateLogsRequest) (*Test_Coordinator_GenerateLogsReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Test_Coordinator_GenerateLogs not implemented")
 }
-func (UnimplementedCoordinatorServer) mustEmbedUnimplementedCoordinatorServer() {}
+func (UnimplementedCoordinatorServiceForLogsServer) mustEmbedUnimplementedCoordinatorServiceForLogsServer() {
+}
 
-// UnsafeCoordinatorServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to CoordinatorServer will
+// UnsafeCoordinatorServiceForLogsServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CoordinatorServiceForLogsServer will
 // result in compilation errors.
-type UnsafeCoordinatorServer interface {
-	mustEmbedUnimplementedCoordinatorServer()
+type UnsafeCoordinatorServiceForLogsServer interface {
+	mustEmbedUnimplementedCoordinatorServiceForLogsServer()
 }
 
-func RegisterCoordinatorServer(s grpc.ServiceRegistrar, srv CoordinatorServer) {
-	s.RegisterService(&Coordinator_ServiceDesc, srv)
+func RegisterCoordinatorServiceForLogsServer(s grpc.ServiceRegistrar, srv CoordinatorServiceForLogsServer) {
+	s.RegisterService(&CoordinatorServiceForLogs_ServiceDesc, srv)
 }
 
-func _Coordinator_QueryLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CoordinatorServiceForLogs_QueryLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CoordinatorServer).QueryLogs(ctx, in)
+		return srv.(CoordinatorServiceForLogsServer).QueryLogs(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/coordinator.Coordinator/QueryLogs",
+		FullMethod: "/process.CoordinatorServiceForLogs/QueryLogs",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoordinatorServer).QueryLogs(ctx, req.(*QueryRequest))
+		return srv.(CoordinatorServiceForLogsServer).QueryLogs(ctx, req.(*QueryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Coordinator_Test_GenerateLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GenerateLogsRequest)
+func _CoordinatorServiceForLogs_Test_Coordinator_GenerateLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Test_Coordinator_GenerateLogsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CoordinatorServer).Test_GenerateLogs(ctx, in)
+		return srv.(CoordinatorServiceForLogsServer).Test_Coordinator_GenerateLogs(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/coordinator.Coordinator/Test_GenerateLogs",
+		FullMethod: "/process.CoordinatorServiceForLogs/Test_Coordinator_GenerateLogs",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoordinatorServer).Test_GenerateLogs(ctx, req.(*GenerateLogsRequest))
+		return srv.(CoordinatorServiceForLogsServer).Test_Coordinator_GenerateLogs(ctx, req.(*Test_Coordinator_GenerateLogsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// Coordinator_ServiceDesc is the grpc.ServiceDesc for Coordinator service.
+// CoordinatorServiceForLogs_ServiceDesc is the grpc.ServiceDesc for CoordinatorServiceForLogs service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Coordinator_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "coordinator.Coordinator",
-	HandlerType: (*CoordinatorServer)(nil),
+var CoordinatorServiceForLogs_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "process.CoordinatorServiceForLogs",
+	HandlerType: (*CoordinatorServiceForLogsServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "QueryLogs",
-			Handler:    _Coordinator_QueryLogs_Handler,
+			Handler:    _CoordinatorServiceForLogs_QueryLogs_Handler,
 		},
 		{
-			MethodName: "Test_GenerateLogs",
-			Handler:    _Coordinator_Test_GenerateLogs_Handler,
+			MethodName: "Test_Coordinator_GenerateLogs",
+			Handler:    _CoordinatorServiceForLogs_Test_Coordinator_GenerateLogs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "coordinator_proto/coordinator.proto",
+	Metadata: "coordinator.proto",
 }

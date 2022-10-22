@@ -4,7 +4,7 @@
     "IntroducerAddress" : "172.22.156.122",
     "IntroducerPort" : 50053,
     "UdpServerPort" : 20000,
-    "CoordinatorPort": 50051,
+    "CoordinatorServiceLoggerPort": 50051,
     "FailureDetectorPort" : 50054,
     "NumOfCoordinators": 2
 }
