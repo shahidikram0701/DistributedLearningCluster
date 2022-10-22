@@ -1,13 +1,15 @@
-package coordinator
+package process
 
 import (
 	"context"
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
+	"cs425/mp/config"
 	pb "cs425/mp/proto/coordinator_proto"
 	lg "cs425/mp/proto/logger_proto"
 
@@ -18,7 +20,7 @@ import (
 // list of machines acting as workers
 var serverAddresses []string
 
-type server struct {
+type CoordinatorServer struct {
 	pb.UnimplementedCoordinatorServer
 }
 
@@ -70,22 +72,29 @@ func queryServer(addr string, query string, isTest bool, responseChannel chan *l
 * @param in: the query request
  */
 
-func (s *server) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryReply, error) {
+func (s *CoordinatorServer) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryReply, error) {
 	query := in.GetQuery()
 	isTest := in.GetIsTest()
 	tag := ""
+
+	conf := config.GetConfig("../../config/config.json")
+	ml := GetMemberList()
+
 	if isTest {
 		tag = "[ TEST ]"
 	}
-	grepCommand := fmt.Sprintf("grep -HEc '%v'", query)
+	grepCommand := fmt.Sprintf("[ Coordinator ]grep -HEc '%v'", query)
 
 	log.Printf("%vExecuting: %v", tag, grepCommand)
 
 	// Establish connections with the server nodes
 	responseChannel := make(chan *lg.FindLogsReply)
+	numItems := 0
 
 	// Concurrently establishing connections to all the service processes
-	for _, addr := range serverAddresses {
+	for memberListItem := range ml.Iter() {
+		addr := (strings.Split(memberListItem.Id, ":"))[0] + fmt.Sprintf(":%d", conf.LoggerPort)
+		numItems += 1
 		go queryServer(addr, query, isTest, responseChannel)
 	}
 	logs := ""
@@ -93,7 +102,7 @@ func (s *server) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryR
 
 	// Wait for all the service process to return the responses
 	// Aggregate all the responses from service processes and redirect to the client
-	for i := 0; i < len(serverAddresses); i++ {
+	for i := 0; i < numItems; i++ {
 		logQueryResponse := <-responseChannel
 		logs += logQueryResponse.GetLogs()
 		totalMatches += int(logQueryResponse.GetNumMatches())
@@ -133,7 +142,7 @@ func generateLogsOnServer(addr string, responseChannel chan *lg.GenerateLogsRepl
 * @param ctx: context
 * @param in: the query request
  */
-func (s *server) Test_GenerateLogs(ctx context.Context, in *pb.GenerateLogsRequest) (*pb.GenerateLogsReply, error) {
+func (s *CoordinatorServer) Test_GenerateLogs(ctx context.Context, in *pb.GenerateLogsRequest) (*pb.GenerateLogsReply, error) {
 	// Establish connections with the server nodes
 	responseChannel := make(chan *lg.GenerateLogsReply)
 
@@ -158,29 +167,53 @@ func StartCoordinatorService(port int, devmode bool, wg *sync.WaitGroup) {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterCoordinatorServer(s, &server{})
-
-	if devmode {
-		// local testing
-		addServerAddress("localhost:50052")
-		addServerAddress("localhost:50053")
-	} else {
-		// adding all the node endpoints to query
-		addServerAddress("172.22.156.122:50052")
-		addServerAddress("172.22.158.122:50052")
-		addServerAddress("172.22.94.122:50052")
-		addServerAddress("172.22.156.123:50052")
-		addServerAddress("172.22.158.123:50052")
-		addServerAddress("172.22.94.123:50052")
-		addServerAddress("172.22.156.124:50052")
-		addServerAddress("172.22.158.124:50052")
-		addServerAddress("172.22.94.124:50052")
-		addServerAddress("172.22.156.125:50052")
-	}
+	pb.RegisterCoordinatorServer(s, &CoordinatorServer{})
 
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 		wg.Done()
+	}
+}
+
+func SendLogQueryRequest(coordinatorPort int, query string) {
+	coordinatorIp := memberList.GetCoordinatorNode()
+	if coordinatorIp == "" {
+		log.Printf("No master Node\n")
+		return
+	}
+	// start a clock to time the execution time of the querying
+	start := time.Now()
+	coordinatorIp = fmt.Sprintf("%s:%d", coordinatorIp, coordinatorPort)
+	conn, err := grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("Failed to establish connection with the coordinator....Retrying")
+	}
+
+	defer conn.Close()
+
+	// Initialise a client to connect to the coordinator process
+	c := pb.NewCoordinatorClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Call the RPC function on the coordinator process to process the query
+	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: query, IsTest: false})
+
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("Failed to establish connection with the coordinator....Retrying")
+	} else {
+		// mark the current time as the end time since the processing began
+		duration := time.Since(start)
+
+		// log the result and execution time
+		log.Printf("Successfully fetched logs")
+		fmt.Printf(r.GetLogs())
+		log.Printf("Total Matches: %v", r.GetTotalMatches())
+		log.Printf("\nExecution duration: %v", duration)
+
 	}
 }

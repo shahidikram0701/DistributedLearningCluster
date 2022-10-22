@@ -7,14 +7,12 @@ import (
 	"os"
 	"sync"
 
+	"cs425/mp/config"
 	intro "cs425/mp/introducer"
 )
 
 var (
-	port          = flag.Int("port", 50053, "The port where the introducer runs")
-	devmode       = flag.Bool("devmode", false, "Develop locally?")
-	udpserverport = flag.Int("udpserverport", 20000, "Port of the UDP server")
-	logtofile     = true
+	devmode = flag.Bool("devmode", false, "Develop locally?")
 )
 
 func main() {
@@ -23,9 +21,23 @@ func main() {
 	wg.Add(5)
 	flag.Parse()
 
-	if logtofile {
+	var env string
+	if *devmode {
+		env = "dev"
+	} else {
+		env = "prod"
+	}
+	configuration := config.GetConfig("../../config/config.json", env)
+
+	if configuration.LogToFile {
 		// write logs of the service process to introducer.log file
-		f, err := os.OpenFile("introducer.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if _, err := os.Stat("../../logs"); os.IsNotExist(err) {
+			err := os.Mkdir("../../logs", os.ModePerm)
+			if err != nil {
+				log.Panicf("Error creating logs folder\n")
+			}
+		}
+		f, err := os.OpenFile("../../logs/introducer.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
 			log.Printf("error opening file: %v", err)
 		}
@@ -34,7 +46,7 @@ func main() {
 	}
 
 	// Start the introducer
-	intro.Run(*devmode, *port, *udpserverport, wg)
+	intro.Run(*devmode, configuration.IntroducerPort, configuration.UdpServerPort, wg)
 
 	for {
 		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - exit (To exit)\n\n\t: ")

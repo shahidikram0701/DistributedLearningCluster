@@ -3,6 +3,7 @@ package membershiplist
 import (
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
@@ -43,13 +44,14 @@ type MembershipListItem struct {
 	State             NodeState
 	IncarnationNumber int
 	UDPPort           int
+	IsCoordinator     bool
 }
 
 /**
 * Overriding the String method for the type MembershipListItem
  */
 func (memListItem MembershipListItem) String() string {
-	return fmt.Sprintf("[%s || %v ||  %d\n]", memListItem.Id, memListItem.State, memListItem.IncarnationNumber)
+	return fmt.Sprintf("[%s || %v || %d || %v\n]", memListItem.Id, memListItem.State, memListItem.IncarnationNumber, memListItem.IsCoordinator)
 }
 
 /**
@@ -333,5 +335,29 @@ func (ml *MembershipList) UpdateStates() []MembershipListItem {
 	}
 
 	return ml.items
+}
 
+func (ml *MembershipList) GetCoordinatorNode() string {
+	ml.RLock()
+	defer ml.RUnlock()
+
+	for _, value := range ml.items {
+		if value.IsCoordinator {
+			return strings.Split(value.Id, ":")[0]
+		}
+	}
+	return ""
+}
+
+func (ml *MembershipList) GetAllCoordinators() []string {
+	ml.RLock()
+	defer ml.RUnlock()
+
+	var coordinators []string
+	for _, value := range ml.items {
+		if value.IsCoordinator {
+			coordinators = append(coordinators, strings.Split(value.Id, ":")[0])
+		}
+	}
+	return coordinators
 }
