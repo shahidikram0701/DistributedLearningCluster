@@ -45,6 +45,7 @@ type MembershipListItem struct {
 	IncarnationNumber int
 	UDPPort           int
 	IsCoordinator     bool
+	IsIntroducer      bool
 }
 
 /**
@@ -360,4 +361,19 @@ func (ml *MembershipList) GetAllCoordinators() []string {
 		}
 	}
 	return coordinators
+}
+
+func (ml *MembershipList) GetNDataNodes(startIndex int, n int) ([]string, int) {
+	ml.RLock()
+	defer ml.RUnlock()
+
+	nodes := []string{}
+	i := startIndex
+	for len(nodes) < n {
+		if !ml.items[i].IsIntroducer {
+			nodes = append(nodes, strings.Split(ml.items[i].Id, ":")[0])
+		}
+		i = (i + 1) % len(ml.items)
+	}
+	return nodes, i
 }

@@ -11,8 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"cs425/mp/config"
 	ml "cs425/mp/membershiplist"
 	pb "cs425/mp/proto/coordinator_proto"
+	cs "cs425/mp/proto/coordinator_sdfs_proto"
 	intro_proto "cs425/mp/proto/introducer_proto"
 	topology "cs425/mp/topology"
 
@@ -53,9 +55,9 @@ func GetAllCoordinators() []string {
 /**
 * Bootstrapping the process
  */
-func Run(port int, udpserverport int, log_process_port int, coordinatorServiceForLogsPort int, wg *sync.WaitGroup, introAddr string, devmode bool, outboundIp net.IP) {
+func Run(port int, udpserverport int, log_process_port int, coordinatorServiceForLogsPort int, coordinatorServiceForSDFSPort int, wg *sync.WaitGroup, introAddr string, devmode bool, outboundIp net.IP) {
 	// Start the coordinator server
-	go StartCoordinatorService(coordinatorServiceForLogsPort, devmode, wg)
+	go StartCoordinatorService(coordinatorServiceForLogsPort, coordinatorServiceForSDFSPort, devmode, wg)
 
 	// Start the logger server
 	go StartLogServer(log_process_port, wg)
@@ -233,4 +235,49 @@ func LeaveNetwork() {
 	memberList.MarkLeave(me)
 	time.Sleep(3 * time.Second)
 	os.Exit(3)
+}
+
+func PutFile(filename string) bool {
+	conf := config.GetConfig("../../config/config.json")
+	coordinatorAddr := fmt.Sprintf("%v:%v", memberList.GetCoordinatorNode(), conf.CoordinatorServiceSDFSPort)
+
+	log.Printf("Sending PutFile request to coordinator at: %v", coordinatorAddr)
+	conn, err := grpc.Dial(coordinatorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	log.Printf("PutFile %v", filename)
+
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("Failed to establish connection with the coordinator: %v", err)
+	}
+
+	defer conn.Close()
+
+	// Initialise a client to connect to the coordinator process
+	c := cs.NewCoordinatorServiceForSDFSClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Call the RPC function on the coordinator process to process the query
+	r, err := c.PutFile(ctx, &cs.CoordinatorPutFileRequest{Filename: filename})
+
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("Failed to establish connection with the coordinator")
+	} else {
+		dataNodesForCurrentPut := r.DataNodes
+		currentCommittedVersion := r.Version
+		sequenceNumberOfThisPut := r.SequenceNumber
+
+		// Stream the file to one of the data nodes (primary replica)
+		// wait for a quorum to ack and then ask the server to bump the version of the file
+
+		log.Printf("Allocated Nodes for the current PUT: %v", dataNodesForCurrentPut)
+		log.Printf("Current Committed Version of the file: %v is %v", filename, currentCommittedVersion)
+		log.Printf("Sequence number of the PUT: %v", sequenceNumberOfThisPut)
+
+		return true
+	}
+	return false
 }

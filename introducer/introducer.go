@@ -75,6 +75,7 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 		IncarnationNumber: 0,
 		UDPPort:           udpserverport,
 		IsCoordinator:     false,
+		IsIntroducer:      true,
 	})
 
 	log.Printf("Initialising Topology")
@@ -139,6 +140,7 @@ func (s *server) Introduce(ctx context.Context, in *intro.IntroduceRequest) (*in
 		IncarnationNumber: 0,
 		UDPPort:           int(udpserverport),
 		IsCoordinator:     isCoordinator,
+		IsIntroducer:      false,
 	})
 
 	// Introducer needs to send the complete membership list to the new node

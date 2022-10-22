@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package process;
+
+option go_package = "cs425/mp/process";
+
+// The Coordinator service
+service CoordinatorServiceForSDFS {
+    rpc PutFile (CoordinatorPutFileRequest) returns (CoordinatorPutFileReply) {}
+}
+
+message CoordinatorPutFileRequest {
+    string filename = 1;
+}
+
+message CoordinatorPutFileReply {
+    int64 sequenceNumber = 1;
+    int64 version = 2;
+    repeated string dataNodes = 3;
+}

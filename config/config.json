@@ -5,6 +5,8 @@
     "IntroducerPort" : 50053,
     "UdpServerPort" : 20000,
     "CoordinatorServiceLoggerPort": 50051,
-    "FailureDetectorPort" : 50054,
-    "NumOfCoordinators": 2
+    "CoordinatorServiceSDFSPort": 50055, 
+    "FailureDetectorPort": 50054,
+    "NumOfCoordinators": 2,
+    "NumOfReplicas": 2
 }

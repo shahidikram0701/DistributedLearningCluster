@@ -15,6 +15,8 @@ type Configuration struct {
 	CoordinatorServiceLoggerPort int    `json:"CoordinatorServiceLoggerPort"`
 	FailureDetectorPort          int    `json:"FailureDetectorPort"`
 	NumOfCoordinators            int    `json:"NumOfCoordinators"`
+	NumOfReplicas                int    `json:"NumOfReplicas"`
+	CoordinatorServiceSDFSPort   int    `json:"CoordinatorServiceSDFSPort"`
 }
 
 func GetConfig(configFilePath string, params ...string) Configuration {

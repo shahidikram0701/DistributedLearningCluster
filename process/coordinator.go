@@ -11,22 +11,34 @@ import (
 
 	"cs425/mp/config"
 	pb "cs425/mp/proto/coordinator_proto"
+	cs "cs425/mp/proto/coordinator_sdfs_proto"
 	lg "cs425/mp/proto/logger_proto"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var (
+type CoordinatorState struct {
+	lock                 *sync.RWMutex
 	globalSequenceNumber int
 	fileToNodeMapping    map[string][]string
-)
+	fileToVersionMapping map[string]int
+	indexIntoMemberList  int
+}
 
 // list of machines acting as workers
 var serverAddresses []string
 
+var (
+	coordinatorState *CoordinatorState
+)
+
 type CoordinatorServerForLogs struct {
 	pb.UnimplementedCoordinatorServiceForLogsServer
+}
+
+type CoordinatorServerForSDFS struct {
+	cs.UnimplementedCoordinatorServiceForSDFSServer
 }
 
 /**
@@ -166,12 +178,17 @@ func (s *CoordinatorServerForLogs) Test_GenerateLogs(ctx context.Context, in *pb
 	return &pb.Test_Coordinator_GenerateLogsReply{Status: status}, nil
 }
 
-func StartCoordinatorService(coordinatorServiceForLogsPort int, devmode bool, wg *sync.WaitGroup) {
+func StartCoordinatorService(coordinatorServiceForLogsPort int, coordinatorServiceForSDFSPort int, devmode bool, wg *sync.WaitGroup) {
 	// Initialise the state of the coordinator process
-	globalSequenceNumber = 0
-	fileToNodeMapping = make(map[string][]string)
+	coordinatorState = &CoordinatorState{
+		lock:                 &sync.RWMutex{},
+		globalSequenceNumber: 0,
+		fileToNodeMapping:    make(map[string][]string),
+		fileToVersionMapping: make(map[string]int),
+	}
 
 	go coordintorService_ProcessLogs(coordinatorServiceForLogsPort, wg)
+	go coordinatorService_SDFS(coordinatorServiceForSDFSPort, wg)
 
 }
 
@@ -182,6 +199,127 @@ func coordintorService_ProcessLogs(port int, wg *sync.WaitGroup) {
 	}
 	s := grpc.NewServer()
 	pb.RegisterCoordinatorServiceForLogsServer(s, &CoordinatorServerForLogs{})
+
+	log.Printf("server listening at %v", lis.Addr())
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+		wg.Done()
+	}
+}
+
+func (state *CoordinatorState) GetGlobalSequenceNumber() int {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	currentGlobalSequenceNumber := state.globalSequenceNumber
+	state.globalSequenceNumber++
+
+	return currentGlobalSequenceNumber
+}
+
+func (state *CoordinatorState) PeekGlobalSequenceNumber() int {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	return state.globalSequenceNumber
+}
+
+func (state *CoordinatorState) GetNodeMappingsForFile(filename string) []string {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	return state.fileToNodeMapping[filename]
+}
+
+func (state *CoordinatorState) FileExists(filename string) bool {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	_, ok := state.fileToNodeMapping[filename]
+
+	return ok
+}
+
+func (state *CoordinatorState) GenerateNodeMappingsForFile(filename string, numDataNodes int) []string {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	nodes, newIndexIntoMemberlist := memberList.GetNDataNodes(state.indexIntoMemberList, numDataNodes)
+	state.indexIntoMemberList = newIndexIntoMemberlist
+
+	state.fileToNodeMapping[filename] = nodes
+
+	log.Printf("[Coordinator]PutFile: Allocated nodes: %v", nodes)
+
+	return nodes
+}
+
+func (state *CoordinatorState) GetVersionOfFile(filename string) int {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	if version, ok := state.fileToVersionMapping[filename]; ok {
+		return version
+	}
+	return 0 // in the case it is a create operation
+}
+
+func (state *CoordinatorState) UpdateVersionOfFile(filename string) int {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	_, ok := state.fileToVersionMapping[filename]
+
+	newVersion := 1 // if need to update version after creating
+	if ok {
+		newVersion = state.fileToVersionMapping[filename] + 1
+	}
+	state.fileToVersionMapping[filename] = newVersion
+
+	return newVersion
+}
+
+func (s *CoordinatorServerForSDFS) PutFile(ctx context.Context, in *cs.CoordinatorPutFileRequest) (*cs.CoordinatorPutFileReply, error) {
+	conf := config.GetConfig("../../config/config.json")
+	filename := in.GetFilename()
+	log.Printf("[Coordinator]PutFile(%v)", filename)
+	operation := "Create"
+	if coordinatorState.FileExists(filename) {
+		operation = "Update"
+	}
+
+	log.Printf("[Coordinator]PutFile: operation: %v", operation)
+
+	// get a sequence number for the current operation and
+	// increment the global sequence number
+	sequenceNumber := coordinatorState.GetGlobalSequenceNumber()
+	log.Printf("[Coordinator]PutFile: sequence number: %v", sequenceNumber)
+
+	var nodeMappings []string
+	if operation == "Update" {
+		nodeMappings = coordinatorState.GetNodeMappingsForFile(filename)
+	} else {
+		// allocate nodes for this file and update the file mapping
+		log.Printf("[Coordinator]PutFile: generating blocks for the file")
+		nodeMappings = coordinatorState.GenerateNodeMappingsForFile(filename, conf.NumOfReplicas)
+	}
+
+	log.Printf("[ PutFile ]\n%v operation sequenced at %v on the file: %v;\nData nodes: %v;\n", operation, sequenceNumber, filename, nodeMappings)
+
+	return &cs.CoordinatorPutFileReply{
+		SequenceNumber: int64(sequenceNumber),
+		Version:        int64(coordinatorState.GetVersionOfFile(filename)),
+		DataNodes:      nodeMappings,
+	}, nil
+}
+
+func coordinatorService_SDFS(port int, wg *sync.WaitGroup) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	s := grpc.NewServer()
+	cs.RegisterCoordinatorServiceForSDFSServer(s, &CoordinatorServerForSDFS{})
 
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
