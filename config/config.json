@@ -5,8 +5,11 @@
     "IntroducerPort" : 50053,
     "UdpServerPort" : 20000,
     "CoordinatorServiceLoggerPort": 50051,
-    "CoordinatorServiceSDFSPort": 50055, 
+    "CoordinatorServiceSDFSPort": 50055,
+    "DataNodeServiceSDFSPort": 50056,
     "FailureDetectorPort": 50054,
     "NumOfCoordinators": 2,
-    "NumOfReplicas": 2
+    "NumOfReplicas": 2,
+    "ChunkSize": 2048,
+    "DataRootFolder": "../../data"
 }

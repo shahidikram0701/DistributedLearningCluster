@@ -23,6 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CoordinatorServiceForSDFSClient interface {
 	PutFile(ctx context.Context, in *CoordinatorPutFileRequest, opts ...grpc.CallOption) (*CoordinatorPutFileReply, error)
+	UpdateFileVersion(ctx context.Context, in *CoordinatorUpdateFileVersionRequest, opts ...grpc.CallOption) (*CoordinatorUpdateFileVersionReply, error)
 }
 
 type coordinatorServiceForSDFSClient struct {
@@ -42,11 +43,21 @@ func (c *coordinatorServiceForSDFSClient) PutFile(ctx context.Context, in *Coord
 	return out, nil
 }
 
+func (c *coordinatorServiceForSDFSClient) UpdateFileVersion(ctx context.Context, in *CoordinatorUpdateFileVersionRequest, opts ...grpc.CallOption) (*CoordinatorUpdateFileVersionReply, error) {
+	out := new(CoordinatorUpdateFileVersionReply)
+	err := c.cc.Invoke(ctx, "/process.CoordinatorServiceForSDFS/UpdateFileVersion", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CoordinatorServiceForSDFSServer is the server API for CoordinatorServiceForSDFS service.
 // All implementations must embed UnimplementedCoordinatorServiceForSDFSServer
 // for forward compatibility
 type CoordinatorServiceForSDFSServer interface {
 	PutFile(context.Context, *CoordinatorPutFileRequest) (*CoordinatorPutFileReply, error)
+	UpdateFileVersion(context.Context, *CoordinatorUpdateFileVersionRequest) (*CoordinatorUpdateFileVersionReply, error)
 	mustEmbedUnimplementedCoordinatorServiceForSDFSServer()
 }
 
@@ -56,6 +67,9 @@ type UnimplementedCoordinatorServiceForSDFSServer struct {
 
 func (UnimplementedCoordinatorServiceForSDFSServer) PutFile(context.Context, *CoordinatorPutFileRequest) (*CoordinatorPutFileReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PutFile not implemented")
+}
+func (UnimplementedCoordinatorServiceForSDFSServer) UpdateFileVersion(context.Context, *CoordinatorUpdateFileVersionRequest) (*CoordinatorUpdateFileVersionReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateFileVersion not implemented")
 }
 func (UnimplementedCoordinatorServiceForSDFSServer) mustEmbedUnimplementedCoordinatorServiceForSDFSServer() {
 }
@@ -89,6 +103,24 @@ func _CoordinatorServiceForSDFS_PutFile_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CoordinatorServiceForSDFS_UpdateFileVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CoordinatorUpdateFileVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoordinatorServiceForSDFSServer).UpdateFileVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.CoordinatorServiceForSDFS/UpdateFileVersion",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoordinatorServiceForSDFSServer).UpdateFileVersion(ctx, req.(*CoordinatorUpdateFileVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CoordinatorServiceForSDFS_ServiceDesc is the grpc.ServiceDesc for CoordinatorServiceForSDFS service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -99,6 +131,10 @@ var CoordinatorServiceForSDFS_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PutFile",
 			Handler:    _CoordinatorServiceForSDFS_PutFile_Handler,
+		},
+		{
+			MethodName: "UpdateFileVersion",
+			Handler:    _CoordinatorServiceForSDFS_UpdateFileVersion_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -189,7 +189,6 @@ func StartCoordinatorService(coordinatorServiceForLogsPort int, coordinatorServi
 
 	go coordintorService_ProcessLogs(coordinatorServiceForLogsPort, wg)
 	go coordinatorService_SDFS(coordinatorServiceForSDFSPort, wg)
-
 }
 
 func coordintorService_ProcessLogs(port int, wg *sync.WaitGroup) {
@@ -310,6 +309,17 @@ func (s *CoordinatorServerForSDFS) PutFile(ctx context.Context, in *cs.Coordinat
 		SequenceNumber: int64(sequenceNumber),
 		Version:        int64(coordinatorState.GetVersionOfFile(filename)),
 		DataNodes:      nodeMappings,
+	}, nil
+}
+
+func (s *CoordinatorServerForSDFS) UpdateFileVersion(ctx context.Context, in *cs.CoordinatorUpdateFileVersionRequest) (*cs.CoordinatorUpdateFileVersionReply, error) {
+	filename := in.Filename
+	log.Printf("[ Coordinator ][ PutFile ]Updating the version number of the file: %v", filename)
+
+	coordinatorState.UpdateVersionOfFile(filename)
+
+	return &cs.CoordinatorUpdateFileVersionReply{
+		Status: true,
 	}, nil
 }
 

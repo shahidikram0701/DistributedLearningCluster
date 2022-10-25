@@ -17,6 +17,9 @@ type Configuration struct {
 	NumOfCoordinators            int    `json:"NumOfCoordinators"`
 	NumOfReplicas                int    `json:"NumOfReplicas"`
 	CoordinatorServiceSDFSPort   int    `json:"CoordinatorServiceSDFSPort"`
+	ChunkSize                    int    `json:"ChunkSize"`
+	DataRootFolder               string `json:"DataRootFolder"`
+	DataNodeServiceSDFSPort      int    `json:"DataNodeServiceSDFSPort"`
 }
 
 func GetConfig(configFilePath string, params ...string) Configuration {

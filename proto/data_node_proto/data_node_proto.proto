@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package process;
+option go_package = "cs425/mp/process";
+
+service DataNodeService {
+    rpc DataNode_PutFile(stream Chunk) returns (DataNode_PutFile_Response) {}
+    rpc DataNode_CommitFile(DataNode_CommitFileRequest) returns (DataNode_CommitFileResponse) {}
+}
+
+message Chunk {
+    int64 chunkId = 1;
+    string filename = 2;
+    int64 version = 3;
+    int64 filesize = 4;
+    bytes chunk = 5;
+    int64 sequenceNumber = 6;
+    repeated string replicaNodes = 7;
+}
+
+message DataNode_PutFile_Response {
+    bool status = 1;
+}
+
+message DataNode_CommitFileRequest {
+    string filename = 1;
+    int64 sequenceNumber = 2;
+}
+
+message DataNode_CommitFileResponse {
+    bool status = 1;
+    int64 version = 2;
+}
