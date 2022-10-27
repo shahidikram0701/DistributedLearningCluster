@@ -20,6 +20,8 @@ type Configuration struct {
 	ChunkSize                    int    `json:"ChunkSize"`
 	DataRootFolder               string `json:"DataRootFolder"`
 	DataNodeServiceSDFSPort      int    `json:"DataNodeServiceSDFSPort"`
+	WriteQuorum                  int    `json:"WriteQuorum"`
+	ReadQuorum                   int    `json:"ReadQuorum"`
 }
 
 func GetConfig(configFilePath string, params ...string) Configuration {

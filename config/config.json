@@ -9,7 +9,9 @@
     "DataNodeServiceSDFSPort": 50056,
     "FailureDetectorPort": 50054,
     "NumOfCoordinators": 2,
-    "NumOfReplicas": 2,
-    "ChunkSize": 2048,
-    "DataRootFolder": "../../data"
+    "NumOfReplicas": 3,
+    "ChunkSize": 1000000,
+    "DataRootFolder": "../../data",
+    "WriteQuorum": 3,
+    "ReadQuorum": 2
 }

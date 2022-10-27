@@ -16,6 +16,7 @@ message Chunk {
     bytes chunk = 5;
     int64 sequenceNumber = 6;
     repeated string replicaNodes = 7;
+    bool isReplicaChunk = 8;
 }
 
 message DataNode_PutFile_Response {

@@ -246,7 +246,7 @@ func getClientForCoordinatorService() (cs.CoordinatorServiceForSDFSClient, conte
 	conf := config.GetConfig("../../config/config.json")
 	coordinatorAddr := fmt.Sprintf("%v:%v", memberList.GetCoordinatorNode(), conf.CoordinatorServiceSDFSPort)
 
-	log.Printf("[ Client ]Coordinator is at: %v", coordinatorAddr)
+	log.Printf("Getting the grpc cliend for the Coordinator at: %v", coordinatorAddr)
 	conn, err := grpc.Dial(coordinatorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	if err != nil {
@@ -311,7 +311,7 @@ func PutFile(filename string) bool {
 func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumberOfThisPut int64, dataNodesForCurrentPut []string) (bool, error) {
 	conf := config.GetConfig("../../config/config.json")
 
-	client, ctx, conn, cancel := getClientToPrimaryReplicaServer(dataNodesForCurrentPut[0]) // currently always picking the first allocated node as the primary replica
+	client, ctx, conn, cancel := getClientToReplicaServer(dataNodesForCurrentPut[0]) // currently always picking the first allocated node as the primary replica
 	defer conn.Close()
 	defer cancel()
 
@@ -327,7 +327,8 @@ func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumb
 	file, err := os.Open(filePath)
 
 	if err != nil {
-		log.Fatalf("cannot open File: %v - %v", filePath, err)
+		fmt.Printf("File %v doesn't exist :(", filePath)
+		log.Printf("cannot open File: %v - %v", filePath, err)
 	}
 	defer file.Close()
 
@@ -351,6 +352,7 @@ func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumb
 			Chunk:          buffer[:n],
 			SequenceNumber: sequenceNumberOfThisPut,
 			ReplicaNodes:   dataNodesForCurrentPut[1:],
+			IsReplicaChunk: false,
 		}
 		log.Printf("[ Client ][ PutFile ]Sending chunk %v of file: %v", chunkId, filename)
 		e := stream.Send(req)
@@ -364,7 +366,7 @@ func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumb
 
 	if res.Status {
 		log.Printf("[ Client ][ PutFile ]Sending commit message for File %v and Informing master of Version Bump", filename)
-		sendCommitAndInformMasterOfUpdatedVersion(filename, currentCommittedVersion, sequenceNumberOfThisPut, dataNodesForCurrentPut[0]) // Currently Primary Replica is first of the allocated nodes
+		sendCommitAndInformMasterOfUpdatedVersion(filename, currentCommittedVersion, sequenceNumberOfThisPut, dataNodesForCurrentPut) // Currently Primary Replica is first of the allocated nodes
 	} else {
 		log.Fatalf("[ Client ][ PutFile ]Saving the file in SDFS failed")
 	}
@@ -372,14 +374,15 @@ func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumb
 	return res.Status, err
 }
 
-func getClientToPrimaryReplicaServer(primaryReplicaIp string) (dn.DataNodeServiceClient, context.Context, *grpc.ClientConn, context.CancelFunc) {
+func getClientToReplicaServer(replicaIp string) (dn.DataNodeServiceClient, context.Context, *grpc.ClientConn, context.CancelFunc) {
 	conf := config.GetConfig("../../config/config.json")
 
 	dataNodePort := conf.DataNodeServiceSDFSPort
-	// primaryReplicaIp := dataNodesForCurrentPut[0] // currently always picking the first allocated node as the primary replica
-	primaryReplica := fmt.Sprintf("%v:%v", primaryReplicaIp, dataNodePort)
-	log.Printf("[ Client ]Primary Replica: %v", primaryReplica)
-	conn, err := grpc.Dial(primaryReplica, grpc.WithInsecure())
+	replica := fmt.Sprintf("%v:%v", replicaIp, dataNodePort)
+
+	log.Printf("Getting the grpc client for the Replica: %v", replica)
+
+	conn, err := grpc.Dial(replica, grpc.WithInsecure())
 	if err != nil {
 		// If the connection fails to the picked coordinator node, retry connection to another node
 		log.Printf("Failed to establish connection with the coordinator....Retrying")
@@ -387,7 +390,7 @@ func getClientToPrimaryReplicaServer(primaryReplicaIp string) (dn.DataNodeServic
 
 	// defer conn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	// defer cancel()
 
 	// Initialise a client to connect to the coordinator process
@@ -396,9 +399,37 @@ func getClientToPrimaryReplicaServer(primaryReplicaIp string) (dn.DataNodeServic
 	return client, ctx, conn, cancel
 }
 
-func sendCommitAndInformMasterOfUpdatedVersion(filename string, currentCommittedVersion int64, sequenceNumberOfThisPut int64, primaryReplicaIp string) {
+func sendCommitAndInformMasterOfUpdatedVersion(filename string, currentCommittedVersion int64, sequenceNumberOfThisPut int64, replicaIps []string) {
 	// send commit to the data nodes
-	client, ctx, conn, cancel := getClientToPrimaryReplicaServer(primaryReplicaIp) // currently always picking the first allocated node as the primary replica
+	for _, replicaIp := range replicaIps {
+		log.Printf("[ Client ][ PutFile ] Send commit message to replica: %v", replicaIp)
+		go sendCommitMessageToReplica(replicaIp, filename, sequenceNumberOfThisPut)
+	}
+
+	// Tell the master to bump version
+	client, ctx, conn, cancel := getClientForCoordinatorService()
+
+	defer conn.Close()
+	defer cancel()
+
+	// Call the RPC function on the coordinator process to process the query
+	r, err := client.UpdateFileVersion(ctx, &cs.CoordinatorUpdateFileVersionRequest{
+		Filename:       filename,
+		SequenceNumber: sequenceNumberOfThisPut,
+		Version:        currentCommittedVersion,
+	})
+
+	if err != nil {
+		log.Fatalf("Failed to establish connection with the coordinator")
+	} else {
+		if r.Status {
+			log.Printf("[ Client ]Successfully bumped the current committed version of the file on the coordinator")
+		}
+	}
+}
+
+func sendCommitMessageToReplica(replicaIp string, filename string, sequenceNumberOfThisPut int64) {
+	client, ctx, conn, cancel := getClientToReplicaServer(replicaIp)
 
 	defer conn.Close()
 	defer cancel()
@@ -414,28 +445,7 @@ func sendCommitAndInformMasterOfUpdatedVersion(filename string, currentCommitted
 		if status == false {
 			log.Fatalf("[ Client ][ PutFile ]Commit Failed after getting response")
 		} else {
-			// Tell the master about updated version
 			log.Printf("[ Client ][ PutFile ]New version after PutFile(%v) committed: %v", filename, newVersion)
-
-			client, ctx, conn, cancel := getClientForCoordinatorService()
-
-			defer conn.Close()
-			defer cancel()
-
-			// Call the RPC function on the coordinator process to process the query
-			r, err := client.UpdateFileVersion(ctx, &cs.CoordinatorUpdateFileVersionRequest{
-				Filename:       filename,
-				SequenceNumber: sequenceNumberOfThisPut,
-				Version:        currentCommittedVersion,
-			})
-
-			if err != nil {
-				log.Fatalf("Failed to establish connection with the coordinator")
-			} else {
-				if r.Status {
-					log.Printf("[ Client ]Successfully bumped the current committed version of the file on the coordinator")
-				}
-			}
 		}
 	}
 }
