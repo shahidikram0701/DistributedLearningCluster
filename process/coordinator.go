@@ -234,7 +234,7 @@ func (state *CoordinatorState) FileExists(filename string) bool {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	_, ok := state.fileToNodeMapping[filename]
+	_, ok := state.fileToVersionMapping[filename]
 
 	return ok
 }

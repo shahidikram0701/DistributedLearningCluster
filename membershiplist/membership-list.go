@@ -368,9 +368,9 @@ func (ml *MembershipList) GetNDataNodes(startIndex int, n int) ([]string, int) {
 	defer ml.RUnlock()
 
 	nodes := []string{}
-	i := startIndex
+	i := startIndex % len(ml.items)
 	for len(nodes) < n {
-		if !ml.items[i].IsIntroducer {
+		if !ml.items[i].IsIntroducer && ml.items[i].State.Status == Alive {
 			nodes = append(nodes, strings.Split(ml.items[i].Id, ":")[0])
 		}
 		i = (i + 1) % len(ml.items)

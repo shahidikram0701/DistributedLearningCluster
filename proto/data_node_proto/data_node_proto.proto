@@ -6,6 +6,7 @@ option go_package = "cs425/mp/process";
 service DataNodeService {
     rpc DataNode_PutFile(stream Chunk) returns (DataNode_PutFile_Response) {}
     rpc DataNode_CommitFile(DataNode_CommitFileRequest) returns (DataNode_CommitFileResponse) {}
+    rpc DataNode_UpdateSequenceNumber(DataNode_UpdateSequenceNumberRequest) returns (DataNode_UpdateSequenceNumberResponse) {}
 }
 
 message Chunk {
@@ -26,9 +27,17 @@ message DataNode_PutFile_Response {
 message DataNode_CommitFileRequest {
     string filename = 1;
     int64 sequenceNumber = 2;
+    bool isReplica = 3;
 }
 
 message DataNode_CommitFileResponse {
     bool status = 1;
     int64 version = 2;
 }
+
+message DataNode_UpdateSequenceNumberRequest {
+    string filename = 1;
+    int64 sequenceNumber = 2;
+}
+
+message DataNode_UpdateSequenceNumberResponse {}

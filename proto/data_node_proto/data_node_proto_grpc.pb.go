@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type DataNodeServiceClient interface {
 	DataNode_PutFile(ctx context.Context, opts ...grpc.CallOption) (DataNodeService_DataNode_PutFileClient, error)
 	DataNode_CommitFile(ctx context.Context, in *DataNode_CommitFileRequest, opts ...grpc.CallOption) (*DataNode_CommitFileResponse, error)
+	DataNode_UpdateSequenceNumber(ctx context.Context, in *DataNode_UpdateSequenceNumberRequest, opts ...grpc.CallOption) (*DataNode_UpdateSequenceNumberResponse, error)
 }
 
 type dataNodeServiceClient struct {
@@ -77,12 +78,22 @@ func (c *dataNodeServiceClient) DataNode_CommitFile(ctx context.Context, in *Dat
 	return out, nil
 }
 
+func (c *dataNodeServiceClient) DataNode_UpdateSequenceNumber(ctx context.Context, in *DataNode_UpdateSequenceNumberRequest, opts ...grpc.CallOption) (*DataNode_UpdateSequenceNumberResponse, error) {
+	out := new(DataNode_UpdateSequenceNumberResponse)
+	err := c.cc.Invoke(ctx, "/process.DataNodeService/DataNode_UpdateSequenceNumber", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DataNodeServiceServer is the server API for DataNodeService service.
 // All implementations must embed UnimplementedDataNodeServiceServer
 // for forward compatibility
 type DataNodeServiceServer interface {
 	DataNode_PutFile(DataNodeService_DataNode_PutFileServer) error
 	DataNode_CommitFile(context.Context, *DataNode_CommitFileRequest) (*DataNode_CommitFileResponse, error)
+	DataNode_UpdateSequenceNumber(context.Context, *DataNode_UpdateSequenceNumberRequest) (*DataNode_UpdateSequenceNumberResponse, error)
 	mustEmbedUnimplementedDataNodeServiceServer()
 }
 
@@ -95,6 +106,9 @@ func (UnimplementedDataNodeServiceServer) DataNode_PutFile(DataNodeService_DataN
 }
 func (UnimplementedDataNodeServiceServer) DataNode_CommitFile(context.Context, *DataNode_CommitFileRequest) (*DataNode_CommitFileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DataNode_CommitFile not implemented")
+}
+func (UnimplementedDataNodeServiceServer) DataNode_UpdateSequenceNumber(context.Context, *DataNode_UpdateSequenceNumberRequest) (*DataNode_UpdateSequenceNumberResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DataNode_UpdateSequenceNumber not implemented")
 }
 func (UnimplementedDataNodeServiceServer) mustEmbedUnimplementedDataNodeServiceServer() {}
 
@@ -153,6 +167,24 @@ func _DataNodeService_DataNode_CommitFile_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DataNodeService_DataNode_UpdateSequenceNumber_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DataNode_UpdateSequenceNumberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataNodeServiceServer).DataNode_UpdateSequenceNumber(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.DataNodeService/DataNode_UpdateSequenceNumber",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataNodeServiceServer).DataNode_UpdateSequenceNumber(ctx, req.(*DataNode_UpdateSequenceNumberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DataNodeService_ServiceDesc is the grpc.ServiceDesc for DataNodeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -163,6 +195,10 @@ var DataNodeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DataNode_CommitFile",
 			Handler:    _DataNodeService_DataNode_CommitFile_Handler,
+		},
+		{
+			MethodName: "DataNode_UpdateSequenceNumber",
+			Handler:    _DataNodeService_DataNode_UpdateSequenceNumber_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

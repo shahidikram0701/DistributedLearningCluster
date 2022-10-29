@@ -22,6 +22,7 @@ type Configuration struct {
 	DataNodeServiceSDFSPort      int    `json:"DataNodeServiceSDFSPort"`
 	WriteQuorum                  int    `json:"WriteQuorum"`
 	ReadQuorum                   int    `json:"ReadQuorum"`
+	NumRetriesPerOperation       int    `json:"NumRetriesPerOperation"`
 }
 
 func GetConfig(configFilePath string, params ...string) Configuration {

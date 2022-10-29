@@ -13,5 +13,6 @@
     "ChunkSize": 1000000,
     "DataRootFolder": "../../data",
     "WriteQuorum": 3,
-    "ReadQuorum": 2
+    "ReadQuorum": 2,
+    "NumRetriesPerOperation": 3
 }
