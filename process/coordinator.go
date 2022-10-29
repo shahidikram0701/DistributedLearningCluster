@@ -20,7 +20,7 @@ import (
 
 type CoordinatorState struct {
 	lock                 *sync.RWMutex
-	globalSequenceNumber int
+	globalSequenceNumber map[string]int
 	fileToNodeMapping    map[string][]string
 	fileToVersionMapping map[string]int
 	indexIntoMemberList  int
@@ -182,7 +182,7 @@ func StartCoordinatorService(coordinatorServiceForLogsPort int, coordinatorServi
 	// Initialise the state of the coordinator process
 	coordinatorState = &CoordinatorState{
 		lock:                 &sync.RWMutex{},
-		globalSequenceNumber: 0,
+		globalSequenceNumber: make(map[string]int),
 		fileToNodeMapping:    make(map[string][]string),
 		fileToVersionMapping: make(map[string]int),
 	}
@@ -206,21 +206,32 @@ func coordintorService_ProcessLogs(port int, wg *sync.WaitGroup) {
 	}
 }
 
-func (state *CoordinatorState) GetGlobalSequenceNumber() int {
+func (state *CoordinatorState) GetGlobalSequenceNumber(filename string) int {
 	state.lock.Lock()
 	defer state.lock.Unlock()
 
-	currentGlobalSequenceNumber := state.globalSequenceNumber
-	state.globalSequenceNumber++
+	_, ok := state.globalSequenceNumber[filename]
+
+	if !ok {
+		state.globalSequenceNumber[filename] = 0
+	}
+
+	currentGlobalSequenceNumber := state.globalSequenceNumber[filename]
+	state.globalSequenceNumber[filename]++
 
 	return currentGlobalSequenceNumber
 }
 
-func (state *CoordinatorState) PeekGlobalSequenceNumber() int {
+func (state *CoordinatorState) PeekGlobalSequenceNumber(filename string) int {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	return state.globalSequenceNumber
+	sequenceNum, ok := state.globalSequenceNumber[filename]
+
+	if ok {
+		return sequenceNum
+	}
+	return -1
 }
 
 func (state *CoordinatorState) GetNodeMappingsForFile(filename string) []string {
@@ -281,29 +292,29 @@ func (state *CoordinatorState) UpdateVersionOfFile(filename string) int {
 func (s *CoordinatorServerForSDFS) PutFile(ctx context.Context, in *cs.CoordinatorPutFileRequest) (*cs.CoordinatorPutFileReply, error) {
 	conf := config.GetConfig("../../config/config.json")
 	filename := in.GetFilename()
-	log.Printf("[Coordinator]PutFile(%v)", filename)
+	log.Printf("[ Coordinator ][ PutFile ]PutFile(%v)", filename)
 	operation := "Create"
 	if coordinatorState.FileExists(filename) {
 		operation = "Update"
 	}
 
-	log.Printf("[Coordinator]PutFile: operation: %v", operation)
+	log.Printf("[ Coordinator ][ PutFile ] operation: %v", operation)
 
 	// get a sequence number for the current operation and
 	// increment the global sequence number
-	sequenceNumber := coordinatorState.GetGlobalSequenceNumber()
-	log.Printf("[Coordinator]PutFile: sequence number: %v", sequenceNumber)
+	sequenceNumber := coordinatorState.GetGlobalSequenceNumber(filename)
+	log.Printf("[ Coordinator ][ PutFile ]Sequence number for File: %v is %v", filename, sequenceNumber)
 
 	var nodeMappings []string
 	if operation == "Update" {
 		nodeMappings = coordinatorState.GetNodeMappingsForFile(filename)
 	} else {
 		// allocate nodes for this file and update the file mapping
-		log.Printf("[Coordinator]PutFile: generating blocks for the file")
+		log.Printf("[ Coordinator ][ PutFile ]Generating blocks for the file")
 		nodeMappings = coordinatorState.GenerateNodeMappingsForFile(filename, conf.NumOfReplicas)
 	}
 
-	log.Printf("[ PutFile ]\n%v operation sequenced at %v on the file: %v;\nData nodes: %v;\n", operation, sequenceNumber, filename, nodeMappings)
+	log.Printf("[ Coordinator ][ PutFile ]%v operation sequenced at %v on the file: %v; Data nodes: %v;\n", operation, sequenceNumber, filename, nodeMappings)
 
 	return &cs.CoordinatorPutFileReply{
 		SequenceNumber: int64(sequenceNumber),

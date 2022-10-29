@@ -447,11 +447,6 @@ func sendCommitMessageToReplica(replicaIp string, filename string, sequenceNumbe
 	defer conn.Close()
 	defer cancel()
 
-	if filename == "bigfile25" {
-		fmt.Printf("Killing process")
-		log.Fatalf("Deliberately killing process")
-	}
-
 	r, err := client.DataNode_CommitFile(ctx, &dn.DataNode_CommitFileRequest{Filename: filename, SequenceNumber: sequenceNumberOfThisPut, IsReplica: isReplica})
 
 	if err != nil {

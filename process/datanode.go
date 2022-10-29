@@ -19,7 +19,7 @@ import (
 type DataNodeState struct {
 	sync.RWMutex
 	fileVersionMapping map[string]int
-	sequenceNumber     int
+	sequenceNumber     map[string]int
 
 	forceUpdateSequenceNumTimer *time.Timer
 
@@ -61,20 +61,33 @@ func (state *DataNodeState) dataNode_IncrementVersionOfFile(filename string) int
 	return state.fileVersionMapping[filename]
 }
 
-func (state *DataNodeState) dataNode_IncrementSequenceNumber() int {
+func (state *DataNodeState) dataNode_IncrementSequenceNumber(filename string) int {
 	state.Lock()
 	defer state.Unlock()
 
-	state.sequenceNumber++
+	_, ok := state.sequenceNumber[filename]
 
-	return state.sequenceNumber
+	if !ok {
+		state.sequenceNumber[filename] = 0
+	}
+
+	state.sequenceNumber[filename]++
+
+	return state.sequenceNumber[filename]
 }
 
-func (state *DataNodeState) dataNode_GetSequenceNumber() int {
+func (state *DataNodeState) dataNode_GetSequenceNumber(filename string) int {
 	state.RLock()
 	defer state.RUnlock()
 
-	return state.sequenceNumber
+	seqNum, ok := state.sequenceNumber[filename]
+
+	if !ok {
+		seqNum = 0
+		state.sequenceNumber[filename] = 0
+	}
+
+	return seqNum
 }
 
 func (state *DataNodeState) dataNode_AddToPreCommitBuffer(filename string, data []byte) {
@@ -132,7 +145,7 @@ func (state *DataNodeState) dataNode_CommitFileChange(filename string) (bool, in
 		log.Fatalf("File writing failed: %v", err)
 	}
 
-	dataNodeState.sequenceNumber++
+	dataNodeState.sequenceNumber[filename]++
 
 	return true, newVersion
 }
@@ -218,7 +231,7 @@ func (s *DataNodeServer) DataNode_UpdateSequenceNumber(ctx context.Context, in *
 	newSequenceNumber := in.GetSequenceNumber()
 	log.Printf("[ DataNode ][ PutFile ]File changes for file: %v can't be committed and so let us update the sequence number so that other operations can proceed", filename)
 
-	newLocalSequenceNumber := dataNodeState.dataNode_IncrementSequenceNumber()
+	newLocalSequenceNumber := dataNodeState.dataNode_IncrementSequenceNumber(filename)
 
 	if newLocalSequenceNumber == int(newSequenceNumber) {
 		log.Printf("[ DataNode ][ PutFile ]Replica and Primary are in sync. Sequence numbers match: %v", newSequenceNumber)
@@ -231,7 +244,7 @@ func (s *DataNodeServer) DataNode_UpdateSequenceNumber(ctx context.Context, in *
 
 func dataNode_ProcessFile(filename string, fileData bytes.Buffer, stream dn.DataNodeService_DataNode_PutFileServer, operationSequenceNumber int, replicaNodes []string, isReplica bool, allChunks []*dn.Chunk) error {
 	// wait until sequence number
-	for dataNodeState.dataNode_GetSequenceNumber() != operationSequenceNumber {
+	for dataNodeState.dataNode_GetSequenceNumber(filename) != operationSequenceNumber {
 	}
 
 	log.Printf("[ DataNode ][ PutFile ]Finally performing PutFile(%v)", filename)
@@ -285,7 +298,7 @@ func dataNode_Replicate(filename string, allChunks []*dn.Chunk, replicaNodes []s
 	} else {
 		// quorum wasnt reached so client isnt gonna do a commit
 		// increase sequence numbers and tell the other for this file to increase sequence number as well
-		seqNum := dataNodeState.dataNode_IncrementSequenceNumber()
+		seqNum := dataNodeState.dataNode_IncrementSequenceNumber(filename)
 		for _, replicaNode := range replicaNodes {
 			go dataNode_UpdateSequenceNumberOnReplica(replicaNode, filename, seqNum)
 		}
@@ -300,8 +313,8 @@ func dataNode_HandleNoCommits(replicaNodes []string, filename string) {
 	dataNodeState.forceUpdateSequenceNumTimer = time.NewTimer(time.Duration(COMMIT_TIMEOUT) * time.Second)
 
 	<-dataNodeState.forceUpdateSequenceNumTimer.C
-	log.Printf("[ Primary Replica ][ PutFile ]Did not recieve a commit for the file %v in %v seconds and hence updating the sequence number which is currently %v", filename, COMMIT_TIMEOUT, dataNodeState.dataNode_GetSequenceNumber())
-	seqNum := dataNodeState.dataNode_IncrementSequenceNumber()
+	log.Printf("[ Primary Replica ][ PutFile ]Did not recieve a commit for the file %v in %v seconds and hence updating the sequence number which is currently %v", filename, COMMIT_TIMEOUT, dataNodeState.dataNode_GetSequenceNumber(filename))
+	seqNum := dataNodeState.dataNode_IncrementSequenceNumber(filename)
 	for _, replicaNode := range replicaNodes {
 		go dataNode_UpdateSequenceNumberOnReplica(replicaNode, filename, seqNum)
 	}
@@ -353,11 +366,11 @@ func dataNode_SendFileToReplica(replica string, filename string, allChunks []*dn
 }
 
 func dataNodeService_CommitFileChanges(filename string, sequenceNumberForOperation int) (bool, int) {
-	if dataNodeState.dataNode_GetSequenceNumber() > sequenceNumberForOperation {
-		log.Fatalf("Sequence number has gone ahead at the server!! (DataNodeSequence Number: %v, SequenceForOperation: %v)", dataNodeState.dataNode_GetSequenceNumber(), sequenceNumberForOperation)
+	if dataNodeState.dataNode_GetSequenceNumber(filename) > sequenceNumberForOperation {
+		log.Fatalf("Sequence number has gone ahead at the server!! (DataNodeSequence Number: %v, SequenceForOperation: %v)", dataNodeState.dataNode_GetSequenceNumber(filename), sequenceNumberForOperation)
 	}
 	// wait until sequence number
-	for dataNodeState.dataNode_GetSequenceNumber() != sequenceNumberForOperation {
+	for dataNodeState.dataNode_GetSequenceNumber(filename) != sequenceNumberForOperation {
 	}
 	return dataNodeState.dataNode_CommitFileChange(filename)
 }
@@ -366,7 +379,7 @@ func StartDataNodeService_SDFS(port int, wg *sync.WaitGroup) {
 	// Initialise the state of the data node
 	dataNodeState = &DataNodeState{
 		fileVersionMapping:          make(map[string]int),
-		sequenceNumber:              0,
+		sequenceNumber:              make(map[string]int),
 		preCommitBuffer:             make(map[string][]byte),
 		forceUpdateSequenceNumTimer: nil,
 	}
