@@ -1,9 +1,12 @@
 package process
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net"
@@ -11,7 +14,11 @@ import (
 	"sync"
 	"time"
 
+	"cs425/mp/config"
 	ml "cs425/mp/membershiplist"
+	pb "cs425/mp/proto/coordinator_proto"
+	cs "cs425/mp/proto/coordinator_sdfs_proto"
+	dn "cs425/mp/proto/data_node_proto"
 	intro_proto "cs425/mp/proto/introducer_proto"
 	topology "cs425/mp/topology"
 
@@ -52,9 +59,11 @@ func GetAllCoordinators() []string {
 /**
 * Bootstrapping the process
  */
-func Run(port int, udpserverport int, log_process_port int, coordinator_process_port int, wg *sync.WaitGroup, introAddr string, devmode bool, outboundIp net.IP) {
+func Run(port int, udpserverport int, log_process_port int, coordinatorServiceForLogsPort int, coordinatorServiceForSDFSPort int, datanodeServiceForSDFSPort int, wg *sync.WaitGroup, introAddr string, devmode bool, outboundIp net.IP) {
 	// Start the coordinator server
-	go StartCoordinatorService(coordinator_process_port, devmode, wg)
+	go StartCoordinatorService(coordinatorServiceForLogsPort, coordinatorServiceForSDFSPort, devmode, wg)
+
+	go StartDataNodeService_SDFS(datanodeServiceForSDFSPort, wg)
 
 	// Start the logger server
 	go StartLogServer(log_process_port, wg)
@@ -64,6 +73,48 @@ func Run(port int, udpserverport int, log_process_port int, coordinator_process_
 
 	// Start the UDP server to listen to pings and pongs
 	go StartUdpServer(GetMemberList, udpserverport, wg)
+}
+
+func SendLogQueryRequest(coordinatorServiceForLogsPort int, query string) {
+	coordinatorIp := memberList.GetCoordinatorNode()
+	if coordinatorIp == "" {
+		log.Printf("No master Node\n")
+		return
+	}
+	// start a clock to time the execution time of the querying
+	start := time.Now()
+	coordinatorIp = fmt.Sprintf("%s:%d", coordinatorIp, coordinatorServiceForLogsPort)
+	conn, err := grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("Failed to establish connection with the coordinator....Retrying")
+	}
+
+	defer conn.Close()
+
+	// Initialise a client to connect to the coordinator process
+	c := pb.NewCoordinatorServiceForLogsClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Call the RPC function on the coordinator process to process the query
+	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: query, IsTest: false})
+
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("Failed to establish connection with the coordinator....Retrying")
+	} else {
+		// mark the current time as the end time since the processing began
+		duration := time.Since(start)
+
+		// log the result and execution time
+		log.Printf("Successfully fetched logs")
+		fmt.Printf(r.GetLogs())
+		log.Printf("Total Matches: %v", r.GetTotalMatches())
+		log.Printf("\nExecution duration: %v", duration)
+
+	}
 }
 
 /**
@@ -190,4 +241,331 @@ func LeaveNetwork() {
 	memberList.MarkLeave(me)
 	time.Sleep(3 * time.Second)
 	os.Exit(3)
+}
+
+func getClientForCoordinatorService() (cs.CoordinatorServiceForSDFSClient, context.Context, *grpc.ClientConn, context.CancelFunc) {
+	conf := config.GetConfig("../../config/config.json")
+	coordinatorAddr := fmt.Sprintf("%v:%v", memberList.GetCoordinatorNode(), conf.CoordinatorServiceSDFSPort)
+
+	log.Printf("Getting the grpc cliend for the Coordinator at: %v", coordinatorAddr)
+	conn, err := grpc.Dial(coordinatorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("Failed to establish connection with the coordinator: %v", err)
+	}
+
+	// defer conn.Close()
+
+	// Initialise a client to connect to the coordinator process
+	c := cs.NewCoordinatorServiceForSDFSClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// defer cancel()
+
+	return c, ctx, conn, cancel
+}
+
+func PutFile(filename string) bool {
+	conf := config.GetConfig("../../config/config.json")
+	client, ctx, conn, cancel := getClientForCoordinatorService()
+
+	defer conn.Close()
+	defer cancel()
+	retries := 0
+	for {
+		log.Printf("[ Client ]PutFile(%v): Intiating request to the coordinator!", filename)
+
+		// Call the RPC function on the coordinator process to process the query
+		r, err := client.PutFile(ctx, &cs.CoordinatorPutFileRequest{Filename: filename})
+
+		if err != nil {
+			// If the connection fails to the picked coordinator node, retry connection to another node
+			log.Printf("Failed to establish connection with the coordinator: %v", err)
+		} else {
+			dataNodesForCurrentPut := r.DataNodes
+			currentCommittedVersion := r.Version
+			sequenceNumberOfThisPut := r.SequenceNumber
+
+			// Stream the file to one of the data nodes (primary replica)
+			// wait for a quorum to ack and then ask the server to bump the version of the file
+
+			log.Printf("[ Client ]Allocated Nodes for the current PUT: %v", dataNodesForCurrentPut)
+			log.Printf("[ Client ]Current Committed Version of the file: %v is %v", filename, currentCommittedVersion)
+			log.Printf("[ Client ]Sequence number of the PUT: %v", sequenceNumberOfThisPut)
+
+			status, err := saveFileToSDFS(filename, currentCommittedVersion, sequenceNumberOfThisPut, dataNodesForCurrentPut)
+
+			if err != nil {
+				log.Printf("[ Client ][ PutFile ]Cannot receive response: %v", err)
+				log.Printf("[ Client ][ PutFile ]Retrying...")
+			}
+
+			if status {
+				log.Printf("[ Client ][ PutFile ]Successfully streamed the file %v to SDFS", filename)
+				break
+			} else {
+				log.Printf("[ Client ][ PutFile ]Failed for file %v", filename)
+				log.Printf("[ Client ][ PutFile ]Retrying...")
+			}
+		}
+		retries++
+		if retries > conf.NumRetriesPerOperation {
+			return false
+		}
+	}
+	return true
+}
+
+func GetFile(filename string) bool {
+	client, ctx, conn, cancel := getClientForCoordinatorService()
+
+	defer conn.Close()
+	defer cancel()
+	log.Printf("[ Client ][ GetFile ]GetFile(%v): Intiating request to the coordinator!", filename)
+
+	// Call the RPC function on the coordinator process to process the query
+	r, err := client.GetFile(ctx, &cs.CoordinatorGetFileRequest{Filename: filename})
+
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("[ Client ][ GetFile ]Error: %v", err)
+		return false
+	} else {
+		dataNodesForCurrentGet := r.DataNodes
+		currentCommittedVersion := r.Version
+		sequenceNumberOfThisGet := r.SequenceNumber
+
+		log.Printf("[ Client ][ GetFile ]Replicas containing the file: %v", dataNodesForCurrentGet)
+		log.Printf("[ Client ][ GetFile ]Current Committed Version of the file: %v is %v", filename, currentCommittedVersion)
+		log.Printf("[ Client ][ GetFile ]Sequence number of the PUT: %v", sequenceNumberOfThisGet)
+
+		status, err := getFileFromSDFS(filename, currentCommittedVersion, sequenceNumberOfThisGet, dataNodesForCurrentGet)
+
+		if err != nil {
+			log.Printf("[ Client ][ GetFile ]Error getting file %v:%v - %v", filename, currentCommittedVersion, err)
+			return status
+		}
+
+		if !status {
+			log.Printf("[ Client ][ GetFile ]Failed for file %v:%v - %v", filename, currentCommittedVersion, err)
+			return status
+		}
+	}
+	log.Printf("[ Client ][ GetFile ]Successfully fetched the file %v from SDFS", filename)
+	return true
+}
+
+func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumberOfThisPut int64, dataNodesForCurrentPut []string) (bool, error) {
+	conf := config.GetConfig("../../config/config.json")
+
+	client, ctx, conn, cancel := getClientToReplicaServer(dataNodesForCurrentPut[0]) // currently always picking the first allocated node as the primary replica
+	defer conn.Close()
+	defer cancel()
+
+	stream, streamErr := client.DataNode_PutFile(ctx)
+	if streamErr != nil {
+		log.Printf("Cannot upload File: %v", streamErr)
+		return false, nil
+	}
+
+	filePath := fmt.Sprintf("%v/%v", conf.DataRootFolder, filename)
+
+	log.Printf("[ Client ]Sending the file: %v", filePath)
+
+	file, err := os.Open(filePath)
+
+	if err != nil {
+		fmt.Printf("File %v doesn't exist :(", filePath)
+		log.Printf("cannot open File: %v - %v", filePath, err)
+	}
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+	buffer := make([]byte, conf.ChunkSize)
+	chunkId := 0
+
+	for {
+		n, err := reader.Read(buffer)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Printf("cannot read chunk to buffer: %v", err)
+		}
+		req := &dn.Chunk{
+			ChunkId:        int64(chunkId),
+			Filename:       filename,
+			Version:        currentCommittedVersion,
+			Filesize:       100, // placeholder
+			Chunk:          buffer[:n],
+			SequenceNumber: sequenceNumberOfThisPut,
+			ReplicaNodes:   dataNodesForCurrentPut[1:],
+			IsReplicaChunk: false,
+		}
+		log.Printf("[ Client ][ PutFile ]Sending chunk %v of file: %v", chunkId, filename)
+		e := stream.Send(req)
+		if e != nil {
+			log.Fatalf("[ Client ][ PutFile ]Cannot send chunk %v of file %v to server: %v", chunkId, filename, e)
+		}
+		chunkId++
+	}
+
+	res, err := stream.CloseAndRecv()
+
+	if res.Status {
+		log.Printf("[ Client ][ PutFile ]Sending commit message for File %v and Informing master of Version Bump", filename)
+		sendCommitAndInformMasterOfUpdatedVersion(filename, currentCommittedVersion, sequenceNumberOfThisPut, dataNodesForCurrentPut) // Currently Primary Replica is first of the allocated nodes
+	} else {
+		log.Fatalf("[ Client ][ PutFile ]Saving the file in SDFS failed")
+	}
+
+	return res.Status, err
+}
+
+func getFileFromSDFS(filename string, currentCommittedVersion int64, sequenceNumberOfThisGet int64, replicas []string) (bool, error) {
+	conf := config.GetConfig("../../config/config.json")
+	client, ctx, conn, cancel := getClientToReplicaServer(replicas[0])
+	defer conn.Close()
+	defer cancel()
+
+	stream, err := client.DataNode_GetFile(ctx, &dn.DataNode_GetFileRequest{
+		Filename:       filename,
+		SequenceNumber: sequenceNumberOfThisGet,
+		Replicas:       replicas[1:],
+		Version:        currentCommittedVersion,
+	})
+
+	if err != nil {
+		log.Fatalf("[ Client ][ GetFile ]Getting file %v:%v FAILED", filename, currentCommittedVersion)
+		return false, err
+	}
+
+	data := bytes.Buffer{}
+
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			log.Printf("[ Client ][ GetFile ]Got all the chunks of the file %v-%v", filename, currentCommittedVersion)
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+		_, err = data.Write(chunk.GetChunk())
+		if err != nil {
+			log.Panicf("[ Client ][ GetFile ]Chunk aggregation failed - %v", err)
+			return false, err
+		}
+	}
+
+	if _, err := os.Stat(conf.OutputDataFolder); os.IsNotExist(err) {
+		err := os.Mkdir(conf.OutputDataFolder, os.ModePerm)
+		if err != nil {
+			log.Printf("[ Client ][ GetFile ]Error creating output folder\n")
+			return false, err
+		}
+	}
+
+	folder_for_the_file := fmt.Sprintf("%v/%v", conf.OutputDataFolder, filename)
+
+	if _, err := os.Stat(folder_for_the_file); os.IsNotExist(err) {
+		err := os.Mkdir(folder_for_the_file, os.ModePerm)
+		if err != nil {
+			log.Printf("[ Client ][ GetFile ]Error creating folder %v\n", folder_for_the_file)
+
+			return false, err
+		}
+	}
+
+	err = os.WriteFile(fmt.Sprintf("%v/%v-%v-%v", folder_for_the_file, filename, currentCommittedVersion, dataNode_GetOutboundIP()), data.Bytes(), 0644)
+
+	if err != nil {
+		log.Fatalf("[ Client ][ GetFile ]File writing failed: %v", err)
+		return false, err
+	}
+
+	return true, nil
+}
+
+func getClientToReplicaServer(replicaIp string) (dn.DataNodeServiceClient, context.Context, *grpc.ClientConn, context.CancelFunc) {
+	conf := config.GetConfig("../../config/config.json")
+
+	dataNodePort := conf.DataNodeServiceSDFSPort
+	replica := fmt.Sprintf("%v:%v", replicaIp, dataNodePort)
+
+	log.Printf("Getting the grpc client for the Replica: %v", replica)
+
+	conn, err := grpc.Dial(replica, grpc.WithInsecure())
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("Failed to establish connection with the coordinator....Retrying")
+	}
+
+	// defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// defer cancel()
+
+	// Initialise a client to connect to the coordinator process
+	client := dn.NewDataNodeServiceClient(conn)
+
+	return client, ctx, conn, cancel
+}
+
+func sendCommitAndInformMasterOfUpdatedVersion(filename string, currentCommittedVersion int64, sequenceNumberOfThisPut int64, replicaIps []string) {
+	// send commit to the data nodes
+	for idx, replicaIp := range replicaIps {
+		isReplica := true
+		if idx == 0 {
+			isReplica = false
+		}
+		log.Printf("[ Client ][ PutFile ] Send commit message to replica: %v", replicaIp)
+		go sendCommitMessageToReplica(replicaIp, filename, sequenceNumberOfThisPut, isReplica)
+	}
+
+	// Tell the master to bump version
+	client, ctx, conn, cancel := getClientForCoordinatorService()
+
+	defer conn.Close()
+	defer cancel()
+
+	// Call the RPC function on the coordinator process to process the query
+	r, err := client.UpdateFileVersion(ctx, &cs.CoordinatorUpdateFileVersionRequest{
+		Filename:       filename,
+		SequenceNumber: sequenceNumberOfThisPut,
+		Version:        currentCommittedVersion,
+	})
+
+	if err != nil {
+		log.Fatalf("Failed to establish connection with the coordinator")
+	} else {
+		if r.Status {
+			log.Printf("[ Client ]Successfully bumped the current committed version of the file on the coordinator")
+		}
+	}
+}
+
+func sendCommitMessageToReplica(replicaIp string, filename string, sequenceNumberOfThisPut int64, isReplica bool) {
+	client, ctx, conn, cancel := getClientToReplicaServer(replicaIp)
+
+	defer conn.Close()
+	defer cancel()
+
+	log.Printf("[ Client ][ PutFile ]Sending commit message for file %v to replica %v sequenced at %v", filename, replicaIp, sequenceNumberOfThisPut)
+
+	r, err := client.DataNode_CommitFile(ctx, &dn.DataNode_CommitFileRequest{Filename: filename, SequenceNumber: sequenceNumberOfThisPut, IsReplica: isReplica})
+
+	if err != nil {
+		log.Fatalf("[ Client ][ PutFile ]Commit Failed for file %v at replica: %v", filename, replicaIp)
+	} else {
+		status := r.GetStatus()
+		newVersion := r.GetVersion()
+
+		if status == false {
+			log.Fatalf("[ Client ][ PutFile ]Commit Failed after getting response")
+		} else {
+			log.Printf("[ Client ][ PutFile ]New version after PutFile(%v) committed: %v", filename, newVersion)
+		}
+	}
 }

@@ -53,7 +53,7 @@ func main() {
 		defer conn.Close()
 
 		// Initialise a client to connect to the coordinator process
-		c := pb.NewCoordinatorClient(conn)
+		c := pb.NewCoordinatorServiceForLogsClient(conn)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()

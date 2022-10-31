@@ -3,6 +3,7 @@ package membershiplist
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -45,6 +46,7 @@ type MembershipListItem struct {
 	IncarnationNumber int
 	UDPPort           int
 	IsCoordinator     bool
+	IsIntroducer      bool
 }
 
 /**
@@ -360,4 +362,50 @@ func (ml *MembershipList) GetAllCoordinators() []string {
 		}
 	}
 	return coordinators
+}
+
+func (ml *MembershipList) GetNDataNodes(startIndex int, n int) ([]string, int) {
+	ml.RLock()
+	defer ml.RUnlock()
+
+	nodes := []string{}
+	i := startIndex % len(ml.items)
+	for len(nodes) < n {
+		if !ml.items[i].IsIntroducer && ml.items[i].State.Status == Alive {
+			nodes = append(nodes, strings.Split(ml.items[i].Id, ":")[0])
+		}
+		i = (i + 1) % len(ml.items)
+	}
+	return nodes, i
+}
+
+func (ml *MembershipList) IsNodeAlive(node string) bool {
+	ml.RLock()
+	defer ml.RUnlock()
+
+	for _, item := range ml.items {
+		if strings.Split(item.Id, ":")[0] == node {
+			if item.State.Status == Alive {
+				return true
+			} else {
+				return false
+			}
+		}
+	}
+
+	return false
+}
+
+func (ml *MembershipList) GetRandomNode() string {
+	ml.RLock()
+	defer ml.RUnlock()
+
+	n := len(ml.items)
+
+	for {
+		node := ml.items[rand.Int()%n]
+		if node.State.Status == Alive {
+			return strings.Split(node.Id, ":")[0]
+		}
+	}
 }

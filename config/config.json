@@ -4,7 +4,18 @@
     "IntroducerAddress" : "172.22.156.122",
     "IntroducerPort" : 50053,
     "UdpServerPort" : 20000,
-    "CoordinatorPort": 50051,
-    "FailureDetectorPort" : 50054,
-    "NumOfCoordinators": 2
+    "CoordinatorServiceLoggerPort": 50051,
+    "CoordinatorServiceSDFSPort": 50055,
+    "DataNodeServiceSDFSPort": 50056,
+    "FailureDetectorPort": 50054,
+    "NumOfCoordinators": 2,
+    "NumOfReplicas": 3,
+    "ChunkSize": 1000000,
+    "DataRootFolder": "../../data",
+    "WriteQuorum": 3,
+    "ReadQuorum": 2,
+    "NumRetriesPerOperation": 3,
+    "SDFSDataFolder": "../../sdfs",
+    "ReplicaRecoveryInterval": 5,
+    "OutputDataFolder": "../../outdata"
 }

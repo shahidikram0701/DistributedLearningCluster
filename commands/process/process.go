@@ -64,10 +64,10 @@ func main() {
 	introAddr := fmt.Sprintf("%s:%d", configuration.IntroducerAddress, configuration.IntroducerPort)
 
 	// Start the process
-	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorPort, wg, introAddr, *devmode, outboundIp)
+	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorServiceLoggerPort, configuration.CoordinatorServiceSDFSPort, configuration.DataNodeServiceSDFSPort, wg, introAddr, *devmode, outboundIp)
 
 	for {
-		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - `${query-string}` (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\t: ")
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - `${query-string}` (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put (create or update a file)\n\t - get (get a file)\n\n\t: ")
 		var command string
 
 		// Taking input from user
@@ -84,8 +84,24 @@ func main() {
 			fmt.Printf("%v\n", process.GetAllCoordinators())
 		case "exit":
 			os.Exit(3)
+
+		case "put":
+			var filename string
+			fmt.Printf("\tFilename: ")
+
+			// Taking input from user
+			fmt.Scanln(&filename)
+			fmt.Println(process.PutFile(filename))
+
+		case "get":
+			var filename string
+			fmt.Printf("\tFilename: ")
+
+			// Taking input from user
+			fmt.Scanln(&filename)
+			fmt.Println(process.GetFile(filename))
 		default:
-			process.SendLogQueryRequest(configuration.CoordinatorPort, command)
+			process.SendLogQueryRequest(configuration.CoordinatorServiceLoggerPort, command)
 		}
 
 	}

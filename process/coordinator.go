@@ -2,6 +2,7 @@ package process
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -11,17 +12,36 @@ import (
 
 	"cs425/mp/config"
 	pb "cs425/mp/proto/coordinator_proto"
+	cs "cs425/mp/proto/coordinator_sdfs_proto"
+	dn "cs425/mp/proto/data_node_proto"
 	lg "cs425/mp/proto/logger_proto"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+type CoordinatorState struct {
+	lock                 *sync.RWMutex
+	globalSequenceNumber map[string]int
+	fileToNodeMapping    map[string][]string
+	fileToVersionMapping map[string]int
+	indexIntoMemberList  int
+	myIpAddr             string // unchangable field - no lock reqd.
+}
+
 // list of machines acting as workers
 var serverAddresses []string
 
-type CoordinatorServer struct {
-	pb.UnimplementedCoordinatorServer
+var (
+	coordinatorState *CoordinatorState
+)
+
+type CoordinatorServerForLogs struct {
+	pb.UnimplementedCoordinatorServiceForLogsServer
+}
+
+type CoordinatorServerForSDFS struct {
+	cs.UnimplementedCoordinatorServiceForSDFSServer
 }
 
 /**
@@ -72,7 +92,7 @@ func queryServer(addr string, query string, isTest bool, responseChannel chan *l
 * @param in: the query request
  */
 
-func (s *CoordinatorServer) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryReply, error) {
+func (s *CoordinatorServerForLogs) QueryLogs(ctx context.Context, in *pb.QueryRequest) (*pb.QueryReply, error) {
 	query := in.GetQuery()
 	isTest := in.GetIsTest()
 	tag := ""
@@ -142,7 +162,7 @@ func generateLogsOnServer(addr string, responseChannel chan *lg.GenerateLogsRepl
 * @param ctx: context
 * @param in: the query request
  */
-func (s *CoordinatorServer) Test_GenerateLogs(ctx context.Context, in *pb.GenerateLogsRequest) (*pb.GenerateLogsReply, error) {
+func (s *CoordinatorServerForLogs) Test_GenerateLogs(ctx context.Context, in *pb.Test_Coordinator_GenerateLogsRequest) (*pb.Test_Coordinator_GenerateLogsReply, error) {
 	// Establish connections with the server nodes
 	responseChannel := make(chan *lg.GenerateLogsReply)
 
@@ -158,16 +178,43 @@ func (s *CoordinatorServer) Test_GenerateLogs(ctx context.Context, in *pb.Genera
 		generateLogsResponse := <-responseChannel
 		status += addr + ":" + generateLogsResponse.GetStatus()
 	}
-	return &pb.GenerateLogsReply{Status: status}, nil
+	return &pb.Test_Coordinator_GenerateLogsReply{Status: status}, nil
 }
 
-func StartCoordinatorService(port int, devmode bool, wg *sync.WaitGroup) {
+func StartCoordinatorService(coordinatorServiceForLogsPort int, coordinatorServiceForSDFSPort int, devmode bool, wg *sync.WaitGroup) {
+	getOutboundIP := func() net.IP {
+		conn, err := net.Dial("udp", "8.8.8.8:80")
+		if err != nil {
+			log.Printf("Couldn't get the IP address of the process\n%v", err)
+		}
+		defer conn.Close()
+
+		localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+		return localAddr.IP
+	}
+	myIpAddr := getOutboundIP()
+	// Initialise the state of the coordinator process
+	coordinatorState = &CoordinatorState{
+		lock:                 &sync.RWMutex{},
+		globalSequenceNumber: make(map[string]int),
+		fileToNodeMapping:    make(map[string][]string),
+		fileToVersionMapping: make(map[string]int),
+		myIpAddr:             fmt.Sprintf("%v", myIpAddr),
+	}
+
+	go coordintorService_ProcessLogs(coordinatorServiceForLogsPort, wg)
+	go coordinatorService_SDFS(coordinatorServiceForSDFSPort, wg)
+	go CoordinatorService_ReplicaRecovery(wg)
+}
+
+func coordintorService_ProcessLogs(port int, wg *sync.WaitGroup) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterCoordinatorServer(s, &CoordinatorServer{})
+	pb.RegisterCoordinatorServiceForLogsServer(s, &CoordinatorServerForLogs{})
 
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
@@ -176,44 +223,282 @@ func StartCoordinatorService(port int, devmode bool, wg *sync.WaitGroup) {
 	}
 }
 
-func SendLogQueryRequest(coordinatorPort int, query string) {
-	coordinatorIp := memberList.GetCoordinatorNode()
-	if coordinatorIp == "" {
-		log.Printf("No master Node\n")
-		return
+func (state *CoordinatorState) GetGlobalSequenceNumber(filename string) int {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	_, ok := state.globalSequenceNumber[filename]
+
+	if !ok {
+		state.globalSequenceNumber[filename] = 0
 	}
-	// start a clock to time the execution time of the querying
-	start := time.Now()
-	coordinatorIp = fmt.Sprintf("%s:%d", coordinatorIp, coordinatorPort)
-	conn, err := grpc.Dial(coordinatorIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	currentGlobalSequenceNumber := state.globalSequenceNumber[filename]
+	state.globalSequenceNumber[filename]++
+
+	return currentGlobalSequenceNumber
+}
+
+func (state *CoordinatorState) PeekGlobalSequenceNumber(filename string) int {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	sequenceNum, ok := state.globalSequenceNumber[filename]
+
+	if ok {
+		return sequenceNum
+	}
+	return -1
+}
+
+func (state *CoordinatorState) GetNodeMappingsForFile(filename string) []string {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	return state.fileToNodeMapping[filename]
+}
+
+func (state *CoordinatorState) GetFileToNodeMappings() map[string][]string {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	return state.fileToNodeMapping
+}
+
+func (state *CoordinatorState) FileExists(filename string) bool {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	_, ok := state.fileToVersionMapping[filename]
+
+	return ok
+}
+
+func (state *CoordinatorState) GenerateNodeMappingsForFile(filename string, numDataNodes int) []string {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	nodes, newIndexIntoMemberlist := memberList.GetNDataNodes(state.indexIntoMemberList, numDataNodes)
+	state.indexIntoMemberList = newIndexIntoMemberlist
+
+	state.fileToNodeMapping[filename] = nodes
+
+	log.Printf("[Coordinator]PutFile: Allocated nodes: %v", nodes)
+
+	return nodes
+}
+
+func (state *CoordinatorState) UpdateNodeForFileAtIndex(filename string, idx int, newNode string) bool {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	_, ok := state.fileToNodeMapping[filename]
+	if ok {
+		state.fileToNodeMapping[filename][idx] = newNode
+	}
+
+	return ok
+
+}
+
+func (state *CoordinatorState) GetVersionOfFile(filename string) int {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	if version, ok := state.fileToVersionMapping[filename]; ok {
+		return version
+	}
+	return 0 // in the case it is a create operation
+}
+
+func (state *CoordinatorState) UpdateVersionOfFile(filename string) int {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	_, ok := state.fileToVersionMapping[filename]
+
+	newVersion := 1 // if need to update version after creating
+	if ok {
+		newVersion = state.fileToVersionMapping[filename] + 1
+	}
+	state.fileToVersionMapping[filename] = newVersion
+
+	return newVersion
+}
+
+func (s *CoordinatorServerForSDFS) PutFile(ctx context.Context, in *cs.CoordinatorPutFileRequest) (*cs.CoordinatorPutFileReply, error) {
+	conf := config.GetConfig("../../config/config.json")
+	filename := in.GetFilename()
+	log.Printf("[ Coordinator ][ PutFile ]PutFile(%v)", filename)
+	operation := "Create"
+	if coordinatorState.FileExists(filename) {
+		operation = "Update"
+	}
+
+	log.Printf("[ Coordinator ][ PutFile ] operation: %v", operation)
+
+	// get a sequence number for the current operation and
+	// increment the global sequence number
+	sequenceNumber := coordinatorState.GetGlobalSequenceNumber(filename)
+	log.Printf("[ Coordinator ][ PutFile ]Sequence number for File: %v is %v", filename, sequenceNumber)
+
+	var nodeMappings []string
+	if operation == "Update" {
+		nodeMappings = coordinatorState.GetNodeMappingsForFile(filename)
+	} else {
+		// allocate nodes for this file and update the file mapping
+		log.Printf("[ Coordinator ][ PutFile ]Generating blocks for the file")
+		nodeMappings = coordinatorState.GenerateNodeMappingsForFile(filename, conf.NumOfReplicas)
+	}
+
+	log.Printf("[ Coordinator ][ PutFile ]%v operation sequenced at %v on the file: %v; Data nodes: %v;\n", operation, sequenceNumber, filename, nodeMappings)
+
+	return &cs.CoordinatorPutFileReply{
+		SequenceNumber: int64(sequenceNumber),
+		Version:        int64(coordinatorState.GetVersionOfFile(filename)),
+		DataNodes:      nodeMappings,
+	}, nil
+}
+
+func (s *CoordinatorServerForSDFS) GetFile(ctx context.Context, in *cs.CoordinatorGetFileRequest) (*cs.CoordinatorGetFileReply, error) {
+	filename := in.GetFilename()
+	log.Printf("[ Coordinator ][ GetFile ]GetFile(%v)", filename)
+
+	if !coordinatorState.FileExists(filename) {
+		log.Printf("[ Coordinator ][ GetFile ]File %v doesn't exist", filename)
+		return nil, errors.New("File doesn't exist")
+	}
+
+	sequenceNumber := coordinatorState.GetGlobalSequenceNumber(filename)
+	log.Printf("[ Coordinator ][ GetFile ]Sequence number for File: %v is %v", filename, sequenceNumber)
+
+	nodeMappings := coordinatorState.GetNodeMappingsForFile(filename)
+
+	log.Printf("[ Coordinator ][ GetFile ]Operation sequenced at %v on the file: %v; Data nodes: %v;\n", sequenceNumber, filename, nodeMappings)
+
+	return &cs.CoordinatorGetFileReply{
+		SequenceNumber: int64(sequenceNumber),
+		Version:        int64(coordinatorState.GetVersionOfFile(filename)),
+		DataNodes:      nodeMappings,
+	}, nil
+}
+
+func (s *CoordinatorServerForSDFS) UpdateFileVersion(ctx context.Context, in *cs.CoordinatorUpdateFileVersionRequest) (*cs.CoordinatorUpdateFileVersionReply, error) {
+	filename := in.Filename
+	log.Printf("[ Coordinator ][ PutFile ]Updating the version number of the file: %v", filename)
+
+	coordinatorState.UpdateVersionOfFile(filename)
+
+	return &cs.CoordinatorUpdateFileVersionReply{
+		Status: true,
+	}, nil
+}
+
+func coordinatorService_SDFS(port int, wg *sync.WaitGroup) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		// If the connection fails to the picked coordinator node, retry connection to another node
-		log.Printf("Failed to establish connection with the coordinator....Retrying")
+		log.Fatalf("failed to listen: %v", err)
+	}
+	s := grpc.NewServer()
+	cs.RegisterCoordinatorServiceForSDFSServer(s, &CoordinatorServerForSDFS{})
+
+	log.Printf("server listening at %v", lis.Addr())
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+		wg.Done()
+	}
+}
+
+func replicaRepair() {
+	fileMapping := coordinatorState.GetFileToNodeMappings()
+
+	for filename, nodes := range fileMapping {
+		for idx, node := range nodes {
+			if !memberList.IsNodeAlive(node) {
+				log.Printf("[ Coordinator ][ Replica Recovery ]Replica %v for file: %v is down", node, filename)
+				go assignNewReplicaAndReplicate(filename, nodes, node, idx)
+			}
+		}
+	}
+}
+
+func assignNewReplicaAndReplicate(filename string, nodes []string, nodeToRecover string, nodeIdx int) {
+	contains := func(s []string, str string) bool {
+		for _, v := range s {
+			if v == str {
+				return true
+			}
+		}
+
+		return false
+	}
+	newNode := memberList.GetRandomNode()
+	for {
+		if !contains(nodes, newNode) {
+			break
+		}
+		newNode = memberList.GetRandomNode()
 	}
 
+	log.Printf("[ Coordinator ][ Replica Recovery ]Node %v to selected to replace the down node %v", newNode, nodeToRecover)
+
+	activeReplica := ""
+
+	// Select the node in the replica set that should help the new node come to speed
+	for idx, n := range nodes {
+		if idx == nodeIdx {
+			continue
+		}
+		if memberList.IsNodeAlive(n) {
+			activeReplica = n
+			break
+		}
+	}
+
+	log.Printf("[ Coordinator ][ Replica Recovery ]Replica %v is up and is assigned to handle failure of node %v", activeReplica, nodeToRecover)
+
+	client, ctx, conn, cancel := getClientToReplicaServer(newNode)
 	defer conn.Close()
-
-	// Initialise a client to connect to the coordinator process
-	c := pb.NewCoordinatorClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	// Call the RPC function on the coordinator process to process the query
-	r, err := c.QueryLogs(ctx, &pb.QueryRequest{Query: query, IsTest: false})
+	res, err := client.DataNode_InitiateReplicaRecovery(ctx, &dn.DataNode_InitiateReplicaRecoveryRequest{Filename: filename, NodeToReplicateDataFrom: activeReplica})
 
 	if err != nil {
-		// If the connection fails to the picked coordinator node, retry connection to another node
-		log.Printf("Failed to establish connection with the coordinator....Retrying")
+		log.Printf("[ Coordinator ][ Replica Recovery ]Replica Recovery of node %v failed - %v", nodeToRecover, err)
 	} else {
-		// mark the current time as the end time since the processing began
-		duration := time.Since(start)
+		if res.Status {
+			coordinatorState.UpdateNodeForFileAtIndex(filename, nodeIdx, newNode)
 
-		// log the result and execution time
-		log.Printf("Successfully fetched logs")
-		fmt.Printf(r.GetLogs())
-		log.Printf("Total Matches: %v", r.GetTotalMatches())
-		log.Printf("\nExecution duration: %v", duration)
-
+			log.Printf("[ Coordinator ][ Replica Recovery ]Replica Recovery of node %v successful; Replaced with the node %v", nodeToRecover, newNode)
+		}
 	}
+}
+
+func CoordinatorService_ReplicaRecovery(wg *sync.WaitGroup) {
+	conf := config.GetConfig("../../config/config.json")
+	ticker := time.NewTicker(time.Duration(conf.ReplicaRecoveryInterval) * time.Second)
+	quit := make(chan struct{})
+	func() {
+		for {
+			select {
+			case <-ticker.C:
+				currentCoordinator := memberList.GetCoordinatorNode()
+				myIpAddr := coordinatorState.myIpAddr
+
+				if currentCoordinator == myIpAddr {
+					// fmt.Printf("[ Coordinator ][ Replica Recovery ]")
+					log.Printf("[ Coordinator ][ Replica Recovery ]Initialising\n")
+					replicaRepair()
+				}
+				// close(quit)
+			case <-quit:
+				if memberList.GetCoordinatorNode() == coordinatorState.myIpAddr {
+					log.Printf("[ Coordinator ][ Replica Recovery ]Termination")
+					ticker.Stop()
+				}
+				wg.Done()
+				return
+			}
+		}
+	}()
 }

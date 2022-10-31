@@ -7,14 +7,25 @@ import (
 )
 
 type Configuration struct {
-	LoggerPort          int    `json:"LoggerPort"`
-	LogToFile           bool   `json:"LogToFile"`
-	IntroducerAddress   string `json:"IntroducerAddress"`
-	IntroducerPort      int    `json:"IntroducerPort"`
-	UdpServerPort       int    `json:"UdpServerPort"`
-	CoordinatorPort     int    `json:"CoordinatorPort"`
-	FailureDetectorPort int    `json:"FailureDetectorPort"`
-	NumOfCoordinators   int    `json:"NumOfCoordinators"`
+	LoggerPort                   int    `json:"LoggerPort"`
+	LogToFile                    bool   `json:"LogToFile"`
+	IntroducerAddress            string `json:"IntroducerAddress"`
+	IntroducerPort               int    `json:"IntroducerPort"`
+	UdpServerPort                int    `json:"UdpServerPort"`
+	CoordinatorServiceLoggerPort int    `json:"CoordinatorServiceLoggerPort"`
+	FailureDetectorPort          int    `json:"FailureDetectorPort"`
+	NumOfCoordinators            int    `json:"NumOfCoordinators"`
+	NumOfReplicas                int    `json:"NumOfReplicas"`
+	CoordinatorServiceSDFSPort   int    `json:"CoordinatorServiceSDFSPort"`
+	ChunkSize                    int    `json:"ChunkSize"`
+	DataRootFolder               string `json:"DataRootFolder"`
+	DataNodeServiceSDFSPort      int    `json:"DataNodeServiceSDFSPort"`
+	WriteQuorum                  int    `json:"WriteQuorum"`
+	ReadQuorum                   int    `json:"ReadQuorum"`
+	NumRetriesPerOperation       int    `json:"NumRetriesPerOperation"`
+	SDFSDataFolder               string `json:"SDFSDataFolder"`
+	ReplicaRecoveryInterval      int    `json:"ReplicaRecoveryInterval"`
+	OutputDataFolder             string `json:"OutputDataFolder"`
 }
 
 func GetConfig(configFilePath string, params ...string) Configuration {

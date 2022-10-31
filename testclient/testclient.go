@@ -54,7 +54,7 @@ func Test1() {
 		}
 
 		defer conn.Close()
-		c := pb.NewCoordinatorClient(conn)
+		c := pb.NewCoordinatorServiceForLogsClient(conn)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
@@ -188,7 +188,7 @@ func Test2() {
 		}
 
 		defer conn.Close()
-		c := pb.NewCoordinatorClient(conn)
+		c := pb.NewCoordinatorServiceForLogsClient(conn)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
@@ -323,7 +323,7 @@ func Test3() {
 		}
 
 		defer conn.Close()
-		c := pb.NewCoordinatorClient(conn)
+		c := pb.NewCoordinatorServiceForLogsClient(conn)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
@@ -458,7 +458,7 @@ func Test4() {
 		}
 
 		defer conn.Close()
-		c := pb.NewCoordinatorClient(conn)
+		c := pb.NewCoordinatorServiceForLogsClient(conn)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
@@ -593,7 +593,7 @@ func Test5() {
 		}
 
 		defer conn.Close()
-		c := pb.NewCoordinatorClient(conn)
+		c := pb.NewCoordinatorServiceForLogsClient(conn)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()

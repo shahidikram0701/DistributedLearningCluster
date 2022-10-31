@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.5
-// source: logger_proto/logger.proto
+// source: logger.proto
 
-package logger
+package process
 
 import (
 	context "context"
@@ -36,7 +36,7 @@ func NewLoggerClient(cc grpc.ClientConnInterface) LoggerClient {
 
 func (c *loggerClient) FindLogs(ctx context.Context, in *FindLogsRequest, opts ...grpc.CallOption) (*FindLogsReply, error) {
 	out := new(FindLogsReply)
-	err := c.cc.Invoke(ctx, "/logger.Logger/FindLogs", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/process.Logger/FindLogs", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (c *loggerClient) FindLogs(ctx context.Context, in *FindLogsRequest, opts .
 
 func (c *loggerClient) Test_GenerateLogs(ctx context.Context, in *GenerateLogsRequest, opts ...grpc.CallOption) (*GenerateLogsReply, error) {
 	out := new(GenerateLogsReply)
-	err := c.cc.Invoke(ctx, "/logger.Logger/Test_GenerateLogs", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/process.Logger/Test_GenerateLogs", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func _Logger_FindLogs_Handler(srv interface{}, ctx context.Context, dec func(int
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/logger.Logger/FindLogs",
+		FullMethod: "/process.Logger/FindLogs",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LoggerServer).FindLogs(ctx, req.(*FindLogsRequest))
@@ -112,7 +112,7 @@ func _Logger_Test_GenerateLogs_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/logger.Logger/Test_GenerateLogs",
+		FullMethod: "/process.Logger/Test_GenerateLogs",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LoggerServer).Test_GenerateLogs(ctx, req.(*GenerateLogsRequest))
@@ -124,7 +124,7 @@ func _Logger_Test_GenerateLogs_Handler(srv interface{}, ctx context.Context, dec
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Logger_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "logger.Logger",
+	ServiceName: "process.Logger",
 	HandlerType: (*LoggerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -137,5 +137,5 @@ var Logger_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "logger_proto/logger.proto",
+	Metadata: "logger.proto",
 }
