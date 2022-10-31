@@ -25,6 +25,10 @@ type DataNodeServiceClient interface {
 	DataNode_PutFile(ctx context.Context, opts ...grpc.CallOption) (DataNodeService_DataNode_PutFileClient, error)
 	DataNode_CommitFile(ctx context.Context, in *DataNode_CommitFileRequest, opts ...grpc.CallOption) (*DataNode_CommitFileResponse, error)
 	DataNode_UpdateSequenceNumber(ctx context.Context, in *DataNode_UpdateSequenceNumberRequest, opts ...grpc.CallOption) (*DataNode_UpdateSequenceNumberResponse, error)
+	DataNode_InitiateReplicaRecovery(ctx context.Context, in *DataNode_InitiateReplicaRecoveryRequest, opts ...grpc.CallOption) (*DataNode_InitiateReplicaRecoveryResponse, error)
+	DataNode_ReplicaRecovery(ctx context.Context, in *DataNode_ReplicaRecoveryRequest, opts ...grpc.CallOption) (DataNodeService_DataNode_ReplicaRecoveryClient, error)
+	DataNode_GetFile(ctx context.Context, in *DataNode_GetFileRequest, opts ...grpc.CallOption) (DataNodeService_DataNode_GetFileClient, error)
+	DataNode_GetFileQuorum(ctx context.Context, in *DataNode_GetFileQuorumRequest, opts ...grpc.CallOption) (*DataNode_GetFileQuorumResponse, error)
 }
 
 type dataNodeServiceClient struct {
@@ -87,6 +91,88 @@ func (c *dataNodeServiceClient) DataNode_UpdateSequenceNumber(ctx context.Contex
 	return out, nil
 }
 
+func (c *dataNodeServiceClient) DataNode_InitiateReplicaRecovery(ctx context.Context, in *DataNode_InitiateReplicaRecoveryRequest, opts ...grpc.CallOption) (*DataNode_InitiateReplicaRecoveryResponse, error) {
+	out := new(DataNode_InitiateReplicaRecoveryResponse)
+	err := c.cc.Invoke(ctx, "/process.DataNodeService/DataNode_InitiateReplicaRecovery", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dataNodeServiceClient) DataNode_ReplicaRecovery(ctx context.Context, in *DataNode_ReplicaRecoveryRequest, opts ...grpc.CallOption) (DataNodeService_DataNode_ReplicaRecoveryClient, error) {
+	stream, err := c.cc.NewStream(ctx, &DataNodeService_ServiceDesc.Streams[1], "/process.DataNodeService/DataNode_ReplicaRecovery", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &dataNodeServiceDataNode_ReplicaRecoveryClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type DataNodeService_DataNode_ReplicaRecoveryClient interface {
+	Recv() (*FileChunk, error)
+	grpc.ClientStream
+}
+
+type dataNodeServiceDataNode_ReplicaRecoveryClient struct {
+	grpc.ClientStream
+}
+
+func (x *dataNodeServiceDataNode_ReplicaRecoveryClient) Recv() (*FileChunk, error) {
+	m := new(FileChunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *dataNodeServiceClient) DataNode_GetFile(ctx context.Context, in *DataNode_GetFileRequest, opts ...grpc.CallOption) (DataNodeService_DataNode_GetFileClient, error) {
+	stream, err := c.cc.NewStream(ctx, &DataNodeService_ServiceDesc.Streams[2], "/process.DataNodeService/DataNode_GetFile", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &dataNodeServiceDataNode_GetFileClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type DataNodeService_DataNode_GetFileClient interface {
+	Recv() (*FileChunk, error)
+	grpc.ClientStream
+}
+
+type dataNodeServiceDataNode_GetFileClient struct {
+	grpc.ClientStream
+}
+
+func (x *dataNodeServiceDataNode_GetFileClient) Recv() (*FileChunk, error) {
+	m := new(FileChunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *dataNodeServiceClient) DataNode_GetFileQuorum(ctx context.Context, in *DataNode_GetFileQuorumRequest, opts ...grpc.CallOption) (*DataNode_GetFileQuorumResponse, error) {
+	out := new(DataNode_GetFileQuorumResponse)
+	err := c.cc.Invoke(ctx, "/process.DataNodeService/DataNode_GetFileQuorum", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DataNodeServiceServer is the server API for DataNodeService service.
 // All implementations must embed UnimplementedDataNodeServiceServer
 // for forward compatibility
@@ -94,6 +180,10 @@ type DataNodeServiceServer interface {
 	DataNode_PutFile(DataNodeService_DataNode_PutFileServer) error
 	DataNode_CommitFile(context.Context, *DataNode_CommitFileRequest) (*DataNode_CommitFileResponse, error)
 	DataNode_UpdateSequenceNumber(context.Context, *DataNode_UpdateSequenceNumberRequest) (*DataNode_UpdateSequenceNumberResponse, error)
+	DataNode_InitiateReplicaRecovery(context.Context, *DataNode_InitiateReplicaRecoveryRequest) (*DataNode_InitiateReplicaRecoveryResponse, error)
+	DataNode_ReplicaRecovery(*DataNode_ReplicaRecoveryRequest, DataNodeService_DataNode_ReplicaRecoveryServer) error
+	DataNode_GetFile(*DataNode_GetFileRequest, DataNodeService_DataNode_GetFileServer) error
+	DataNode_GetFileQuorum(context.Context, *DataNode_GetFileQuorumRequest) (*DataNode_GetFileQuorumResponse, error)
 	mustEmbedUnimplementedDataNodeServiceServer()
 }
 
@@ -109,6 +199,18 @@ func (UnimplementedDataNodeServiceServer) DataNode_CommitFile(context.Context, *
 }
 func (UnimplementedDataNodeServiceServer) DataNode_UpdateSequenceNumber(context.Context, *DataNode_UpdateSequenceNumberRequest) (*DataNode_UpdateSequenceNumberResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DataNode_UpdateSequenceNumber not implemented")
+}
+func (UnimplementedDataNodeServiceServer) DataNode_InitiateReplicaRecovery(context.Context, *DataNode_InitiateReplicaRecoveryRequest) (*DataNode_InitiateReplicaRecoveryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DataNode_InitiateReplicaRecovery not implemented")
+}
+func (UnimplementedDataNodeServiceServer) DataNode_ReplicaRecovery(*DataNode_ReplicaRecoveryRequest, DataNodeService_DataNode_ReplicaRecoveryServer) error {
+	return status.Errorf(codes.Unimplemented, "method DataNode_ReplicaRecovery not implemented")
+}
+func (UnimplementedDataNodeServiceServer) DataNode_GetFile(*DataNode_GetFileRequest, DataNodeService_DataNode_GetFileServer) error {
+	return status.Errorf(codes.Unimplemented, "method DataNode_GetFile not implemented")
+}
+func (UnimplementedDataNodeServiceServer) DataNode_GetFileQuorum(context.Context, *DataNode_GetFileQuorumRequest) (*DataNode_GetFileQuorumResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DataNode_GetFileQuorum not implemented")
 }
 func (UnimplementedDataNodeServiceServer) mustEmbedUnimplementedDataNodeServiceServer() {}
 
@@ -185,6 +287,84 @@ func _DataNodeService_DataNode_UpdateSequenceNumber_Handler(srv interface{}, ctx
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DataNodeService_DataNode_InitiateReplicaRecovery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DataNode_InitiateReplicaRecoveryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataNodeServiceServer).DataNode_InitiateReplicaRecovery(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.DataNodeService/DataNode_InitiateReplicaRecovery",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataNodeServiceServer).DataNode_InitiateReplicaRecovery(ctx, req.(*DataNode_InitiateReplicaRecoveryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DataNodeService_DataNode_ReplicaRecovery_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DataNode_ReplicaRecoveryRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DataNodeServiceServer).DataNode_ReplicaRecovery(m, &dataNodeServiceDataNode_ReplicaRecoveryServer{stream})
+}
+
+type DataNodeService_DataNode_ReplicaRecoveryServer interface {
+	Send(*FileChunk) error
+	grpc.ServerStream
+}
+
+type dataNodeServiceDataNode_ReplicaRecoveryServer struct {
+	grpc.ServerStream
+}
+
+func (x *dataNodeServiceDataNode_ReplicaRecoveryServer) Send(m *FileChunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _DataNodeService_DataNode_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DataNode_GetFileRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DataNodeServiceServer).DataNode_GetFile(m, &dataNodeServiceDataNode_GetFileServer{stream})
+}
+
+type DataNodeService_DataNode_GetFileServer interface {
+	Send(*FileChunk) error
+	grpc.ServerStream
+}
+
+type dataNodeServiceDataNode_GetFileServer struct {
+	grpc.ServerStream
+}
+
+func (x *dataNodeServiceDataNode_GetFileServer) Send(m *FileChunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _DataNodeService_DataNode_GetFileQuorum_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DataNode_GetFileQuorumRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataNodeServiceServer).DataNode_GetFileQuorum(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.DataNodeService/DataNode_GetFileQuorum",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataNodeServiceServer).DataNode_GetFileQuorum(ctx, req.(*DataNode_GetFileQuorumRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DataNodeService_ServiceDesc is the grpc.ServiceDesc for DataNodeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -200,12 +380,30 @@ var DataNodeService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "DataNode_UpdateSequenceNumber",
 			Handler:    _DataNodeService_DataNode_UpdateSequenceNumber_Handler,
 		},
+		{
+			MethodName: "DataNode_InitiateReplicaRecovery",
+			Handler:    _DataNodeService_DataNode_InitiateReplicaRecovery_Handler,
+		},
+		{
+			MethodName: "DataNode_GetFileQuorum",
+			Handler:    _DataNodeService_DataNode_GetFileQuorum_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "DataNode_PutFile",
 			Handler:       _DataNodeService_DataNode_PutFile_Handler,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "DataNode_ReplicaRecovery",
+			Handler:       _DataNodeService_DataNode_ReplicaRecovery_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "DataNode_GetFile",
+			Handler:       _DataNodeService_DataNode_GetFile_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "data_node_proto.proto",

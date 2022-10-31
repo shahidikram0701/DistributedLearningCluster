@@ -1,15 +1,21 @@
 package process
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"cs425/mp/config"
 	dn "cs425/mp/proto/data_node_proto"
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
+	"math"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,6 +47,13 @@ func (state *DataNodeState) dataNode_GetVersionOfFile(filename string) (int, boo
 	v, ok := state.fileVersionMapping[filename]
 
 	return v, ok
+}
+
+func (state *DataNodeState) dataNode_SetVersionOfFile(filename string, version int) {
+	state.Lock()
+	defer state.Unlock()
+
+	state.fileVersionMapping[filename] = version
 }
 
 func (state *DataNodeState) dataNode_InitialiseVersionOfFile(filename string) int {
@@ -76,6 +89,22 @@ func (state *DataNodeState) dataNode_IncrementSequenceNumber(filename string) in
 	return state.sequenceNumber[filename]
 }
 
+func (state *DataNodeState) dataNode_AddSequenceNumber(filename string, seqNum int) bool {
+	state.Lock()
+	defer state.Unlock()
+
+	_, ok := state.sequenceNumber[filename]
+	if ok {
+		log.Fatalf("[ DataNode ][ Replica Recovery ]Already contains the sequence number for the file %v", filename)
+
+		return false
+	}
+	state.sequenceNumber[filename] = seqNum
+
+	return true
+
+}
+
 func (state *DataNodeState) dataNode_GetSequenceNumber(filename string) int {
 	state.RLock()
 	defer state.RUnlock()
@@ -90,11 +119,25 @@ func (state *DataNodeState) dataNode_GetSequenceNumber(filename string) int {
 	return seqNum
 }
 
+func (state *DataNodeState) dataNode_GetPreCommitBufferEntry(filename string) []byte {
+	state.RLock()
+	defer state.RUnlock()
+
+	return state.preCommitBuffer[filename]
+}
+
 func (state *DataNodeState) dataNode_AddToPreCommitBuffer(filename string, data []byte) {
 	state.Lock()
 	defer state.Unlock()
 
 	state.preCommitBuffer[filename] = data
+}
+
+func (state *DataNodeState) dataNode_ClearPreCommitBufferForFile(filename string) {
+	state.Lock()
+	defer state.Unlock()
+
+	delete(state.preCommitBuffer, filename)
 }
 
 func dataNode_GetOutboundIP() net.IP {
@@ -139,13 +182,15 @@ func (state *DataNodeState) dataNode_CommitFileChange(filename string) (bool, in
 	}
 
 	newVersion := state.fileVersionMapping[filename]
-	err := os.WriteFile(fmt.Sprintf("%v/%v-%v_%v", folder_for_the_file, filename, newVersion, myIpAddr), dataNodeState.preCommitBuffer[filename], 0644)
+	err := os.WriteFile(fmt.Sprintf("%v/%v-%v-%v", folder_for_the_file, filename, newVersion, myIpAddr), dataNodeState.preCommitBuffer[filename], 0644)
 
 	if err != nil {
 		log.Fatalf("File writing failed: %v", err)
 	}
 
 	dataNodeState.sequenceNumber[filename]++
+
+	delete(state.preCommitBuffer, filename)
 
 	return true, newVersion
 }
@@ -240,6 +285,185 @@ func (s *DataNodeServer) DataNode_UpdateSequenceNumber(ctx context.Context, in *
 	}
 
 	return &dn.DataNode_UpdateSequenceNumberResponse{}, nil
+}
+
+func (s *DataNodeServer) DataNode_InitiateReplicaRecovery(ctx context.Context, in *dn.DataNode_InitiateReplicaRecoveryRequest) (*dn.DataNode_InitiateReplicaRecoveryResponse, error) {
+	conf := config.GetConfig("../../config/config.json")
+	filename := in.GetFilename()
+	nodeToPullDataFrom := in.GetNodeToReplicateDataFrom()
+
+	client, ctx, conn, cancel := getClientToReplicaServer(nodeToPullDataFrom)
+	defer conn.Close()
+	defer cancel()
+
+	stream, err := client.DataNode_ReplicaRecovery(ctx, &dn.DataNode_ReplicaRecoveryRequest{
+		Filename: filename,
+	})
+
+	if err != nil {
+		log.Fatalf("[ DataNode ][ Replica Recovery ]Getting versions file %v for recovery FAILED", filename)
+	}
+
+	version := 1
+	versionData := bytes.Buffer{}
+	fileVersions := make(map[int][]byte)
+	seqNum := -1
+	preCommitBuffer := []byte{} // may be fetch this in another streaming call?
+	maxVersion := -1
+
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			if len(versionData.Bytes()) > 0 {
+				fileVersions[version] = versionData.Bytes()
+				versionData = bytes.Buffer{}
+			}
+			maxVersion = int(math.Max(float64(maxVersion), float64(version)))
+			log.Printf("[ DataNode ][ Replica Recovery ]Got all the chunks of %v versions of the file %v for the replica recovery", len(fileVersions), filename)
+			break
+		}
+		if err != nil {
+			return &dn.DataNode_InitiateReplicaRecoveryResponse{
+				Status: false,
+			}, err
+		}
+		log.Printf("[ DataNode ][ Replica Recovery ]Receieved the chunk: %v for version %v", chunk.GetChunkId(), chunk.GetVersion())
+
+		if chunk.Version > int64(version) {
+			if len(versionData.Bytes()) > 0 {
+				fileVersions[version] = versionData.Bytes()
+				versionData = bytes.Buffer{}
+				version = int(chunk.Version)
+			}
+			maxVersion = int(math.Max(float64(maxVersion), float64(version)))
+		}
+		_, err = versionData.Write(chunk.GetChunk())
+		if seqNum == -1 {
+			seqNum = int(chunk.SequenceNumber)
+		}
+		if len(chunk.GetPreCommitBuffer()) > 0 && len(preCommitBuffer) == 0 {
+			preCommitBuffer = chunk.GetPreCommitBuffer()
+		}
+		if err != nil {
+			log.Panicf("Chunk aggregation failed - %v", err)
+			return &dn.DataNode_InitiateReplicaRecoveryResponse{
+				Status: false,
+			}, err
+		}
+	}
+
+	// Got all the chunks for all the versions
+	// save it to sdfs folder folder
+
+	ok := dataNodeState.dataNode_AddSequenceNumber(filename, seqNum)
+	if ok {
+		log.Printf("[ DataNode ][ Replica Recovery ]Took a note of the latest sequence number for the file %v", filename)
+	} else {
+		log.Fatalf("[ DataNode ][ Replica Recovery ] Sequence number updation failed")
+	}
+
+	dataNodeState.dataNode_SetVersionOfFile(filename, maxVersion)
+
+	if len(preCommitBuffer) > 0 {
+		log.Printf("[ DataNode ][ Replica Recovery ]Took a note of the latest buffer changes of the file: %v", filename)
+		dataNodeState.dataNode_AddToPreCommitBuffer(filename, preCommitBuffer)
+	}
+
+	if _, err := os.Stat(conf.SDFSDataFolder); os.IsNotExist(err) {
+		err := os.Mkdir(conf.SDFSDataFolder, os.ModePerm)
+		if err != nil {
+			log.Printf("Error creating sdfs folder\n")
+		}
+	}
+
+	folder_for_the_file := fmt.Sprintf("%v/%v", conf.SDFSDataFolder, filename)
+
+	if _, err := os.Stat(folder_for_the_file); os.IsNotExist(err) {
+		err := os.Mkdir(folder_for_the_file, os.ModePerm)
+		if err != nil {
+			log.Printf("Error creating folder for file versions\n")
+		}
+	}
+	myIpAddr := dataNode_GetOutboundIP()
+	for v, b := range fileVersions {
+		filepath := fmt.Sprintf("%v/%v-%v-%v", folder_for_the_file, filename, v, myIpAddr)
+		log.Printf("[ DataNode ][ Replica Recovery ]Writing file %v", filepath)
+		err := os.WriteFile(filepath, b, 0644)
+
+		if err != nil {
+			log.Fatalf("File writing failed: %v", err)
+			return &dn.DataNode_InitiateReplicaRecoveryResponse{
+				Status: false,
+			}, err
+		}
+
+	}
+
+	return &dn.DataNode_InitiateReplicaRecoveryResponse{
+		Status: true,
+	}, nil
+}
+
+func (s *DataNodeServer) DataNode_ReplicaRecovery(in *dn.DataNode_ReplicaRecoveryRequest, stream dn.DataNodeService_DataNode_ReplicaRecoveryServer) error {
+	conf := config.GetConfig("../../config/config.json")
+	filename := in.GetFilename()
+
+	fileFolder := fmt.Sprintf("%v/%v", conf.SDFSDataFolder, filename)
+	files, err := ioutil.ReadDir(fileFolder)
+	if err != nil {
+		log.Fatalf("[ DataNode ][ Replica Recovery ]SDFS directory (%v) read failed: %v", fileFolder, err)
+	}
+
+	for _, f := range files {
+		fName := strings.Split(f.Name(), "-")[0]
+		fVersion, _ := strconv.Atoi(strings.Split(f.Name(), "-")[1])
+
+		if f.Name() != fmt.Sprintf("%v-%v-%v", fName, fVersion, dataNode_GetOutboundIP()) {
+			continue
+		}
+
+		filePath := fmt.Sprintf("%v/%v/%v", conf.SDFSDataFolder, filename, f.Name())
+
+		log.Printf("[ DataNode ][ Replica Recovery ]Sending the file: %v", filePath)
+
+		file, err := os.Open(filePath)
+
+		if err != nil {
+			// fmt.Printf("File %v doesn't exist :(", fName)
+			log.Fatalf("[ DataNode ][ Replica Recovery ]Cannot open File: %v - %v", filePath, err)
+		}
+		defer file.Close()
+
+		reader := bufio.NewReader(file)
+		buffer := make([]byte, conf.ChunkSize)
+		chunkId := 0
+
+		for {
+			n, err := reader.Read(buffer)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("[ DataNode ][ Replica Recovery ]Cannot read chunk to buffer: %v", err)
+			}
+
+			req := &dn.FileChunk{
+				ChunkId:         int64(chunkId),
+				Filename:        fName,
+				Version:         int64(fVersion),
+				Chunk:           buffer[:n],
+				SequenceNumber:  int64(dataNodeState.dataNode_GetSequenceNumber(filename)),
+				PreCommitBuffer: dataNodeState.dataNode_GetPreCommitBufferEntry(filename),
+			}
+			log.Printf("[ DataNode ][ Replica Recovery ]Sending chunk %v of file: %v", chunkId, fName)
+			e := stream.Send(req)
+			if e != nil {
+				log.Fatalf("[ DataNode ][ Replica Recovery ]Cannot send chunk %v of file %v to dataNode: %v", chunkId, fName, e)
+			}
+			chunkId++
+		}
+	}
+	return nil
 }
 
 func dataNode_ProcessFile(filename string, fileData bytes.Buffer, stream dn.DataNodeService_DataNode_PutFileServer, operationSequenceNumber int, replicaNodes []string, isReplica bool, allChunks []*dn.Chunk) error {
@@ -399,4 +623,137 @@ func StartDataNodeService_SDFS(port int, wg *sync.WaitGroup) {
 		log.Fatalf("failed to serve: %v", err)
 		wg.Done()
 	}
+}
+
+func (s *DataNodeServer) DataNode_GetFile(in *dn.DataNode_GetFileRequest, stream dn.DataNodeService_DataNode_GetFileServer) error {
+	conf := config.GetConfig("../../config/config.json")
+	filename := in.GetFilename()
+	sequenceNum := int(in.GetSequenceNumber())
+	replicas := in.GetReplicas()
+	version := in.GetVersion()
+
+	// wait until sequence number
+	for dataNodeState.dataNode_GetSequenceNumber(filename) != sequenceNum {
+	}
+
+	fileVersionOnNode, ok := dataNodeState.dataNode_GetVersionOfFile(filename)
+	if !ok {
+		log.Printf("[ Primary Replica ][ GetFile ]The primary replica doesnt contain the file: %v", filename)
+		return errors.New("The primary replica doesnt contain the file")
+	}
+	if fileVersionOnNode < int(version) {
+		log.Printf("[ DataNode ][ GetFile ]The primary replica doesnt have the version requested for %v; Version on node: %v; Version requested: %v", filename, fileVersionOnNode, version)
+		return errors.New("]The primary replica doesnt have the version requested")
+	}
+
+	replicaChannel := make(chan bool)
+	quorum := false
+	quorumCount := 1
+	for _, replicaNode := range replicas {
+		go dataNode_GetFileQuorumFromReplica(replicaNode, filename, version, replicaChannel)
+	}
+	for {
+		status := <-replicaChannel
+		if status {
+			quorumCount++
+			log.Printf("[ Primary Replica ][ GetFile ]Receieved a read success from a replica; Current quorum: %v", quorumCount)
+		}
+		if quorumCount >= conf.ReadQuorum {
+			log.Printf("[ Primary Replica ][ GetFile ]Quorum achieved")
+			quorum = true
+			break
+		}
+	}
+	if quorum {
+		return sendFileToClient(filename, int(version), stream, sequenceNum)
+	} else {
+		return errors.New("Quorum not obtained")
+	}
+
+}
+
+func sendFileToClient(filename string, version int, stream dn.DataNodeService_DataNode_GetFileServer, sequenceNum int) error {
+	conf := config.GetConfig("../../config/config.json")
+	filePath := fmt.Sprintf("%v/%v/%v-%v-%v", conf.SDFSDataFolder, filename, filename, version, dataNode_GetOutboundIP())
+
+	file, err := os.Open(filePath)
+
+	if err != nil {
+		log.Fatalf("cannot open File: %v - %v", filePath, err)
+		return errors.New("[ Primary Replica ][ GetFile ]Cannot open the file: " + filename)
+
+	}
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+	buffer := make([]byte, conf.ChunkSize)
+	chunkId := 0
+
+	for {
+		n, err := reader.Read(buffer)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatalf("cannot read chunk to buffer: %v", err)
+			return errors.New("[ Primary Replica ][ GetFile ]Cannot read chunk to the buffer; Filename: " + filename)
+		}
+		req := &dn.FileChunk{
+			ChunkId:        int64(chunkId),
+			Filename:       filename,
+			Version:        int64(version),
+			Chunk:          buffer[:n],
+			SequenceNumber: int64(sequenceNum),
+		}
+		log.Printf("[ Primary Replica ][ GetFile ]Sending chunk %v of file: %v with version: %v", chunkId, filename, version)
+		e := stream.Send(req)
+		if e != nil {
+			log.Fatalf("[ Primary Replica ][ GetFile ]Cannot send chunk %v of file %v with version: %v to dataNode: %v", chunkId, filename, version, e)
+			return errors.New("Cannot send chunk of file: " + filename)
+		}
+		chunkId++
+	}
+	return nil
+}
+
+func dataNode_GetFileQuorumFromReplica(replica string, filename string, version int64, replicaChannel chan bool) {
+	client, ctx, conn, cancel := getClientToReplicaServer(replica)
+	defer conn.Close()
+	defer cancel()
+
+	_, err := client.DataNode_GetFileQuorum(ctx, &dn.DataNode_GetFileQuorumRequest{
+		Filename: filename,
+		Version:  version,
+	})
+
+	if err != nil {
+		log.Printf("[ Primary Replica ][ GetFile ]Error getting quorum for GetFile(%v) from replica: %v; Error: %v", filename, replica, err)
+		replicaChannel <- false
+	} else {
+		log.Printf("[ Primary Replica ][ GetFile ]GetFile(%v) on replica %v successful", filename, replica)
+		replicaChannel <- true
+	}
+}
+
+func (s *DataNodeServer) DataNode_GetFileQuorum(ctx context.Context, in *dn.DataNode_GetFileQuorumRequest) (*dn.DataNode_GetFileQuorumResponse, error) {
+	filename := in.GetFilename()
+	version := int(in.GetVersion())
+	fileVersionOnNode, ok := dataNodeState.dataNode_GetVersionOfFile(filename)
+	if !ok {
+		log.Printf("[ DataNode ][ GetFile ]The replica doesnt contain the file: %v", filename)
+		return &dn.DataNode_GetFileQuorumResponse{
+			Status: false,
+		}, errors.New("The replica doesnt contain the file")
+	}
+	log.Printf("[ DataNode ][ GetFile ]Version of the file on the datanode: %v; Version of the file requested: %v", fileVersionOnNode, version)
+
+	if fileVersionOnNode >= version {
+		return &dn.DataNode_GetFileQuorumResponse{
+			Status: true,
+		}, nil
+	}
+
+	return &dn.DataNode_GetFileQuorumResponse{
+		Status: false,
+	}, errors.New("The replica doesnt have that ")
 }

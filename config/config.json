@@ -14,5 +14,8 @@
     "DataRootFolder": "../../data",
     "WriteQuorum": 3,
     "ReadQuorum": 2,
-    "NumRetriesPerOperation": 3
+    "NumRetriesPerOperation": 3,
+    "SDFSDataFolder": "../../sdfs",
+    "ReplicaRecoveryInterval": 5,
+    "OutputDataFolder": "../../outdata"
 }

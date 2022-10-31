@@ -23,6 +23,9 @@ type Configuration struct {
 	WriteQuorum                  int    `json:"WriteQuorum"`
 	ReadQuorum                   int    `json:"ReadQuorum"`
 	NumRetriesPerOperation       int    `json:"NumRetriesPerOperation"`
+	SDFSDataFolder               string `json:"SDFSDataFolder"`
+	ReplicaRecoveryInterval      int    `json:"ReplicaRecoveryInterval"`
+	OutputDataFolder             string `json:"OutputDataFolder"`
 }
 
 func GetConfig(configFilePath string, params ...string) Configuration {

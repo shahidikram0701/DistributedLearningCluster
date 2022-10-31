@@ -7,6 +7,19 @@ service DataNodeService {
     rpc DataNode_PutFile(stream Chunk) returns (DataNode_PutFile_Response) {}
     rpc DataNode_CommitFile(DataNode_CommitFileRequest) returns (DataNode_CommitFileResponse) {}
     rpc DataNode_UpdateSequenceNumber(DataNode_UpdateSequenceNumberRequest) returns (DataNode_UpdateSequenceNumberResponse) {}
+    rpc DataNode_InitiateReplicaRecovery(DataNode_InitiateReplicaRecoveryRequest) returns (DataNode_InitiateReplicaRecoveryResponse) {}
+    rpc DataNode_ReplicaRecovery(DataNode_ReplicaRecoveryRequest) returns (stream FileChunk) {}
+    rpc DataNode_GetFile(DataNode_GetFileRequest) returns (stream FileChunk) {}
+    rpc DataNode_GetFileQuorum(DataNode_GetFileQuorumRequest) returns (DataNode_GetFileQuorumResponse) {}
+}
+
+message DataNode_GetFileQuorumRequest {
+    string filename = 1;
+    int64 version = 2;
+}
+
+message DataNode_GetFileQuorumResponse {
+    bool status = 1;
 }
 
 message Chunk {
@@ -18,6 +31,16 @@ message Chunk {
     int64 sequenceNumber = 6;
     repeated string replicaNodes = 7;
     bool isReplicaChunk = 8;
+}
+
+message FileChunk {
+    int64 chunkId = 1;
+    string filename = 2;
+    int64 version = 3;
+    bytes chunk = 5;
+    int64 sequenceNumber = 6;
+    bytes preCommitBuffer = 7;
+    // int64 versionMapping = 8;
 }
 
 message DataNode_PutFile_Response {
@@ -41,3 +64,24 @@ message DataNode_UpdateSequenceNumberRequest {
 }
 
 message DataNode_UpdateSequenceNumberResponse {}
+
+message DataNode_InitiateReplicaRecoveryRequest {
+    string filename = 1;
+    string nodeToReplicateDataFrom = 2;
+}
+
+message DataNode_GetFileRequest {
+    string filename = 1;
+    int64 sequenceNumber = 2;
+    repeated string replicas = 3;
+    int64 version = 4;
+}
+
+message DataNode_InitiateReplicaRecoveryResponse {
+    bool status = 1;
+}
+
+message DataNode_ReplicaRecoveryRequest {
+    string filename = 1;
+}
+
