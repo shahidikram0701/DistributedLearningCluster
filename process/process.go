@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -338,7 +339,7 @@ func GetFile(filename string) bool {
 
 		log.Printf("[ Client ][ GetFile ]Replicas containing the file: %v", dataNodesForCurrentGet)
 		log.Printf("[ Client ][ GetFile ]Current Committed Version of the file: %v is %v", filename, currentCommittedVersion)
-		log.Printf("[ Client ][ GetFile ]Sequence number of the PUT: %v", sequenceNumberOfThisGet)
+		log.Printf("[ Client ][ GetFile ]Sequence number of the Get: %v", sequenceNumberOfThisGet)
 
 		status, err := getFileFromSDFS(filename, currentCommittedVersion, sequenceNumberOfThisGet, dataNodesForCurrentGet)
 
@@ -353,6 +354,46 @@ func GetFile(filename string) bool {
 		}
 	}
 	log.Printf("[ Client ][ GetFile ]Successfully fetched the file %v from SDFS", filename)
+	return true
+}
+
+func DeleteFile(filename string) bool {
+	client, ctx, conn, cancel := getClientForCoordinatorService()
+
+	defer conn.Close()
+	defer cancel()
+	log.Printf("[ Client ][ DeleteFile ]DeleteFile(%v): Intiating request to the coordinator!", filename)
+
+	// Call the RPC function on the coordinator process to process the query
+	r, err := client.DeleteFile(ctx, &cs.CoordinatorDeleteFileRequest{Filename: filename})
+
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("[ Client ][ DeleteFile ]Error: %v", err)
+		return false
+	} else {
+		replicas := r.GetReplicas()
+		sequenceNumberOfThisDelete := r.GetSequenceNumber()
+
+		log.Printf("[ Client ][ DeleteFile ]Replicas containing the file: %v", replicas)
+		log.Printf("[ Client ][ DeleteFile ]Sequence number of the Delete: %v", sequenceNumberOfThisDelete)
+
+		status, err := deleteFileInSDFS(filename, sequenceNumberOfThisDelete, replicas)
+
+		if err != nil {
+			log.Printf("[ Client ][ DeleteFile ]Error deleting file %v: %v", filename, err)
+			return status
+		}
+
+		if !status {
+			log.Printf("[ Client ][ DeleteFile ]Failed for file %v - %v", filename, err)
+			return status
+		}
+		log.Printf("[ Client ][ DeleteFile ]Sending delete commit to all the data nodes %v containing file %v and informing master about the update", replicas, filename)
+		sendDeleteCommitAndInformMaster(filename, sequenceNumberOfThisDelete, replicas)
+	}
+
+	log.Printf("[ Client ][ DeleteFile ]Successfully deleted the file %v from SDFS", filename)
 	return true
 }
 
@@ -406,12 +447,18 @@ func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumb
 		log.Printf("[ Client ][ PutFile ]Sending chunk %v of file: %v", chunkId, filename)
 		e := stream.Send(req)
 		if e != nil {
-			log.Fatalf("[ Client ][ PutFile ]Cannot send chunk %v of file %v to server: %v", chunkId, filename, e)
+			log.Printf("[ Client ][ PutFile ]Cannot send chunk %v of file %v to server: %v", chunkId, filename, e)
+			return false, e
 		}
 		chunkId++
 	}
 
 	res, err := stream.CloseAndRecv()
+
+	if err != nil {
+		log.Printf("[ Client ][ PutFile ]Putfile(%v) failed after streaming content; error: %v", filename, err)
+		return false, err
+	}
 
 	if res.Status {
 		log.Printf("[ Client ][ PutFile ]Sending commit message for File %v and Informing master of Version Bump", filename)
@@ -486,6 +533,32 @@ func getFileFromSDFS(filename string, currentCommittedVersion int64, sequenceNum
 	}
 
 	return true, nil
+}
+
+func deleteFileInSDFS(filename string, sequenceNumberOfThisDelete int64, replicas []string) (bool, error) {
+	client, ctx, conn, cancel := getClientToReplicaServer(replicas[0]) // currently always picking the first allocated node as the primary replica
+	defer conn.Close()
+	defer cancel()
+
+	r, err := client.DataNode_DeleteFileQuorumCheck(ctx, &dn.DataNode_DeleteFileQuorumCheckRequest{
+		Filename:       filename,
+		SequenceNumber: sequenceNumberOfThisDelete,
+		IsReplica:      false,
+		Replicas:       replicas[1:],
+	})
+
+	if err != nil {
+		log.Printf("[ Client ][ DeleteFile ]Delete faled for file %v; %v", filename, err)
+		return false, err
+	} else if r.Status {
+		log.Printf("[ Client ][ DeleteFile ]Delete acknowledged by a quorum of replicas for file %v", filename)
+
+		return true, nil
+
+	}
+
+	log.Printf("[ Client ][ DeleteFile ]Delete of file %v Failed", filename)
+	return false, errors.New("DeleteFile failed for the file: %v" + filename)
 }
 
 func getClientToReplicaServer(replicaIp string) (dn.DataNodeServiceClient, context.Context, *grpc.ClientConn, context.CancelFunc) {
@@ -566,6 +639,61 @@ func sendCommitMessageToReplica(replicaIp string, filename string, sequenceNumbe
 			log.Fatalf("[ Client ][ PutFile ]Commit Failed after getting response")
 		} else {
 			log.Printf("[ Client ][ PutFile ]New version after PutFile(%v) committed: %v", filename, newVersion)
+		}
+	}
+}
+
+func sendDeleteCommitAndInformMaster(filename string, sequenceNumberOfThisDelete int64, replicaIps []string) {
+	// send commit to the data nodes
+	for idx, replicaIp := range replicaIps {
+		isReplica := true
+		if idx == 0 {
+			isReplica = false
+		}
+		log.Printf("[ Client ][ DeleteFile ] Send delete commit to replica: %v", replicaIp)
+		go sendDeleteCommitToReplica(replicaIp, filename, sequenceNumberOfThisDelete, isReplica)
+	}
+
+	// Tell the master that delete was successful
+	client, ctx, conn, cancel := getClientForCoordinatorService()
+
+	defer conn.Close()
+	defer cancel()
+
+	// Call the RPC function on the coordinator process to process the query
+	r, err := client.DeleteFileAck(ctx, &cs.CoordinatorDeleteFileAckRequest{
+		Filename: filename,
+	})
+
+	if err != nil {
+		log.Fatalf("[ Client ][ DeleteFile ]Failed to establish connection with the coordinator")
+	} else {
+		if r.Status {
+			log.Printf("[ Client ][ DeleteFile ]Successfully informed coordinator")
+		}
+	}
+}
+
+func sendDeleteCommitToReplica(replicaIp string, filename string, sequenceNumberOfThisDelete int64, isReplica bool) {
+	client, ctx, conn, cancel := getClientToReplicaServer(replicaIp)
+
+	defer conn.Close()
+	defer cancel()
+
+	log.Printf("[ Client ][ DeleteFile ]Sending delete commit for file %v to replica %v sequenced at %v", filename, replicaIp, sequenceNumberOfThisDelete)
+
+	r, err := client.DataNode_CommitDelete(ctx, &dn.DataNode_CommitDeleteRequest{Filename: filename, SequenceNumber: sequenceNumberOfThisDelete, IsReplica: isReplica})
+
+	if err != nil {
+		log.Fatalf("[ Client ][ DeleteFile ]Delete Commit Failed for file %v at replica: %v", filename, replicaIp)
+	} else {
+		status := r.GetStatus()
+
+		if status == false {
+			log.Printf("[ Client ][ DeleteFile ]Delete Commit Failed after getting response")
+			fmt.Printf("[ Client ][ DeleteFile ]Delete Commit Failed after getting response")
+		} else {
+			log.Printf("[ Client ][ DeleteFile ]DeleteFile(%v) committed", filename)
 		}
 	}
 }

@@ -326,6 +326,15 @@ func (state *CoordinatorState) UpdateVersionOfFile(filename string) int {
 	return newVersion
 }
 
+func (state *CoordinatorState) DeleteFileEntry(filename string) {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	delete(state.globalSequenceNumber, filename)
+	delete(state.fileToNodeMapping, filename)
+	delete(state.fileToVersionMapping, filename)
+}
+
 func (s *CoordinatorServerForSDFS) PutFile(ctx context.Context, in *cs.CoordinatorPutFileRequest) (*cs.CoordinatorPutFileReply, error) {
 	conf := config.GetConfig("../../config/config.json")
 	filename := in.GetFilename()
@@ -383,6 +392,39 @@ func (s *CoordinatorServerForSDFS) GetFile(ctx context.Context, in *cs.Coordinat
 	}, nil
 }
 
+func (s *CoordinatorServerForSDFS) DeleteFile(ctx context.Context, in *cs.CoordinatorDeleteFileRequest) (*cs.CoordinatorDeleteFileResponse, error) {
+	filename := in.GetFilename()
+	log.Printf("[ Coordinator ][ DeleteFile ]DeleteFile(%v)", filename)
+
+	if !coordinatorState.FileExists(filename) {
+		log.Printf("[ Coordinator ][ DeleteFile ]File %v doesn't exist", filename)
+		return nil, errors.New("File doesn't exist")
+	}
+
+	sequenceNumber := coordinatorState.GetGlobalSequenceNumber(filename)
+	log.Printf("[ Coordinator ][ DeleteFile ]Sequence number for File: %v is %v", filename, sequenceNumber)
+
+	nodeMappings := coordinatorState.GetNodeMappingsForFile(filename)
+
+	log.Printf("[ Coordinator ][ DeleteFile ]Operation sequenced at %v on the file: %v; Data nodes: %v;\n", sequenceNumber, filename, nodeMappings)
+
+	return &cs.CoordinatorDeleteFileResponse{
+		SequenceNumber: int64(sequenceNumber),
+		Replicas:       nodeMappings,
+	}, nil
+}
+
+func (s *CoordinatorServerForSDFS) DeleteFileAck(ctx context.Context, in *cs.CoordinatorDeleteFileAckRequest) (*cs.CoordinatorDeleteFileAckResponse, error) {
+	filename := in.GetFilename()
+	log.Printf("[ Coordinator ][ DeleteFile ]DeleteFileAck(%v)", filename)
+
+	coordinatorState.DeleteFileEntry(filename)
+
+	return &cs.CoordinatorDeleteFileAckResponse{
+		Status: true,
+	}, nil
+}
+
 func (s *CoordinatorServerForSDFS) UpdateFileVersion(ctx context.Context, in *cs.CoordinatorUpdateFileVersionRequest) (*cs.CoordinatorUpdateFileVersionReply, error) {
 	filename := in.Filename
 	log.Printf("[ Coordinator ][ PutFile ]Updating the version number of the file: %v", filename)
@@ -411,10 +453,11 @@ func coordinatorService_SDFS(port int, wg *sync.WaitGroup) {
 
 func replicaRepair() {
 	fileMapping := coordinatorState.GetFileToNodeMappings()
-
 	for filename, nodes := range fileMapping {
 		for idx, node := range nodes {
-			if !memberList.IsNodeAlive(node) {
+			isNodeAlive := memberList.IsNodeAlive(node)
+			log.Printf("[ Primary Replica ][ Replica Recovery ][ Report ]Filename:Node:Status::%v:%v:%v", filename, node, isNodeAlive)
+			if !isNodeAlive {
 				log.Printf("[ Coordinator ][ Replica Recovery ]Replica %v for file: %v is down", node, filename)
 				go assignNewReplicaAndReplicate(filename, nodes, node, idx)
 			}

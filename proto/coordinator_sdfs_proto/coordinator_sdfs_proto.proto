@@ -9,7 +9,10 @@ service CoordinatorServiceForSDFS {
     rpc PutFile (CoordinatorPutFileRequest) returns (CoordinatorPutFileReply) {}
     rpc UpdateFileVersion(CoordinatorUpdateFileVersionRequest) returns (CoordinatorUpdateFileVersionReply) {}
     rpc GetFile (CoordinatorGetFileRequest) returns (CoordinatorGetFileReply) {}
+    rpc DeleteFile (CoordinatorDeleteFileRequest) returns (CoordinatorDeleteFileResponse) {}
+    rpc DeleteFileAck (CoordinatorDeleteFileAckRequest) returns (CoordinatorDeleteFileAckResponse) {}
 }
+
 
 message CoordinatorPutFileRequest {
     string filename = 1;
@@ -29,6 +32,23 @@ message CoordinatorGetFileReply {
     int64 sequenceNumber = 1;
     int64 version = 2;
     repeated string dataNodes = 3;
+}
+
+message CoordinatorDeleteFileRequest {
+    string filename = 1;
+}
+
+message CoordinatorDeleteFileResponse {
+    int64 sequenceNumber = 1;
+    repeated string replicas = 2;
+}
+
+message CoordinatorDeleteFileAckRequest {
+    string filename = 1;
+}
+
+message CoordinatorDeleteFileAckResponse {
+    bool status = 1;
 }
 
 message CoordinatorUpdateFileVersionRequest {
