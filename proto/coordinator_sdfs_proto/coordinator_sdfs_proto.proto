@@ -11,8 +11,14 @@ service CoordinatorServiceForSDFS {
     rpc GetFile (CoordinatorGetFileRequest) returns (CoordinatorGetFileReply) {}
     rpc DeleteFile (CoordinatorDeleteFileRequest) returns (CoordinatorDeleteFileResponse) {}
     rpc DeleteFileAck (CoordinatorDeleteFileAckRequest) returns (CoordinatorDeleteFileAckResponse) {}
+    rpc CoordinatorSync(CoordinatorSyncRequest) returns (CoordinatorSyncResponse) {}
 }
 
+message CoordinatorSyncRequest {
+    bytes coordinatorState = 1;
+}
+
+message CoordinatorSyncResponse {}
 
 message CoordinatorPutFileRequest {
     string filename = 1;

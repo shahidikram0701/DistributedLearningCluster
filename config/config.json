@@ -17,5 +17,6 @@
     "NumRetriesPerOperation": 3,
     "SDFSDataFolder": "../../sdfs",
     "ReplicaRecoveryInterval": 5,
-    "OutputDataFolder": "../../outdata"
+    "OutputDataFolder": "../../outdata",
+    "CoordinatorSyncTimer": 2
 }

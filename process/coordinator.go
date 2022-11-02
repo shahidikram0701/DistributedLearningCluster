@@ -2,6 +2,7 @@ package process
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -22,10 +23,10 @@ import (
 
 type CoordinatorState struct {
 	lock                 *sync.RWMutex
-	globalSequenceNumber map[string]int
-	fileToNodeMapping    map[string][]string
-	fileToVersionMapping map[string]int
-	indexIntoMemberList  int
+	GlobalSequenceNumber map[string]int
+	FileToNodeMapping    map[string][]string
+	FileToVersionMapping map[string]int
+	IndexIntoMemberList  int
 	myIpAddr             string // unchangable field - no lock reqd.
 }
 
@@ -197,15 +198,16 @@ func StartCoordinatorService(coordinatorServiceForLogsPort int, coordinatorServi
 	// Initialise the state of the coordinator process
 	coordinatorState = &CoordinatorState{
 		lock:                 &sync.RWMutex{},
-		globalSequenceNumber: make(map[string]int),
-		fileToNodeMapping:    make(map[string][]string),
-		fileToVersionMapping: make(map[string]int),
+		GlobalSequenceNumber: make(map[string]int),
+		FileToNodeMapping:    make(map[string][]string),
+		FileToVersionMapping: make(map[string]int),
 		myIpAddr:             fmt.Sprintf("%v", myIpAddr),
 	}
 
 	go coordintorService_ProcessLogs(coordinatorServiceForLogsPort, wg)
 	go coordinatorService_SDFS(coordinatorServiceForSDFSPort, wg)
 	go CoordinatorService_ReplicaRecovery(wg)
+	go CoordinatorService_SyncWithCoordinatorReplicas(wg)
 }
 
 func coordintorService_ProcessLogs(port int, wg *sync.WaitGroup) {
@@ -223,18 +225,47 @@ func coordintorService_ProcessLogs(port int, wg *sync.WaitGroup) {
 	}
 }
 
+func (state *CoordinatorState) GetSnapOfState() []byte {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Sending Snap of state: %v", *state)
+
+	serialisedState, err := json.Marshal(*state)
+	if err != nil {
+		log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Error Marshalling the state")
+		return nil
+	}
+
+	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Snap of the state: %v", string(serialisedState))
+
+	return serialisedState
+}
+
+func (state *CoordinatorState) SetState(newState *CoordinatorState) {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	state.FileToNodeMapping = newState.FileToNodeMapping
+	state.FileToVersionMapping = newState.FileToVersionMapping
+	state.GlobalSequenceNumber = newState.GlobalSequenceNumber
+	state.IndexIntoMemberList = newState.IndexIntoMemberList
+	state.myIpAddr = fmt.Sprintf("%v", dataNode_GetOutboundIP())
+
+}
+
 func (state *CoordinatorState) GetGlobalSequenceNumber(filename string) int {
 	state.lock.Lock()
 	defer state.lock.Unlock()
 
-	_, ok := state.globalSequenceNumber[filename]
+	_, ok := state.GlobalSequenceNumber[filename]
 
 	if !ok {
-		state.globalSequenceNumber[filename] = 0
+		state.GlobalSequenceNumber[filename] = 0
 	}
 
-	currentGlobalSequenceNumber := state.globalSequenceNumber[filename]
-	state.globalSequenceNumber[filename]++
+	currentGlobalSequenceNumber := state.GlobalSequenceNumber[filename]
+	state.GlobalSequenceNumber[filename]++
 
 	return currentGlobalSequenceNumber
 }
@@ -243,7 +274,7 @@ func (state *CoordinatorState) PeekGlobalSequenceNumber(filename string) int {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	sequenceNum, ok := state.globalSequenceNumber[filename]
+	sequenceNum, ok := state.GlobalSequenceNumber[filename]
 
 	if ok {
 		return sequenceNum
@@ -255,21 +286,21 @@ func (state *CoordinatorState) GetNodeMappingsForFile(filename string) []string 
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	return state.fileToNodeMapping[filename]
+	return state.FileToNodeMapping[filename]
 }
 
 func (state *CoordinatorState) GetFileToNodeMappings() map[string][]string {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	return state.fileToNodeMapping
+	return state.FileToNodeMapping
 }
 
 func (state *CoordinatorState) FileExists(filename string) bool {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	_, ok := state.fileToVersionMapping[filename]
+	_, ok := state.FileToVersionMapping[filename]
 
 	return ok
 }
@@ -278,10 +309,10 @@ func (state *CoordinatorState) GenerateNodeMappingsForFile(filename string, numD
 	state.lock.Lock()
 	defer state.lock.Unlock()
 
-	nodes, newIndexIntoMemberlist := memberList.GetNDataNodes(state.indexIntoMemberList, numDataNodes)
-	state.indexIntoMemberList = newIndexIntoMemberlist
+	nodes, newIndexIntoMemberlist := memberList.GetNDataNodes(state.IndexIntoMemberList, numDataNodes)
+	state.IndexIntoMemberList = newIndexIntoMemberlist
 
-	state.fileToNodeMapping[filename] = nodes
+	state.FileToNodeMapping[filename] = nodes
 
 	log.Printf("[Coordinator]PutFile: Allocated nodes: %v", nodes)
 
@@ -292,9 +323,9 @@ func (state *CoordinatorState) UpdateNodeForFileAtIndex(filename string, idx int
 	state.lock.Lock()
 	defer state.lock.Unlock()
 
-	_, ok := state.fileToNodeMapping[filename]
+	_, ok := state.FileToNodeMapping[filename]
 	if ok {
-		state.fileToNodeMapping[filename][idx] = newNode
+		state.FileToNodeMapping[filename][idx] = newNode
 	}
 
 	return ok
@@ -305,7 +336,7 @@ func (state *CoordinatorState) GetVersionOfFile(filename string) int {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	if version, ok := state.fileToVersionMapping[filename]; ok {
+	if version, ok := state.FileToVersionMapping[filename]; ok {
 		return version
 	}
 	return 0 // in the case it is a create operation
@@ -315,13 +346,13 @@ func (state *CoordinatorState) UpdateVersionOfFile(filename string) int {
 	state.lock.Lock()
 	defer state.lock.Unlock()
 
-	_, ok := state.fileToVersionMapping[filename]
+	_, ok := state.FileToVersionMapping[filename]
 
 	newVersion := 1 // if need to update version after creating
 	if ok {
-		newVersion = state.fileToVersionMapping[filename] + 1
+		newVersion = state.FileToVersionMapping[filename] + 1
 	}
-	state.fileToVersionMapping[filename] = newVersion
+	state.FileToVersionMapping[filename] = newVersion
 
 	return newVersion
 }
@@ -330,9 +361,9 @@ func (state *CoordinatorState) DeleteFileEntry(filename string) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
 
-	delete(state.globalSequenceNumber, filename)
-	delete(state.fileToNodeMapping, filename)
-	delete(state.fileToVersionMapping, filename)
+	delete(state.GlobalSequenceNumber, filename)
+	delete(state.FileToNodeMapping, filename)
+	delete(state.FileToVersionMapping, filename)
 }
 
 func (s *CoordinatorServerForSDFS) PutFile(ctx context.Context, in *cs.CoordinatorPutFileRequest) (*cs.CoordinatorPutFileReply, error) {
@@ -544,4 +575,107 @@ func CoordinatorService_ReplicaRecovery(wg *sync.WaitGroup) {
 			}
 		}
 	}()
+}
+
+func CoordinatorService_SyncWithCoordinatorReplicas(wg *sync.WaitGroup) {
+	conf := config.GetConfig("../../config/config.json")
+	ticker := time.NewTicker(time.Duration(conf.CoordinatorSyncTimer) * time.Second)
+	quit := make(chan struct{})
+	func() {
+		for {
+			select {
+			case <-ticker.C:
+				currentCoordinator := memberList.GetCoordinatorNode()
+				myIpAddr := coordinatorState.myIpAddr
+
+				if currentCoordinator == myIpAddr {
+					// fmt.Printf("[ Coordinator ][ Replica Recovery ]")
+					log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Initialising\n")
+					syncWithCoordinatorReplicas()
+				}
+				// close(quit)
+			case <-quit:
+				if memberList.GetCoordinatorNode() == coordinatorState.myIpAddr {
+					log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Termination")
+					ticker.Stop()
+				}
+				wg.Done()
+				return
+			}
+		}
+	}()
+}
+
+func syncWithCoordinatorReplicas() {
+	allCoordinators := memberList.GetAllCoordinators()
+
+	coordinatorChannel := make(chan bool)
+	for _, coordinator := range allCoordinators {
+		if coordinator == coordinatorState.myIpAddr {
+			continue
+		}
+		go sendStateSnapToBackupCoordinator(coordinator, coordinatorChannel)
+	}
+
+	i := 0
+	for {
+		<-coordinatorChannel
+		log.Printf("")
+		i++
+		if i == len(allCoordinators)-1 {
+			break
+		}
+	}
+}
+
+func sendStateSnapToBackupCoordinator(coordinator string, coordinatorChannel chan bool) {
+	conf := config.GetConfig("../../config/config.json")
+	coordinatorAddr := fmt.Sprintf("%v:%v", coordinator, conf.CoordinatorServiceSDFSPort)
+
+	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Getting the grpc client for the Coordinator at: %v", coordinatorAddr)
+	conn, err := grpc.Dial(coordinatorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Failed to establish connection with the coordinator: %v", err)
+		coordinatorChannel <- false
+		return
+	}
+
+	// defer conn.Close()
+
+	// Initialise a client to connect to the coordinator process
+	c := cs.NewCoordinatorServiceForSDFSClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// defer cancel()
+
+	defer conn.Close()
+	defer cancel()
+
+	_, err = c.CoordinatorSync(ctx, &cs.CoordinatorSyncRequest{
+		CoordinatorState: coordinatorState.GetSnapOfState(),
+	})
+	if err != nil {
+		// may be service process is down
+		log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Failed oopsss")
+		coordinatorChannel <- false
+		return
+	}
+	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Successfully sent the state to the backup coordinator %v", coordinator)
+	coordinatorChannel <- true
+}
+
+func (s *CoordinatorServerForSDFS) CoordinatorSync(ctx context.Context, in *cs.CoordinatorSyncRequest) (*cs.CoordinatorSyncResponse, error) {
+	var newState CoordinatorState
+	unmarshallingError := json.Unmarshal(in.CoordinatorState, &newState)
+	if unmarshallingError != nil {
+		log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Error while unmarshalling the received state: %v\n", unmarshallingError)
+	}
+
+	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Received State: %v", newState)
+
+	coordinatorState.SetState(&newState)
+
+	return &cs.CoordinatorSyncResponse{}, nil
 }
