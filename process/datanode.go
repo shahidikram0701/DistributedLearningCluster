@@ -310,14 +310,13 @@ func (s *DataNodeServer) DataNode_CommitFile(ctx context.Context, in *dn.DataNod
 func (s *DataNodeServer) DataNode_UpdateSequenceNumber(ctx context.Context, in *dn.DataNode_UpdateSequenceNumberRequest) (*dn.DataNode_UpdateSequenceNumberResponse, error) {
 	filename := in.GetFilename()
 	newSequenceNumber := in.GetSequenceNumber()
-	log.Printf("[ DataNode ][ PutFile ]File changes for file: %v can't be committed and so let us update the sequence number so that other operations can proceed", filename)
 
 	newLocalSequenceNumber := dataNodeState.dataNode_IncrementSequenceNumber(filename)
 
 	if newLocalSequenceNumber == int(newSequenceNumber) {
-		log.Printf("[ DataNode ][ PutFile ]Replica and Primary are in sync. Sequence numbers match: %v", newSequenceNumber)
+		log.Printf("[ DataNode ]Upating Sequence Number for file %v: Sequence numbers match: %v", filename, newSequenceNumber)
 	} else {
-		log.Fatalf("[ DataNode ][ PutFile ]Replica and Primary are out of sync. Replica sequence number: %v and Primary's sequence number: %v", newLocalSequenceNumber, newSequenceNumber)
+		log.Fatalf("[ DataNode ]Updating Sequence Number for file %v: Sequence number for the file on the node is misaligned. Replica sequence number: %v whereas it should be: %v", filename, newLocalSequenceNumber, newSequenceNumber)
 	}
 
 	return &dn.DataNode_UpdateSequenceNumberResponse{}, nil
@@ -337,7 +336,11 @@ func (s *DataNodeServer) DataNode_InitiateReplicaRecovery(ctx context.Context, i
 	})
 
 	if err != nil {
-		log.Fatalf("[ DataNode ][ Replica Recovery ]Getting versions file %v for recovery FAILED", filename)
+		log.Printf("[ DataNode ][ Replica Recovery ]Getting versions file %v for recovery FAILED", filename)
+
+		return &dn.DataNode_InitiateReplicaRecoveryResponse{
+			Status: false,
+		}, err
 	}
 
 	version := 1
@@ -393,7 +396,7 @@ func (s *DataNodeServer) DataNode_InitiateReplicaRecovery(ctx context.Context, i
 
 	ok := dataNodeState.dataNode_AddSequenceNumber(filename, seqNum)
 	if ok {
-		log.Printf("[ DataNode ][ Replica Recovery ]Took a note of the latest sequence number for the file %v", filename)
+		log.Printf("[ DataNode ][ Replica Recovery ]Took a note of the latest sequence number: %v for the file %v", seqNum, filename)
 	} else {
 		log.Fatalf("[ DataNode ][ Replica Recovery ] Sequence number updation failed")
 	}
@@ -451,7 +454,12 @@ func (s *DataNodeServer) DataNode_ReplicaRecovery(in *dn.DataNode_ReplicaRecover
 	}
 
 	for _, f := range files {
+		log.Printf("[ DataNode ][ Replica Recovery ]Sending file: %v", f.Name())
 		fName := strings.Split(f.Name(), "-")[0]
+
+		if fName != filename {
+			continue
+		}
 		fVersion, _ := strconv.Atoi(strings.Split(f.Name(), "-")[1])
 
 		if f.Name() != fmt.Sprintf("%v-%v-%v", fName, fVersion, dataNode_GetOutboundIP()) {
@@ -499,11 +507,13 @@ func (s *DataNodeServer) DataNode_ReplicaRecovery(in *dn.DataNode_ReplicaRecover
 			chunkId++
 		}
 	}
+	log.Printf("[ DataNode ][ Replica Recovery ]Sent all the chunks of the file %v", filename)
 	return nil
 }
 
 func dataNode_ProcessFile(filename string, fileData bytes.Buffer, stream dn.DataNodeService_DataNode_PutFileServer, operationSequenceNumber int, replicaNodes []string, isReplica bool, allChunks []*dn.Chunk) error {
 	// wait until sequence number
+	log.Printf("[ DataNode ][ PutFile ]Received Write with sequence number %v and local sequence number for that file is %v", operationSequenceNumber, dataNodeState.dataNode_GetSequenceNumber(filename))
 	for dataNodeState.dataNode_GetSequenceNumber(filename) != operationSequenceNumber {
 	}
 
@@ -587,12 +597,14 @@ func dataNode_UpdateSequenceNumberOnReplica(replica string, filename string, new
 	defer conn.Close()
 	defer cancel()
 
+	log.Printf("[ DataNode ][ PutFile/DeleteFile ]File changes for file: %v can't be committed and so let us update the sequence number so that other operations can proceed", filename)
+
 	_, err := client.DataNode_UpdateSequenceNumber(ctx, &dn.DataNode_UpdateSequenceNumberRequest{Filename: filename, SequenceNumber: int64(newSequenceNumber)})
 
 	if err != nil {
-		log.Printf("[ Primary Replica ][ PutFile ]Updating sequence number on the replica: %v errored: %v", replica, err)
+		log.Printf("[ Primary Replica ][ PutFile/DeleteFile ]Updating sequence number on the replica: %v errored: %v", replica, err)
 	} else {
-		log.Printf("[ Primary Replica ][ PutFile ]Updating sequence number on the replica: %v success", replica)
+		log.Printf("[ Primary Replica ][ PutFile/DeleteFile ]Updating sequence number on the replica: %v success", replica)
 	}
 }
 
@@ -703,8 +715,10 @@ func (s *DataNodeServer) DataNode_GetFile(in *dn.DataNode_GetFileRequest, stream
 		}
 	}
 	if quorum {
+		// increase sequence number on all the replica nodes
 		return sendFileToClient(filename, int(version), stream, sequenceNum)
 	} else {
+		// increase sequence number on all the replica nodes
 		return errors.New("Quorum not obtained")
 	}
 

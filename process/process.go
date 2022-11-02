@@ -342,6 +342,14 @@ func GetFile(filename string) bool {
 		log.Printf("[ Client ][ GetFile ]Sequence number of the Get: %v", sequenceNumberOfThisGet)
 
 		status, err := getFileFromSDFS(filename, currentCommittedVersion, sequenceNumberOfThisGet, dataNodesForCurrentGet)
+		log.Printf("[ Client ][ GetFile ]The execution of the GetFile operation of file %v with sequenceNumber %v done on all the data nodes %v", filename, sequenceNumberOfThisGet, dataNodesForCurrentGet)
+
+		log.Printf("[ Client ][ GetFile ]Updating the sequence number for getFile(%v) with sequence number %v on all the data nodes", filename, sequenceNumberOfThisGet)
+
+		// update the sequence number for the file on all its data nodes
+		for _, dataNode := range dataNodesForCurrentGet {
+			go updateSequenceNumberForTheFile(filename, sequenceNumberOfThisGet, dataNode)
+		}
 
 		if err != nil {
 			log.Printf("[ Client ][ GetFile ]Error getting file %v:%v - %v", filename, currentCommittedVersion, err)
@@ -355,6 +363,26 @@ func GetFile(filename string) bool {
 	}
 	log.Printf("[ Client ][ GetFile ]Successfully fetched the file %v from SDFS", filename)
 	return true
+}
+
+func updateSequenceNumberForTheFile(filename string, seqNum int64, dataNode string) {
+	log.Printf("[ Client ][ GetFile ]Initiating update Sequence number on node %v for file %v. The new sequence number would be: %v", dataNode, filename, seqNum+1)
+
+	client, ctx, conn, cancel := getClientToReplicaServer(dataNode)
+	defer conn.Close()
+	defer cancel()
+
+	_, err := client.DataNode_UpdateSequenceNumber(ctx, &dn.DataNode_UpdateSequenceNumberRequest{
+		Filename:       filename,
+		SequenceNumber: seqNum + 1,
+	})
+
+	if err != nil {
+		log.Printf("[ Client ][ ReadFile ]Update sequence number for file %v on node %v to %v FAILED. Error: %v", filename, dataNode, seqNum+1, err)
+	} else {
+		log.Printf("[ Client ][ ReadFile ]Successfully updated sequence number for file %v on node %v to %v", filename, dataNode, seqNum+1)
+	}
+
 }
 
 func DeleteFile(filename string) bool {

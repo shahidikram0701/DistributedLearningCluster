@@ -484,19 +484,21 @@ func coordinatorService_SDFS(port int, wg *sync.WaitGroup) {
 
 func replicaRepair() {
 	fileMapping := coordinatorState.GetFileToNodeMappings()
+	i := 0
 	for filename, nodes := range fileMapping {
 		for idx, node := range nodes {
 			isNodeAlive := memberList.IsNodeAlive(node)
-			log.Printf("[ Primary Replica ][ Replica Recovery ][ Report ]Filename:Node:Status::%v:%v:%v", filename, node, isNodeAlive)
+			log.Printf("[ Coordinator ][ Replica Recovery ][ Report ]Filename:Node:Status::%v:%v:%v", filename, node, isNodeAlive)
 			if !isNodeAlive {
 				log.Printf("[ Coordinator ][ Replica Recovery ]Replica %v for file: %v is down", node, filename)
-				go assignNewReplicaAndReplicate(filename, nodes, node, idx)
+				i += 1
+				assignNewReplicaAndReplicate(filename, nodes, node, idx)
 			}
 		}
 	}
 }
 
-func assignNewReplicaAndReplicate(filename string, nodes []string, nodeToRecover string, nodeIdx int) {
+func assignNewReplicaAndReplicate(filename string, nodes []string, nodeToRecover string, nodeIdx int) bool {
 	contains := func(s []string, str string) bool {
 		for _, v := range s {
 			if v == str {
@@ -539,96 +541,149 @@ func assignNewReplicaAndReplicate(filename string, nodes []string, nodeToRecover
 
 	if err != nil {
 		log.Printf("[ Coordinator ][ Replica Recovery ]Replica Recovery of node %v failed - %v", nodeToRecover, err)
+		return false
 	} else {
 		if res.Status {
 			coordinatorState.UpdateNodeForFileAtIndex(filename, nodeIdx, newNode)
 
 			log.Printf("[ Coordinator ][ Replica Recovery ]Replica Recovery of node %v successful; Replaced with the node %v", nodeToRecover, newNode)
+			return true
 		}
 	}
+	log.Printf("[ Coordinator ][ Replica Recovery ]Replica Recovery of node %v failed", nodeToRecover)
+	return false
 }
+
+// func CoordinatorService_ReplicaRecovery(wg *sync.WaitGroup) {
+// 	conf := config.GetConfig("../../config/config.json")
+// 	ticker := time.NewTicker(time.Duration(conf.ReplicaRecoveryInterval) * time.Second)
+// 	quit := make(chan struct{})
+// 	func() {
+// 		for {
+// 			select {
+// 			case <-ticker.C:
+// 				currentCoordinator := memberList.GetCoordinatorNode()
+// 				myIpAddr := coordinatorState.myIpAddr
+
+// 				if currentCoordinator == myIpAddr {
+// 					// fmt.Printf("[ Coordinator ][ Replica Recovery ]")
+// 					log.Printf("[ Coordinator ][ Replica Recovery ]Initialising\n")
+// 					replicaRepair()
+// 				}
+// 				// close(quit)
+// 			case <-quit:
+// 				if memberList.GetCoordinatorNode() == coordinatorState.myIpAddr {
+// 					log.Printf("[ Coordinator ][ Replica Recovery ]Termination")
+// 					ticker.Stop()
+// 				}
+// 				wg.Done()
+// 				return
+// 			}
+// 		}
+// 	}()
+// }
 
 func CoordinatorService_ReplicaRecovery(wg *sync.WaitGroup) {
 	conf := config.GetConfig("../../config/config.json")
-	ticker := time.NewTicker(time.Duration(conf.ReplicaRecoveryInterval) * time.Second)
-	quit := make(chan struct{})
-	func() {
-		for {
-			select {
-			case <-ticker.C:
-				currentCoordinator := memberList.GetCoordinatorNode()
-				myIpAddr := coordinatorState.myIpAddr
 
-				if currentCoordinator == myIpAddr {
-					// fmt.Printf("[ Coordinator ][ Replica Recovery ]")
-					log.Printf("[ Coordinator ][ Replica Recovery ]Initialising\n")
-					replicaRepair()
-				}
-				// close(quit)
-			case <-quit:
-				if memberList.GetCoordinatorNode() == coordinatorState.myIpAddr {
-					log.Printf("[ Coordinator ][ Replica Recovery ]Termination")
-					ticker.Stop()
-				}
-				wg.Done()
-				return
-			}
+	for {
+		if memberList == nil {
+			continue
 		}
-	}()
+		currentCoordinator := memberList.GetCoordinatorNode()
+		myIpAddr := coordinatorState.myIpAddr
+
+		if currentCoordinator == myIpAddr {
+			// fmt.Printf("[ Coordinator ][ Replica Recovery ]")
+			log.Printf("[ Coordinator ][ Replica Recovery ]Initialising\n")
+			replicaRepair()
+		}
+		time.Sleep(time.Duration(conf.ReplicaRecoveryInterval) * time.Second)
+	}
 }
+
+// func CoordinatorService_SyncWithCoordinatorReplicas(wg *sync.WaitGroup) {
+// 	conf := config.GetConfig("../../config/config.json")
+// 	ticker := time.NewTicker(time.Duration(conf.CoordinatorSyncTimer) * time.Second)
+// 	quit := make(chan struct{})
+// 	func() {
+// 		for {
+// 			select {
+// 			case <-ticker.C:
+// 				currentCoordinator := memberList.GetCoordinatorNode()
+// 				myIpAddr := coordinatorState.myIpAddr
+
+// 				if currentCoordinator == myIpAddr {
+// 					// fmt.Printf("[ Coordinator ][ Replica Recovery ]")
+// 					log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Initialising\n")
+// 					syncWithCoordinatorReplicas()
+// 				}
+// 				// close(quit)
+// 			case <-quit:
+// 				if memberList.GetCoordinatorNode() == coordinatorState.myIpAddr {
+// 					log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Termination")
+// 					ticker.Stop()
+// 				}
+// 				wg.Done()
+// 				return
+// 			}
+// 		}
+// 	}()
+// }
 
 func CoordinatorService_SyncWithCoordinatorReplicas(wg *sync.WaitGroup) {
 	conf := config.GetConfig("../../config/config.json")
-	ticker := time.NewTicker(time.Duration(conf.CoordinatorSyncTimer) * time.Second)
-	quit := make(chan struct{})
-	func() {
-		for {
-			select {
-			case <-ticker.C:
-				currentCoordinator := memberList.GetCoordinatorNode()
-				myIpAddr := coordinatorState.myIpAddr
 
-				if currentCoordinator == myIpAddr {
-					// fmt.Printf("[ Coordinator ][ Replica Recovery ]")
-					log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Initialising\n")
-					syncWithCoordinatorReplicas()
-				}
-				// close(quit)
-			case <-quit:
-				if memberList.GetCoordinatorNode() == coordinatorState.myIpAddr {
-					log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Termination")
-					ticker.Stop()
-				}
-				wg.Done()
-				return
-			}
+	for {
+		if memberList == nil {
+			continue
 		}
-	}()
+		currentCoordinator := memberList.GetCoordinatorNode()
+		myIpAddr := coordinatorState.myIpAddr
+
+		if currentCoordinator == myIpAddr {
+			// fmt.Printf("[ Coordinator ][ Replica Recovery ]")
+			log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Initialising\n")
+			syncWithCoordinatorReplicas()
+		}
+		time.Sleep(time.Duration(conf.CoordinatorSyncTimer) * time.Second)
+	}
 }
+
+// func syncWithCoordinatorReplicas() {
+// 	allCoordinators := memberList.GetAllCoordinators()
+
+// 	coordinatorChannel := make(chan bool)
+// 	for _, coordinator := range allCoordinators {
+// 		if coordinator == coordinatorState.myIpAddr {
+// 			continue
+// 		}
+// 		go sendStateSnapToBackupCoordinator(coordinator, coordinatorChannel)
+// 	}
+
+// 	i := 0
+// 	for {
+// 		<-coordinatorChannel
+
+// 		i++
+// 		if i == len(allCoordinators)-1 {
+// 			break
+// 		}
+// 	}
+// }
 
 func syncWithCoordinatorReplicas() {
 	allCoordinators := memberList.GetAllCoordinators()
 
-	coordinatorChannel := make(chan bool)
 	for _, coordinator := range allCoordinators {
 		if coordinator == coordinatorState.myIpAddr {
 			continue
 		}
-		go sendStateSnapToBackupCoordinator(coordinator, coordinatorChannel)
-	}
-
-	i := 0
-	for {
-		<-coordinatorChannel
-		log.Printf("")
-		i++
-		if i == len(allCoordinators)-1 {
-			break
-		}
+		sendStateSnapToBackupCoordinator(coordinator)
 	}
 }
 
-func sendStateSnapToBackupCoordinator(coordinator string, coordinatorChannel chan bool) {
+func sendStateSnapToBackupCoordinator(coordinator string) bool {
 	conf := config.GetConfig("../../config/config.json")
 	coordinatorAddr := fmt.Sprintf("%v:%v", coordinator, conf.CoordinatorServiceSDFSPort)
 
@@ -638,8 +693,7 @@ func sendStateSnapToBackupCoordinator(coordinator string, coordinatorChannel cha
 	if err != nil {
 		// If the connection fails to the picked coordinator node, retry connection to another node
 		log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Failed to establish connection with the coordinator: %v", err)
-		coordinatorChannel <- false
-		return
+		return false
 	}
 
 	// defer conn.Close()
@@ -659,11 +713,10 @@ func sendStateSnapToBackupCoordinator(coordinator string, coordinatorChannel cha
 	if err != nil {
 		// may be service process is down
 		log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Failed oopsss")
-		coordinatorChannel <- false
-		return
+		return false
 	}
 	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Successfully sent the state to the backup coordinator %v", coordinator)
-	coordinatorChannel <- true
+	return true
 }
 
 func (s *CoordinatorServerForSDFS) CoordinatorSync(ctx context.Context, in *cs.CoordinatorSyncRequest) (*cs.CoordinatorSyncResponse, error) {
