@@ -3,6 +3,7 @@ package membershiplist
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -376,4 +377,35 @@ func (ml *MembershipList) GetNDataNodes(startIndex int, n int) ([]string, int) {
 		i = (i + 1) % len(ml.items)
 	}
 	return nodes, i
+}
+
+func (ml *MembershipList) IsNodeAlive(node string) bool {
+	ml.RLock()
+	defer ml.RUnlock()
+
+	for _, item := range ml.items {
+		if strings.Split(item.Id, ":")[0] == node {
+			if item.State.Status == Alive {
+				return true
+			} else {
+				return false
+			}
+		}
+	}
+
+	return false
+}
+
+func (ml *MembershipList) GetRandomNode() string {
+	ml.RLock()
+	defer ml.RUnlock()
+
+	n := len(ml.items)
+
+	for {
+		node := ml.items[rand.Int()%n]
+		if node.State.Status == Alive {
+			return strings.Split(node.Id, ":")[0]
+		}
+	}
 }

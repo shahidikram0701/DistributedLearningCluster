@@ -13,6 +13,7 @@ import (
 	"cs425/mp/config"
 	pb "cs425/mp/proto/coordinator_proto"
 	cs "cs425/mp/proto/coordinator_sdfs_proto"
+	dn "cs425/mp/proto/data_node_proto"
 	lg "cs425/mp/proto/logger_proto"
 
 	"google.golang.org/grpc"
@@ -25,6 +26,7 @@ type CoordinatorState struct {
 	fileToNodeMapping    map[string][]string
 	fileToVersionMapping map[string]int
 	indexIntoMemberList  int
+	myIpAddr             string // unchangable field - no lock reqd.
 }
 
 // list of machines acting as workers
@@ -180,16 +182,30 @@ func (s *CoordinatorServerForLogs) Test_GenerateLogs(ctx context.Context, in *pb
 }
 
 func StartCoordinatorService(coordinatorServiceForLogsPort int, coordinatorServiceForSDFSPort int, devmode bool, wg *sync.WaitGroup) {
+	getOutboundIP := func() net.IP {
+		conn, err := net.Dial("udp", "8.8.8.8:80")
+		if err != nil {
+			log.Printf("Couldn't get the IP address of the process\n%v", err)
+		}
+		defer conn.Close()
+
+		localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+		return localAddr.IP
+	}
+	myIpAddr := getOutboundIP()
 	// Initialise the state of the coordinator process
 	coordinatorState = &CoordinatorState{
 		lock:                 &sync.RWMutex{},
 		globalSequenceNumber: make(map[string]int),
 		fileToNodeMapping:    make(map[string][]string),
 		fileToVersionMapping: make(map[string]int),
+		myIpAddr:             fmt.Sprintf("%v", myIpAddr),
 	}
 
 	go coordintorService_ProcessLogs(coordinatorServiceForLogsPort, wg)
 	go coordinatorService_SDFS(coordinatorServiceForSDFSPort, wg)
+	go CoordinatorService_ReplicaRecovery(wg)
 }
 
 func coordintorService_ProcessLogs(port int, wg *sync.WaitGroup) {
@@ -242,6 +258,13 @@ func (state *CoordinatorState) GetNodeMappingsForFile(filename string) []string 
 	return state.fileToNodeMapping[filename]
 }
 
+func (state *CoordinatorState) GetFileToNodeMappings() map[string][]string {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	return state.fileToNodeMapping
+}
+
 func (state *CoordinatorState) FileExists(filename string) bool {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -263,6 +286,19 @@ func (state *CoordinatorState) GenerateNodeMappingsForFile(filename string, numD
 	log.Printf("[Coordinator]PutFile: Allocated nodes: %v", nodes)
 
 	return nodes
+}
+
+func (state *CoordinatorState) UpdateNodeForFileAtIndex(filename string, idx int, newNode string) bool {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	_, ok := state.fileToNodeMapping[filename]
+	if ok {
+		state.fileToNodeMapping[filename][idx] = newNode
+	}
+
+	return ok
+
 }
 
 func (state *CoordinatorState) GetVersionOfFile(filename string) int {
@@ -337,6 +373,29 @@ func (s *CoordinatorServerForSDFS) ListAllNodesForFile(ctx context.Context, in *
 	}, nil
 }
 
+func (s *CoordinatorServerForSDFS) GetFile(ctx context.Context, in *cs.CoordinatorGetFileRequest) (*cs.CoordinatorGetFileReply, error) {
+	filename := in.GetFilename()
+	log.Printf("[ Coordinator ][ GetFile ]GetFile(%v)", filename)
+
+	if !coordinatorState.FileExists(filename) {
+		log.Printf("[ Coordinator ][ GetFile ]File %v doesn't exist", filename)
+		return nil, errors.New("File doesn't exist")
+	}
+
+	sequenceNumber := coordinatorState.GetGlobalSequenceNumber(filename)
+	log.Printf("[ Coordinator ][ GetFile ]Sequence number for File: %v is %v", filename, sequenceNumber)
+
+	nodeMappings := coordinatorState.GetNodeMappingsForFile(filename)
+
+	log.Printf("[ Coordinator ][ GetFile ]Operation sequenced at %v on the file: %v; Data nodes: %v;\n", sequenceNumber, filename, nodeMappings)
+
+	return &cs.CoordinatorGetFileReply{
+		SequenceNumber: int64(sequenceNumber),
+		Version:        int64(coordinatorState.GetVersionOfFile(filename)),
+		DataNodes:      nodeMappings,
+	}, nil
+}
+
 func (s *CoordinatorServerForSDFS) UpdateFileVersion(ctx context.Context, in *cs.CoordinatorUpdateFileVersionRequest) (*cs.CoordinatorUpdateFileVersionReply, error) {
 	filename := in.Filename
 	log.Printf("[ Coordinator ][ PutFile ]Updating the version number of the file: %v", filename)
@@ -361,4 +420,98 @@ func coordinatorService_SDFS(port int, wg *sync.WaitGroup) {
 		log.Fatalf("failed to serve: %v", err)
 		wg.Done()
 	}
+}
+
+func replicaRepair() {
+	fileMapping := coordinatorState.GetFileToNodeMappings()
+
+	for filename, nodes := range fileMapping {
+		for idx, node := range nodes {
+			if !memberList.IsNodeAlive(node) {
+				log.Printf("[ Coordinator ][ Replica Recovery ]Replica %v for file: %v is down", node, filename)
+				go assignNewReplicaAndReplicate(filename, nodes, node, idx)
+			}
+		}
+	}
+}
+
+func assignNewReplicaAndReplicate(filename string, nodes []string, nodeToRecover string, nodeIdx int) {
+	contains := func(s []string, str string) bool {
+		for _, v := range s {
+			if v == str {
+				return true
+			}
+		}
+
+		return false
+	}
+	newNode := memberList.GetRandomNode()
+	for {
+		if !contains(nodes, newNode) {
+			break
+		}
+		newNode = memberList.GetRandomNode()
+	}
+
+	log.Printf("[ Coordinator ][ Replica Recovery ]Node %v to selected to replace the down node %v", newNode, nodeToRecover)
+
+	activeReplica := ""
+
+	// Select the node in the replica set that should help the new node come to speed
+	for idx, n := range nodes {
+		if idx == nodeIdx {
+			continue
+		}
+		if memberList.IsNodeAlive(n) {
+			activeReplica = n
+			break
+		}
+	}
+
+	log.Printf("[ Coordinator ][ Replica Recovery ]Replica %v is up and is assigned to handle failure of node %v", activeReplica, nodeToRecover)
+
+	client, ctx, conn, cancel := getClientToReplicaServer(newNode)
+	defer conn.Close()
+	defer cancel()
+
+	res, err := client.DataNode_InitiateReplicaRecovery(ctx, &dn.DataNode_InitiateReplicaRecoveryRequest{Filename: filename, NodeToReplicateDataFrom: activeReplica})
+
+	if err != nil {
+		log.Printf("[ Coordinator ][ Replica Recovery ]Replica Recovery of node %v failed - %v", nodeToRecover, err)
+	} else {
+		if res.Status {
+			coordinatorState.UpdateNodeForFileAtIndex(filename, nodeIdx, newNode)
+
+			log.Printf("[ Coordinator ][ Replica Recovery ]Replica Recovery of node %v successful; Replaced with the node %v", nodeToRecover, newNode)
+		}
+	}
+}
+
+func CoordinatorService_ReplicaRecovery(wg *sync.WaitGroup) {
+	conf := config.GetConfig("../../config/config.json")
+	ticker := time.NewTicker(time.Duration(conf.ReplicaRecoveryInterval) * time.Second)
+	quit := make(chan struct{})
+	func() {
+		for {
+			select {
+			case <-ticker.C:
+				currentCoordinator := memberList.GetCoordinatorNode()
+				myIpAddr := coordinatorState.myIpAddr
+
+				if currentCoordinator == myIpAddr {
+					// fmt.Printf("[ Coordinator ][ Replica Recovery ]")
+					log.Printf("[ Coordinator ][ Replica Recovery ]Initialising\n")
+					replicaRepair()
+				}
+				// close(quit)
+			case <-quit:
+				if memberList.GetCoordinatorNode() == coordinatorState.myIpAddr {
+					log.Printf("[ Coordinator ][ Replica Recovery ]Termination")
+					ticker.Stop()
+				}
+				wg.Done()
+				return
+			}
+		}
+	}()
 }

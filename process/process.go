@@ -2,6 +2,7 @@ package process
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -335,6 +336,44 @@ func ListAllNodesForAFile(filename string) []string {
 
 	return dataNodes
 }
+func GetFile(filename string) bool {
+	client, ctx, conn, cancel := getClientForCoordinatorService()
+
+	defer conn.Close()
+	defer cancel()
+	log.Printf("[ Client ][ GetFile ]GetFile(%v): Intiating request to the coordinator!", filename)
+
+	// Call the RPC function on the coordinator process to process the query
+	r, err := client.GetFile(ctx, &cs.CoordinatorGetFileRequest{Filename: filename})
+
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("[ Client ][ GetFile ]Error: %v", err)
+		return false
+	} else {
+		dataNodesForCurrentGet := r.DataNodes
+		currentCommittedVersion := r.Version
+		sequenceNumberOfThisGet := r.SequenceNumber
+
+		log.Printf("[ Client ][ GetFile ]Replicas containing the file: %v", dataNodesForCurrentGet)
+		log.Printf("[ Client ][ GetFile ]Current Committed Version of the file: %v is %v", filename, currentCommittedVersion)
+		log.Printf("[ Client ][ GetFile ]Sequence number of the PUT: %v", sequenceNumberOfThisGet)
+
+		status, err := getFileFromSDFS(filename, currentCommittedVersion, sequenceNumberOfThisGet, dataNodesForCurrentGet)
+
+		if err != nil {
+			log.Printf("[ Client ][ GetFile ]Error getting file %v:%v - %v", filename, currentCommittedVersion, err)
+			return status
+		}
+
+		if !status {
+			log.Printf("[ Client ][ GetFile ]Failed for file %v:%v - %v", filename, currentCommittedVersion, err)
+			return status
+		}
+	}
+	log.Printf("[ Client ][ GetFile ]Successfully fetched the file %v from SDFS", filename)
+	return true
+}
 
 func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumberOfThisPut int64, dataNodesForCurrentPut []string) (bool, error) {
 	conf := config.GetConfig("../../config/config.json")
@@ -371,7 +410,7 @@ func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumb
 			break
 		}
 		if err != nil {
-			log.Fatalf("cannot read chunk to buffer: %v", err)
+			log.Printf("cannot read chunk to buffer: %v", err)
 		}
 		req := &dn.Chunk{
 			ChunkId:        int64(chunkId),
@@ -401,6 +440,71 @@ func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumb
 	}
 
 	return res.Status, err
+}
+
+func getFileFromSDFS(filename string, currentCommittedVersion int64, sequenceNumberOfThisGet int64, replicas []string) (bool, error) {
+	conf := config.GetConfig("../../config/config.json")
+	client, ctx, conn, cancel := getClientToReplicaServer(replicas[0])
+	defer conn.Close()
+	defer cancel()
+
+	stream, err := client.DataNode_GetFile(ctx, &dn.DataNode_GetFileRequest{
+		Filename:       filename,
+		SequenceNumber: sequenceNumberOfThisGet,
+		Replicas:       replicas[1:],
+		Version:        currentCommittedVersion,
+	})
+
+	if err != nil {
+		log.Fatalf("[ Client ][ GetFile ]Getting file %v:%v FAILED", filename, currentCommittedVersion)
+		return false, err
+	}
+
+	data := bytes.Buffer{}
+
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			log.Printf("[ Client ][ GetFile ]Got all the chunks of the file %v-%v", filename, currentCommittedVersion)
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+		_, err = data.Write(chunk.GetChunk())
+		if err != nil {
+			log.Panicf("[ Client ][ GetFile ]Chunk aggregation failed - %v", err)
+			return false, err
+		}
+	}
+
+	if _, err := os.Stat(conf.OutputDataFolder); os.IsNotExist(err) {
+		err := os.Mkdir(conf.OutputDataFolder, os.ModePerm)
+		if err != nil {
+			log.Printf("[ Client ][ GetFile ]Error creating output folder\n")
+			return false, err
+		}
+	}
+
+	folder_for_the_file := fmt.Sprintf("%v/%v", conf.OutputDataFolder, filename)
+
+	if _, err := os.Stat(folder_for_the_file); os.IsNotExist(err) {
+		err := os.Mkdir(folder_for_the_file, os.ModePerm)
+		if err != nil {
+			log.Printf("[ Client ][ GetFile ]Error creating folder %v\n", folder_for_the_file)
+
+			return false, err
+		}
+	}
+
+	err = os.WriteFile(fmt.Sprintf("%v/%v-%v-%v", folder_for_the_file, filename, currentCommittedVersion, dataNode_GetOutboundIP()), data.Bytes(), 0644)
+
+	if err != nil {
+		log.Fatalf("[ Client ][ GetFile ]File writing failed: %v", err)
+		return false, err
+	}
+
+	return true, nil
 }
 
 func getClientToReplicaServer(replicaIp string) (dn.DataNodeServiceClient, context.Context, *grpc.ClientConn, context.CancelFunc) {
@@ -467,10 +571,12 @@ func sendCommitMessageToReplica(replicaIp string, filename string, sequenceNumbe
 	defer conn.Close()
 	defer cancel()
 
+	log.Printf("[ Client ][ PutFile ]Sending commit message for file %v to replica %v sequenced at %v", filename, replicaIp, sequenceNumberOfThisPut)
+
 	r, err := client.DataNode_CommitFile(ctx, &dn.DataNode_CommitFileRequest{Filename: filename, SequenceNumber: sequenceNumberOfThisPut, IsReplica: isReplica})
 
 	if err != nil {
-		log.Fatalf("[ Client ][ PutFile ]Commit Failed")
+		log.Fatalf("[ Client ][ PutFile ]Commit Failed for file %v at replica: %v", filename, replicaIp)
 	} else {
 		status := r.GetStatus()
 		newVersion := r.GetVersion()

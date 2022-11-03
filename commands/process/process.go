@@ -67,7 +67,7 @@ func main() {
 	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorServiceLoggerPort, configuration.CoordinatorServiceSDFSPort, configuration.DataNodeServiceSDFSPort, wg, introAddr, *devmode, outboundIp)
 
 	for {
-		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - `${query-string}` (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put (create or update a file)\n\t - ls (List all nodes storing the file)\n\t - store (List all files stored in a node)\n\n\t: ")
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - `${query-string}` (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put (create or update a file)\n\t - get (get a file)\n\t - ls (List all nodes storing the file)\n\t - store (List all files stored in a node)\n\n\t: ")
 		var command string
 
 		// Taking input from user
@@ -87,7 +87,7 @@ func main() {
 
 		case "put":
 			var filename string
-			fmt.Printf("\n\t - Filename: ")
+			fmt.Printf("\tFilename: ")
 
 			// Taking input from user
 			fmt.Scanln(&filename)
@@ -95,13 +95,20 @@ func main() {
 
 		case "ls":
 			var filename string
-			fmt.Printf("\n\t - Filename: ")
+			fmt.Printf("\tFilename: ")
 			fmt.Scanln(&filename)
 			fmt.Println(process.ListAllNodesForAFile(filename))
 
 		case "store":
 			fmt.Println(process.DataNode_ListAllFilesOnTheNode())
 
+		case "get":
+			var filename string
+			fmt.Printf("\tFilename: ")
+
+			// Taking input from user
+			fmt.Scanln(&filename)
+			fmt.Println(process.GetFile(filename))
 		default:
 			process.SendLogQueryRequest(configuration.CoordinatorServiceLoggerPort, command)
 		}

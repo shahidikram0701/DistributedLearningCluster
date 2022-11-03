@@ -25,6 +25,7 @@ type CoordinatorServiceForSDFSClient interface {
 	PutFile(ctx context.Context, in *CoordinatorPutFileRequest, opts ...grpc.CallOption) (*CoordinatorPutFileReply, error)
 	UpdateFileVersion(ctx context.Context, in *CoordinatorUpdateFileVersionRequest, opts ...grpc.CallOption) (*CoordinatorUpdateFileVersionReply, error)
 	ListAllNodesForFile(ctx context.Context, in *CoordinatorListAllNodesForFileRequest, opts ...grpc.CallOption) (*CoordinatorListAllNodesForFileReply, error)
+	GetFile(ctx context.Context, in *CoordinatorGetFileRequest, opts ...grpc.CallOption) (*CoordinatorGetFileReply, error)
 }
 
 type coordinatorServiceForSDFSClient struct {
@@ -62,6 +63,15 @@ func (c *coordinatorServiceForSDFSClient) ListAllNodesForFile(ctx context.Contex
 	return out, nil
 }
 
+func (c *coordinatorServiceForSDFSClient) GetFile(ctx context.Context, in *CoordinatorGetFileRequest, opts ...grpc.CallOption) (*CoordinatorGetFileReply, error) {
+	out := new(CoordinatorGetFileReply)
+	err := c.cc.Invoke(ctx, "/process.CoordinatorServiceForSDFS/GetFile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CoordinatorServiceForSDFSServer is the server API for CoordinatorServiceForSDFS service.
 // All implementations must embed UnimplementedCoordinatorServiceForSDFSServer
 // for forward compatibility
@@ -69,6 +79,7 @@ type CoordinatorServiceForSDFSServer interface {
 	PutFile(context.Context, *CoordinatorPutFileRequest) (*CoordinatorPutFileReply, error)
 	UpdateFileVersion(context.Context, *CoordinatorUpdateFileVersionRequest) (*CoordinatorUpdateFileVersionReply, error)
 	ListAllNodesForFile(context.Context, *CoordinatorListAllNodesForFileRequest) (*CoordinatorListAllNodesForFileReply, error)
+	GetFile(context.Context, *CoordinatorGetFileRequest) (*CoordinatorGetFileReply, error)
 	mustEmbedUnimplementedCoordinatorServiceForSDFSServer()
 }
 
@@ -84,6 +95,9 @@ func (UnimplementedCoordinatorServiceForSDFSServer) UpdateFileVersion(context.Co
 }
 func (UnimplementedCoordinatorServiceForSDFSServer) ListAllNodesForFile(context.Context, *CoordinatorListAllNodesForFileRequest) (*CoordinatorListAllNodesForFileReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAllNodesForFile not implemented")
+}
+func (UnimplementedCoordinatorServiceForSDFSServer) GetFile(context.Context, *CoordinatorGetFileRequest) (*CoordinatorGetFileReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFile not implemented")
 }
 func (UnimplementedCoordinatorServiceForSDFSServer) mustEmbedUnimplementedCoordinatorServiceForSDFSServer() {
 }
@@ -153,6 +167,24 @@ func _CoordinatorServiceForSDFS_ListAllNodesForFile_Handler(srv interface{}, ctx
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CoordinatorServiceForSDFS_GetFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CoordinatorGetFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoordinatorServiceForSDFSServer).GetFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.CoordinatorServiceForSDFS/GetFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoordinatorServiceForSDFSServer).GetFile(ctx, req.(*CoordinatorGetFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CoordinatorServiceForSDFS_ServiceDesc is the grpc.ServiceDesc for CoordinatorServiceForSDFS service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -171,6 +203,10 @@ var CoordinatorServiceForSDFS_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListAllNodesForFile",
 			Handler:    _CoordinatorServiceForSDFS_ListAllNodesForFile_Handler,
+		},
+		{
+			MethodName: "GetFile",
+			Handler:    _CoordinatorServiceForSDFS_GetFile_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
