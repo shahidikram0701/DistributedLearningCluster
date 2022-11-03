@@ -400,6 +400,19 @@ func (s *CoordinatorServerForSDFS) PutFile(ctx context.Context, in *cs.Coordinat
 	}, nil
 }
 
+func (s *CoordinatorServerForSDFS) ListAllNodesForFile(ctx context.Context, in *cs.CoordinatorListAllNodesForFileRequest) (*cs.CoordinatorListAllNodesForFileReply, error) {
+	filename := in.FileName
+	log.Printf("[ Coordinator ][ ListNodes ]Listing all nodes for the file: %v", filename)
+	if !coordinatorState.FileExists(filename) {
+		return nil, errors.New("[ Coordinator ][ ListNodes ]File does not exist")
+	}
+	nodes := coordinatorState.GetNodeMappingsForFile(filename)
+
+	return &cs.CoordinatorListAllNodesForFileReply{
+		DataNodes: nodes,
+	}, nil
+}
+
 func (s *CoordinatorServerForSDFS) GetFile(ctx context.Context, in *cs.CoordinatorGetFileRequest) (*cs.CoordinatorGetFileReply, error) {
 	filename := in.GetFilename()
 	log.Printf("[ Coordinator ][ GetFile ]GetFile(%v)", filename)

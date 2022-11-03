@@ -318,6 +318,25 @@ func PutFile(filename string) bool {
 	return true
 }
 
+func ListAllNodesForAFile(filename string) []string {
+	client, ctx, conn, cancel := getClientForCoordinatorService()
+	dataNodes := []string{}
+	defer conn.Close()
+	defer cancel()
+	log.Printf("[ Client ][ ListNodes ]ls(%v): Intiating request to the coordinator!", filename)
+
+	r, err := client.ListAllNodesForFile(ctx, &cs.CoordinatorListAllNodesForFileRequest{FileName: filename})
+
+	if err != nil {
+		log.Printf("[ Client ][ ListNodes ]Failed to establish connection with the coordinator: %v", err)
+	} else {
+		dataNodes = r.GetDataNodes()
+
+		log.Printf("[ Client ][ ListNodes ]Allocated Nodes for the current file: %v", dataNodes)
+	}
+
+	return dataNodes
+}
 func GetFile(filename string) bool {
 	client, ctx, conn, cancel := getClientForCoordinatorService()
 

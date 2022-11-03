@@ -649,6 +649,26 @@ func dataNodeService_CommitFileChanges(filename string, sequenceNumberForOperati
 	return dataNodeState.dataNode_CommitFileChange(filename)
 }
 
+func DataNode_ListAllFilesOnTheNode() []string {
+	// conf := config.GetConfig("../../config/config.json")
+
+	files, err := ioutil.ReadDir("../../sdfs")
+	if err != nil {
+		log.Printf("[ DataNode ][ ListFilesOnNode ]This node does not contain any file")
+		return []string{}
+	}
+	filenames := []string{}
+
+	for _, file := range files {
+		if file.Name()[0] == '.' {
+			continue
+		}
+		filenames = append(filenames, file.Name())
+	}
+
+	return filenames
+}
+
 func StartDataNodeService_SDFS(port int, wg *sync.WaitGroup) {
 	// Initialise the state of the data node
 	dataNodeState = &DataNodeState{
