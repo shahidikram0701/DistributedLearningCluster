@@ -41,7 +41,7 @@ func GetConfig(configFilePath string, params ...string) Configuration {
 	}
 
 	if env == "dev" {
-		config.IntroducerAddress = "192.168.64.6"
+		config.IntroducerAddress = "192.168.64.3"
 	}
 
 	return config

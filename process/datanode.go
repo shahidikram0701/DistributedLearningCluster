@@ -7,6 +7,7 @@ import (
 	dn "cs425/mp/proto/data_node_proto"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -373,6 +374,26 @@ func dataNodeService_CommitFileChanges(filename string, sequenceNumberForOperati
 	for dataNodeState.dataNode_GetSequenceNumber(filename) != sequenceNumberForOperation {
 	}
 	return dataNodeState.dataNode_CommitFileChange(filename)
+}
+
+func DataNode_ListAllFilesOnTheNode() []string {
+	// conf := config.GetConfig("../../config/config.json")
+
+	files, err := ioutil.ReadDir("../../sdfs")
+	if err != nil {
+		log.Printf("[ DataNode ][ ListFilesOnNode ]This node does not contain any file")
+		return []string{}
+	}
+	filenames := []string{}
+
+	for _, file := range files {
+		if file.Name()[0] == '.' {
+			continue
+		}
+		filenames = append(filenames, file.Name())
+	}
+
+	return filenames
 }
 
 func StartDataNodeService_SDFS(port int, wg *sync.WaitGroup) {

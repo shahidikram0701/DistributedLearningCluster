@@ -8,6 +8,7 @@ option go_package = "cs425/mp/process";
 service CoordinatorServiceForSDFS {
     rpc PutFile (CoordinatorPutFileRequest) returns (CoordinatorPutFileReply) {}
     rpc UpdateFileVersion(CoordinatorUpdateFileVersionRequest) returns (CoordinatorUpdateFileVersionReply) {}
+    rpc ListAllNodesForFile(CoordinatorListAllNodesForFileRequest) returns (CoordinatorListAllNodesForFileReply) {}
 }
 
 message CoordinatorPutFileRequest {
@@ -28,4 +29,12 @@ message CoordinatorUpdateFileVersionRequest {
 
 message CoordinatorUpdateFileVersionReply {
     bool status = 1;
+}
+
+message CoordinatorListAllNodesForFileRequest {
+    string fileName = 1;
+}
+
+message CoordinatorListAllNodesForFileReply {
+    repeated string dataNodes = 1;
 }

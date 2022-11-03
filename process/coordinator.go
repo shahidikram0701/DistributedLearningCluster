@@ -2,6 +2,7 @@ package process
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -320,6 +321,19 @@ func (s *CoordinatorServerForSDFS) PutFile(ctx context.Context, in *cs.Coordinat
 		SequenceNumber: int64(sequenceNumber),
 		Version:        int64(coordinatorState.GetVersionOfFile(filename)),
 		DataNodes:      nodeMappings,
+	}, nil
+}
+
+func (s *CoordinatorServerForSDFS) ListAllNodesForFile(ctx context.Context, in *cs.CoordinatorListAllNodesForFileRequest) (*cs.CoordinatorListAllNodesForFileReply, error) {
+	filename := in.FileName
+	log.Printf("[ Coordinator ][ ListNodes ]Listing all nodes for the file: %v", filename)
+	if !coordinatorState.FileExists(filename) {
+		return nil, errors.New("[ Coordinator ][ ListNodes ]File does not exist")
+	}
+	nodes := coordinatorState.GetNodeMappingsForFile(filename)
+
+	return &cs.CoordinatorListAllNodesForFileReply{
+		DataNodes: nodes,
 	}, nil
 }
 
