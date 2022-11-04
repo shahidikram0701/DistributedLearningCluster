@@ -25,5 +25,5 @@ def generate_big_random_letters(filename,size):
 
 if __name__ == '__main__':
     filename = sys.argv[1]
-    size = sys.argv[2]
+    size = int(sys.argv[2])
     generate_big_random_letters("data/" + filename, 1024 * 1024 * size)
