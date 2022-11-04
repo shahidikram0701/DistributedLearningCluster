@@ -26,6 +26,7 @@ type Configuration struct {
 	SDFSDataFolder               string `json:"SDFSDataFolder"`
 	ReplicaRecoveryInterval      int    `json:"ReplicaRecoveryInterval"`
 	OutputDataFolder             string `json:"OutputDataFolder"`
+	CoordinatorSyncTimer         int    `json:"CoordinatorSyncTimer"`
 }
 
 func GetConfig(configFilePath string, params ...string) Configuration {

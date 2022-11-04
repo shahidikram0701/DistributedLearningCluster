@@ -8,8 +8,28 @@ option go_package = "cs425/mp/process";
 service CoordinatorServiceForSDFS {
     rpc PutFile (CoordinatorPutFileRequest) returns (CoordinatorPutFileReply) {}
     rpc UpdateFileVersion(CoordinatorUpdateFileVersionRequest) returns (CoordinatorUpdateFileVersionReply) {}
+    rpc ListAllNodesForFile(CoordinatorListAllNodesForFileRequest) returns (CoordinatorListAllNodesForFileReply) {}
     rpc GetFile (CoordinatorGetFileRequest) returns (CoordinatorGetFileReply) {}
+    rpc DeleteFile (CoordinatorDeleteFileRequest) returns (CoordinatorDeleteFileResponse) {}
+    rpc DeleteFileAck (CoordinatorDeleteFileAckRequest) returns (CoordinatorDeleteFileAckResponse) {}
+    rpc CoordinatorSync(CoordinatorSyncRequest) returns (CoordinatorSyncResponse) {}
+    rpc GetFileVersions(CoordinatorGetFileVersionsRequest) returns (CoordinatorGetFileVersionsResponse) {}
 }
+
+message CoordinatorGetFileVersionsRequest {
+    string filename = 1;
+}
+
+message CoordinatorGetFileVersionsResponse {
+    int64 version = 2;
+    repeated string dataNodes = 3;
+}
+
+message CoordinatorSyncRequest {
+    bytes coordinatorState = 1;
+}
+
+message CoordinatorSyncResponse {}
 
 message CoordinatorPutFileRequest {
     string filename = 1;
@@ -31,6 +51,23 @@ message CoordinatorGetFileReply {
     repeated string dataNodes = 3;
 }
 
+message CoordinatorDeleteFileRequest {
+    string filename = 1;
+}
+
+message CoordinatorDeleteFileResponse {
+    int64 sequenceNumber = 1;
+    repeated string replicas = 2;
+}
+
+message CoordinatorDeleteFileAckRequest {
+    string filename = 1;
+}
+
+message CoordinatorDeleteFileAckResponse {
+    bool status = 1;
+}
+
 message CoordinatorUpdateFileVersionRequest {
     string filename = 1;
     int64 sequenceNumber = 2;
@@ -39,4 +76,12 @@ message CoordinatorUpdateFileVersionRequest {
 
 message CoordinatorUpdateFileVersionReply {
     bool status = 1;
+}
+
+message CoordinatorListAllNodesForFileRequest {
+    string fileName = 1;
+}
+
+message CoordinatorListAllNodesForFileReply {
+    repeated string dataNodes = 1;
 }

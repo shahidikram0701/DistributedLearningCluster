@@ -27,7 +27,7 @@ type DataNodeState struct {
 	fileVersionMapping map[string]int
 	sequenceNumber     map[string]int
 
-	forceUpdateSequenceNumTimer *time.Timer
+	forceUpdateSequenceNumTimer map[string]*time.Timer
 
 	preCommitBuffer map[string][]byte
 }
@@ -155,17 +155,18 @@ func dataNode_GetOutboundIP() net.IP {
 func (state *DataNodeState) dataNode_CommitFileChange(filename string) (bool, int) {
 	state.Lock()
 	defer state.Unlock()
+	conf := config.GetConfig("../../config/config.json")
 
 	myIpAddr := dataNode_GetOutboundIP()
 
-	if _, err := os.Stat("../../sdfs"); os.IsNotExist(err) {
-		err := os.Mkdir("../../sdfs", os.ModePerm)
+	if _, err := os.Stat(conf.SDFSDataFolder); os.IsNotExist(err) {
+		err := os.Mkdir(conf.SDFSDataFolder, os.ModePerm)
 		if err != nil {
 			log.Printf("Error creating sdfs folder\n")
 		}
 	}
 
-	folder_for_the_file := fmt.Sprintf("../../sdfs/%v", filename)
+	folder_for_the_file := fmt.Sprintf("%v/%v", conf.SDFSDataFolder, filename)
 
 	if _, err := os.Stat(folder_for_the_file); os.IsNotExist(err) {
 		err := os.Mkdir(folder_for_the_file, os.ModePerm)
@@ -193,6 +194,41 @@ func (state *DataNodeState) dataNode_CommitFileChange(filename string) (bool, in
 	delete(state.preCommitBuffer, filename)
 
 	return true, newVersion
+}
+
+func (state *DataNodeState) dataNode_DeleteFile(filename string) bool {
+	state.Lock()
+	defer state.Unlock()
+
+	conf := config.GetConfig("../../config/config.json")
+
+	if _, err := os.Stat(conf.SDFSDataFolder); os.IsNotExist(err) {
+		return false
+	}
+
+	folder_for_the_file := fmt.Sprintf("%v/%v", conf.SDFSDataFolder, filename)
+
+	if _, err := os.Stat(folder_for_the_file); os.IsNotExist(err) {
+		log.Printf("[ DataNode ][ DeleteFile ]%v doesnt exist", folder_for_the_file)
+		return false
+	}
+
+	log.Printf("[ DataNode ][ DeleteFile ]Deleting the file %v whose current version is %v", filename, state.fileVersionMapping[filename])
+
+	err := os.RemoveAll(folder_for_the_file)
+	if err != nil {
+		log.Printf("[ DataNode ][ DeleteFile ]Error deleting file %v; %v", filename, err)
+
+		// return false
+	}
+	log.Printf("[ DataNode ][ DeleteFile ]Successfully deleted the file %v", filename)
+
+	delete(state.fileVersionMapping, filename)
+	delete(state.sequenceNumber, filename)
+	delete(state.preCommitBuffer, filename)
+	delete(state.forceUpdateSequenceNumTimer, filename)
+
+	return true
 }
 
 type DataNodeServer struct {
@@ -257,11 +293,11 @@ func (s *DataNodeServer) DataNode_CommitFile(ctx context.Context, in *dn.DataNod
 	sequenceNumberForOperation := in.GetSequenceNumber()
 	isReplica := in.IsReplica
 	log.Printf("[ DataNode ][ PutFile ]Committing file changes for file: %v sequenced at %v", filename, sequenceNumberForOperation)
-	log.Printf("[ DataNode ][ PutFile ]Turning off the timer for the file commit")
-	// when commit for the file is recieved stop the timer that is there to
-	// ensure a failure of commit doesnt block other operations
 	if !isReplica {
-		dataNodeState.forceUpdateSequenceNumTimer.Stop()
+		log.Printf("[ Primary Replica ][ PutFile ]Turning off the timer for the file commit")
+		// when commit for the file is recieved stop the timer that is there to
+		// ensure a failure of commit doesnt block other operations
+		dataNodeState.forceUpdateSequenceNumTimer[filename].Stop()
 	}
 	status, version := dataNodeService_CommitFileChanges(filename, int(sequenceNumberForOperation))
 
@@ -274,14 +310,13 @@ func (s *DataNodeServer) DataNode_CommitFile(ctx context.Context, in *dn.DataNod
 func (s *DataNodeServer) DataNode_UpdateSequenceNumber(ctx context.Context, in *dn.DataNode_UpdateSequenceNumberRequest) (*dn.DataNode_UpdateSequenceNumberResponse, error) {
 	filename := in.GetFilename()
 	newSequenceNumber := in.GetSequenceNumber()
-	log.Printf("[ DataNode ][ PutFile ]File changes for file: %v can't be committed and so let us update the sequence number so that other operations can proceed", filename)
 
 	newLocalSequenceNumber := dataNodeState.dataNode_IncrementSequenceNumber(filename)
 
 	if newLocalSequenceNumber == int(newSequenceNumber) {
-		log.Printf("[ DataNode ][ PutFile ]Replica and Primary are in sync. Sequence numbers match: %v", newSequenceNumber)
+		log.Printf("[ DataNode ]Upating Sequence Number for file %v: Sequence numbers match: %v", filename, newSequenceNumber)
 	} else {
-		log.Fatalf("[ DataNode ][ PutFile ]Replica and Primary are out of sync. Replica sequence number: %v and Primary's sequence number: %v", newLocalSequenceNumber, newSequenceNumber)
+		log.Fatalf("[ DataNode ]Updating Sequence Number for file %v: Sequence number for the file on the node is misaligned. Replica sequence number: %v whereas it should be: %v", filename, newLocalSequenceNumber, newSequenceNumber)
 	}
 
 	return &dn.DataNode_UpdateSequenceNumberResponse{}, nil
@@ -301,7 +336,11 @@ func (s *DataNodeServer) DataNode_InitiateReplicaRecovery(ctx context.Context, i
 	})
 
 	if err != nil {
-		log.Fatalf("[ DataNode ][ Replica Recovery ]Getting versions file %v for recovery FAILED", filename)
+		log.Printf("[ DataNode ][ Replica Recovery ]Getting versions file %v for recovery FAILED", filename)
+
+		return &dn.DataNode_InitiateReplicaRecoveryResponse{
+			Status: false,
+		}, err
 	}
 
 	version := 1
@@ -357,7 +396,7 @@ func (s *DataNodeServer) DataNode_InitiateReplicaRecovery(ctx context.Context, i
 
 	ok := dataNodeState.dataNode_AddSequenceNumber(filename, seqNum)
 	if ok {
-		log.Printf("[ DataNode ][ Replica Recovery ]Took a note of the latest sequence number for the file %v", filename)
+		log.Printf("[ DataNode ][ Replica Recovery ]Took a note of the latest sequence number: %v for the file %v", seqNum, filename)
 	} else {
 		log.Fatalf("[ DataNode ][ Replica Recovery ] Sequence number updation failed")
 	}
@@ -415,7 +454,12 @@ func (s *DataNodeServer) DataNode_ReplicaRecovery(in *dn.DataNode_ReplicaRecover
 	}
 
 	for _, f := range files {
+		log.Printf("[ DataNode ][ Replica Recovery ]Sending file: %v", f.Name())
 		fName := strings.Split(f.Name(), "-")[0]
+
+		if fName != filename {
+			continue
+		}
 		fVersion, _ := strconv.Atoi(strings.Split(f.Name(), "-")[1])
 
 		if f.Name() != fmt.Sprintf("%v-%v-%v", fName, fVersion, dataNode_GetOutboundIP()) {
@@ -463,11 +507,13 @@ func (s *DataNodeServer) DataNode_ReplicaRecovery(in *dn.DataNode_ReplicaRecover
 			chunkId++
 		}
 	}
+	log.Printf("[ DataNode ][ Replica Recovery ]Sent all the chunks of the file %v", filename)
 	return nil
 }
 
 func dataNode_ProcessFile(filename string, fileData bytes.Buffer, stream dn.DataNodeService_DataNode_PutFileServer, operationSequenceNumber int, replicaNodes []string, isReplica bool, allChunks []*dn.Chunk) error {
 	// wait until sequence number
+	log.Printf("[ DataNode ][ PutFile ]Received Write with sequence number %v and local sequence number for that file is %v", operationSequenceNumber, dataNodeState.dataNode_GetSequenceNumber(filename))
 	for dataNodeState.dataNode_GetSequenceNumber(filename) != operationSequenceNumber {
 	}
 
@@ -484,6 +530,7 @@ func dataNode_ProcessFile(filename string, fileData bytes.Buffer, stream dn.Data
 		})
 	}
 	// Replicate to other data nodes
+	log.Printf("[ Primary Replica ][ PutFile ]Replicating the file on the replica nodes")
 	return dataNode_Replicate(filename, allChunks, replicaNodes, stream)
 }
 
@@ -522,6 +569,7 @@ func dataNode_Replicate(filename string, allChunks []*dn.Chunk, replicaNodes []s
 	} else {
 		// quorum wasnt reached so client isnt gonna do a commit
 		// increase sequence numbers and tell the other for this file to increase sequence number as well
+		log.Printf("[ Primary Replica ][ PutFile ]Incrementing sequence number and asking all the replica nodes to increment as well for this file to unblock other operations on this file")
 		seqNum := dataNodeState.dataNode_IncrementSequenceNumber(filename)
 		for _, replicaNode := range replicaNodes {
 			go dataNode_UpdateSequenceNumberOnReplica(replicaNode, filename, seqNum)
@@ -533,11 +581,11 @@ func dataNode_Replicate(filename string, allChunks []*dn.Chunk, replicaNodes []s
 }
 
 func dataNode_HandleNoCommits(replicaNodes []string, filename string) {
-	log.Printf("[ Primary Replica ][ PutFile ]Starting timer for the commit of the file: %v", filename)
-	dataNodeState.forceUpdateSequenceNumTimer = time.NewTimer(time.Duration(COMMIT_TIMEOUT) * time.Second)
+	log.Printf("[ Primary Replica ][ PutFile/DeleteFile ]Starting timer for the commit of the file: %v", filename)
+	dataNodeState.forceUpdateSequenceNumTimer[filename] = time.NewTimer(time.Duration(COMMIT_TIMEOUT) * time.Second)
 
-	<-dataNodeState.forceUpdateSequenceNumTimer.C
-	log.Printf("[ Primary Replica ][ PutFile ]Did not recieve a commit for the file %v in %v seconds and hence updating the sequence number which is currently %v", filename, COMMIT_TIMEOUT, dataNodeState.dataNode_GetSequenceNumber(filename))
+	<-dataNodeState.forceUpdateSequenceNumTimer[filename].C
+	log.Printf("[ Primary Replica ][ PutFile/DeleteFile ]Did not recieve a commit for the file %v in %v seconds and hence updating the sequence number which is currently %v", filename, COMMIT_TIMEOUT, dataNodeState.dataNode_GetSequenceNumber(filename))
 	seqNum := dataNodeState.dataNode_IncrementSequenceNumber(filename)
 	for _, replicaNode := range replicaNodes {
 		go dataNode_UpdateSequenceNumberOnReplica(replicaNode, filename, seqNum)
@@ -549,12 +597,14 @@ func dataNode_UpdateSequenceNumberOnReplica(replica string, filename string, new
 	defer conn.Close()
 	defer cancel()
 
+	log.Printf("[ DataNode ][ PutFile/DeleteFile ]File changes for file: %v can't be committed and so let us update the sequence number so that other operations can proceed", filename)
+
 	_, err := client.DataNode_UpdateSequenceNumber(ctx, &dn.DataNode_UpdateSequenceNumberRequest{Filename: filename, SequenceNumber: int64(newSequenceNumber)})
 
 	if err != nil {
-		log.Printf("[ Primary Replica ][ PutFile ]Updating sequence number on the replica: %v errored: %v", replica, err)
+		log.Printf("[ Primary Replica ][ PutFile/DeleteFile ]Updating sequence number on the replica: %v errored: %v", replica, err)
 	} else {
-		log.Printf("[ Primary Replica ][ PutFile ]Updating sequence number on the replica: %v success", replica)
+		log.Printf("[ Primary Replica ][ PutFile/DeleteFile ]Updating sequence number on the replica: %v success", replica)
 	}
 }
 
@@ -599,13 +649,33 @@ func dataNodeService_CommitFileChanges(filename string, sequenceNumberForOperati
 	return dataNodeState.dataNode_CommitFileChange(filename)
 }
 
+func DataNode_ListAllFilesOnTheNode() []string {
+	// conf := config.GetConfig("../../config/config.json")
+
+	files, err := ioutil.ReadDir("../../sdfs")
+	if err != nil {
+		log.Printf("[ DataNode ][ ListFilesOnNode ]This node does not contain any file")
+		return []string{}
+	}
+	filenames := []string{}
+
+	for _, file := range files {
+		if file.Name()[0] == '.' {
+			continue
+		}
+		filenames = append(filenames, file.Name())
+	}
+
+	return filenames
+}
+
 func StartDataNodeService_SDFS(port int, wg *sync.WaitGroup) {
 	// Initialise the state of the data node
 	dataNodeState = &DataNodeState{
 		fileVersionMapping:          make(map[string]int),
 		sequenceNumber:              make(map[string]int),
 		preCommitBuffer:             make(map[string][]byte),
-		forceUpdateSequenceNumTimer: nil,
+		forceUpdateSequenceNumTimer: make(map[string]*time.Timer),
 	}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
@@ -632,9 +702,9 @@ func (s *DataNodeServer) DataNode_GetFile(in *dn.DataNode_GetFileRequest, stream
 	replicas := in.GetReplicas()
 	version := in.GetVersion()
 
-	// wait until sequence number
-	for dataNodeState.dataNode_GetSequenceNumber(filename) != sequenceNum {
-	}
+	// // wait until sequence number
+	// for dataNodeState.dataNode_GetSequenceNumber(filename) != sequenceNum {
+	// }
 
 	fileVersionOnNode, ok := dataNodeState.dataNode_GetVersionOfFile(filename)
 	if !ok {
@@ -665,8 +735,55 @@ func (s *DataNodeServer) DataNode_GetFile(in *dn.DataNode_GetFileRequest, stream
 		}
 	}
 	if quorum {
+		// increase sequence number on all the replica nodes
 		return sendFileToClient(filename, int(version), stream, sequenceNum)
 	} else {
+		// increase sequence number on all the replica nodes
+		return errors.New("Quorum not obtained")
+	}
+
+}
+
+func (s *DataNodeServer) DataNode_GetFileVersions(in *dn.DataNode_GetFileVersionsRequest, stream dn.DataNodeService_DataNode_GetFileVersionsServer) error {
+	conf := config.GetConfig("../../config/config.json")
+	filename := in.GetFilename()
+	replicas := in.GetReplicas()
+	version := in.GetVersion()
+	numVersions := in.GetNumVersions()
+
+	fileVersionOnNode, ok := dataNodeState.dataNode_GetVersionOfFile(filename)
+	if !ok {
+		log.Printf("[ Primary Replica ][ GetFileVersions ]The primary replica doesnt contain the file: %v", filename)
+		return errors.New("The primary replica doesnt contain the file")
+	}
+	if fileVersionOnNode < int(version) {
+		log.Printf("[ DataNode ][ GetFileVersions ]The primary replica doesnt have the version requested for %v; Version on node: %v; Version requested: %v", filename, fileVersionOnNode, version)
+		return errors.New("]The primary replica doesnt have the version requested")
+	}
+
+	replicaChannel := make(chan bool)
+	quorum := false
+	quorumCount := 1
+	for _, replicaNode := range replicas {
+		go dataNode_GetFileQuorumFromReplica(replicaNode, filename, version, replicaChannel)
+	}
+	for {
+		status := <-replicaChannel
+		if status {
+			quorumCount++
+			log.Printf("[ Primary Replica ][ GetFileVersions ]Receieved a read success from a replica; Current quorum: %v", quorumCount)
+		}
+		if quorumCount >= conf.ReadQuorum {
+			log.Printf("[ Primary Replica ][ GetFileVersions ]Quorum achieved")
+			quorum = true
+			break
+		}
+	}
+	if quorum {
+		// increase sequence number on all the replica nodes
+		return sendFileVersionsToClient(filename, int(version), stream, int(numVersions))
+	} else {
+		// increase sequence number on all the replica nodes
 		return errors.New("Quorum not obtained")
 	}
 
@@ -716,6 +833,62 @@ func sendFileToClient(filename string, version int, stream dn.DataNodeService_Da
 	return nil
 }
 
+func sendFileVersionsToClient(filename string, version int, stream dn.DataNodeService_DataNode_GetFileVersionsServer, numVersions int) error {
+	conf := config.GetConfig("../../config/config.json")
+	l := int(math.Max(float64(version-numVersions+1), 1.0))
+
+	for v := version; v >= l; v-- {
+		filePath := fmt.Sprintf("%v/%v/%v-%v-%v", conf.SDFSDataFolder, filename, filename, v, dataNode_GetOutboundIP())
+
+		file, err := os.Open(filePath)
+
+		if err != nil {
+			log.Fatalf("cannot open File: %v - %v", filePath, err)
+			return errors.New("[ Primary Replica ][ GetFileVersions ]Cannot open the file: " + filename)
+		}
+		defer file.Close()
+
+		reader := bufio.NewReader(file)
+		buffer := make([]byte, conf.ChunkSize)
+		versionString := fmt.Sprintf("_____________________________Version - %v_____________________________\n\n", v)
+		vs := []byte(versionString)
+		chunkId := 0
+
+		for {
+			n, err := reader.Read(buffer)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("cannot read chunk to buffer: %v", err)
+				return errors.New("[ Primary Replica ][ GetFileVersions ]Cannot read chunk to the buffer; Filename: " + filename)
+			}
+			bufferToSend := buffer[:n]
+			if chunkId == 0 {
+				newBuffer := []byte(vs)
+				newBuffer = append(newBuffer, bufferToSend...)
+				bufferToSend = newBuffer
+			}
+
+			req := &dn.FileChunk{
+				ChunkId:  int64(chunkId),
+				Filename: filename,
+				Version:  int64(v),
+				Chunk:    bufferToSend,
+			}
+			log.Printf("[ Primary Replica ][ GetFileVersions ]Sending chunk %v of file: %v with version: %v", chunkId, filename, v)
+			e := stream.Send(req)
+			if e != nil {
+				log.Fatalf("[ Primary Replica ][ GetFileVersions ]Cannot send chunk %v of file %v with version: %v to dataNode: %v", chunkId, filename, v, e)
+				return errors.New("Cannot send chunk of file: " + filename)
+			}
+			chunkId++
+		}
+	}
+
+	return nil
+}
+
 func dataNode_GetFileQuorumFromReplica(replica string, filename string, version int64, replicaChannel chan bool) {
 	client, ctx, conn, cancel := getClientToReplicaServer(replica)
 	defer conn.Close()
@@ -756,4 +929,132 @@ func (s *DataNodeServer) DataNode_GetFileQuorum(ctx context.Context, in *dn.Data
 	return &dn.DataNode_GetFileQuorumResponse{
 		Status: false,
 	}, errors.New("The replica doesnt have that ")
+}
+
+func (s *DataNodeServer) DataNode_DeleteFileQuorumCheck(ctx context.Context, in *dn.DataNode_DeleteFileQuorumCheckRequest) (*dn.DataNode_DeleteFileQuorumCheckResponse, error) {
+	conf := config.GetConfig("../../config/config.json")
+	filename := in.GetFilename()
+	sequenceNumber := in.GetSequenceNumber()
+	isReplica := in.GetIsReplica()
+
+	log.Printf("[ DataNode][ DeleteFile ]Checking for Delete Quorum for file %v", filename)
+
+	// wait until sequence number
+	for dataNodeState.dataNode_GetSequenceNumber(filename) != int(sequenceNumber) {
+	}
+
+	_, ok := dataNodeState.dataNode_GetVersionOfFile(filename)
+	if !ok {
+		log.Printf("[ DataNode ][ DeleteFile ]The replica doesn't contain the file: %v", filename)
+		return &dn.DataNode_DeleteFileQuorumCheckResponse{
+			Status: false,
+		}, errors.New("The replica doesnt contain the file")
+	} else if isReplica {
+		return &dn.DataNode_DeleteFileQuorumCheckResponse{
+			Status: true,
+		}, nil
+	}
+
+	replicas := in.GetReplicas()
+
+	if len(replicas) <= 0 {
+		log.Printf("[ Primary Replica ][ DeleteFile ]Oops no replicas")
+		return &dn.DataNode_DeleteFileQuorumCheckResponse{
+			Status: false,
+		}, errors.New("No replica nodes found for the file " + filename)
+	}
+
+	replicaChannel := make(chan bool)
+	quorum := false
+	quorumCount := 1
+	for _, replicaNode := range replicas {
+		go dataNode_CheckWithReplicaForDelete(replicaNode, filename, sequenceNumber, replicaChannel)
+	}
+	for {
+		status := <-replicaChannel
+		if status {
+			quorumCount++
+			log.Printf("[ Primary Replica ][ DeleteFile ]Receieved a delete success from a replica; Current quorum: %v", quorumCount)
+		}
+		if quorumCount >= conf.WriteQuorum {
+			log.Printf("[ Primary Replica ][ DeleteFile ]Quorum achieved")
+			quorum = true
+			break
+		}
+	}
+
+	if quorum {
+		// start a timer
+		// if the client sends commit in that timer time -> cool
+		// else increase the sequence number and discard the updates
+
+		go dataNode_HandleNoCommits(replicas, filename)
+
+		return &dn.DataNode_DeleteFileQuorumCheckResponse{
+			Status: true,
+		}, nil
+	} else {
+		// quorum wasnt reached so client isnt gonna do a commit
+		// increase sequence numbers and tell the other for this file to increase sequence number as well
+		log.Printf("[ Primary Replica ][ DeleteFile ]Incrementing sequence number and asking all the replica nodes to increment as well for this file to unblock other operations on this file")
+		seqNum := dataNodeState.dataNode_IncrementSequenceNumber(filename)
+		for _, replicaNode := range replicas {
+			go dataNode_UpdateSequenceNumberOnReplica(replicaNode, filename, seqNum)
+		}
+		return &dn.DataNode_DeleteFileQuorumCheckResponse{
+			Status: false,
+		}, nil
+	}
+}
+
+func dataNode_CheckWithReplicaForDelete(replica string, filename string, sequenceNumber int64, replicaChannel chan bool) {
+	log.Printf("[ Primary Replica ][ DeleteFile ]Checking quorum for delete with replica: %v", replica)
+	client, ctx, conn, cancel := getClientToReplicaServer(replica) // currently always picking the first allocated node as the primary replica
+	defer conn.Close()
+	defer cancel()
+
+	r, err := client.DataNode_DeleteFileQuorumCheck(ctx, &dn.DataNode_DeleteFileQuorumCheckRequest{
+		Filename:       filename,
+		SequenceNumber: sequenceNumber,
+		IsReplica:      true,
+	})
+
+	if err != nil {
+		log.Printf("[ Primary Replica ][ DeleteFile ]Delete Quorum check failed for replica %v", replica)
+
+		replicaChannel <- false
+	} else {
+		if r.Status {
+			log.Printf("[ Primary Replica ][ DeleteFile ]Delete acknowledged by replica %v", replica)
+			replicaChannel <- true
+		} else {
+			log.Printf("[ Primary Replica ][ DeleteFile ]Delete not acknowledged by replica %v", replica)
+			replicaChannel <- false
+		}
+	}
+}
+
+func (s *DataNodeServer) DataNode_CommitDelete(ctx context.Context, in *dn.DataNode_CommitDeleteRequest) (*dn.DataNode_CommitDeleteResponse, error) {
+	filename := in.GetFilename()
+	sequenceNumber := in.GetSequenceNumber()
+	isReplica := in.GetIsReplica()
+
+	// wait until sequence number
+	for dataNodeState.dataNode_GetSequenceNumber(filename) != int(sequenceNumber) {
+	}
+
+	if !isReplica {
+		log.Printf("[ Primary Replica ][ DeleteFile ]Turning off the timer for the file commit")
+		// when commit for the file is recieved stop the timer that is there to
+		// ensure a failure of commit doesnt block other operations
+		dataNodeState.forceUpdateSequenceNumTimer[filename].Stop()
+	}
+
+	log.Printf("[ DataNode ][ DeleteFile ]Committing the delete operation of file %v", filename)
+
+	status := dataNodeState.dataNode_DeleteFile(filename)
+
+	return &dn.DataNode_CommitDeleteResponse{
+		Status: status,
+	}, nil
 }
