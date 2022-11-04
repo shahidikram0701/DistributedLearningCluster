@@ -702,9 +702,9 @@ func (s *DataNodeServer) DataNode_GetFile(in *dn.DataNode_GetFileRequest, stream
 	replicas := in.GetReplicas()
 	version := in.GetVersion()
 
-	// wait until sequence number
-	for dataNodeState.dataNode_GetSequenceNumber(filename) != sequenceNum {
-	}
+	// // wait until sequence number
+	// for dataNodeState.dataNode_GetSequenceNumber(filename) != sequenceNum {
+	// }
 
 	fileVersionOnNode, ok := dataNodeState.dataNode_GetVersionOfFile(filename)
 	if !ok {
@@ -737,6 +737,51 @@ func (s *DataNodeServer) DataNode_GetFile(in *dn.DataNode_GetFileRequest, stream
 	if quorum {
 		// increase sequence number on all the replica nodes
 		return sendFileToClient(filename, int(version), stream, sequenceNum)
+	} else {
+		// increase sequence number on all the replica nodes
+		return errors.New("Quorum not obtained")
+	}
+
+}
+
+func (s *DataNodeServer) DataNode_GetFileVersions(in *dn.DataNode_GetFileVersionsRequest, stream dn.DataNodeService_DataNode_GetFileVersionsServer) error {
+	conf := config.GetConfig("../../config/config.json")
+	filename := in.GetFilename()
+	replicas := in.GetReplicas()
+	version := in.GetVersion()
+	numVersions := in.GetNumVersions()
+
+	fileVersionOnNode, ok := dataNodeState.dataNode_GetVersionOfFile(filename)
+	if !ok {
+		log.Printf("[ Primary Replica ][ GetFileVersions ]The primary replica doesnt contain the file: %v", filename)
+		return errors.New("The primary replica doesnt contain the file")
+	}
+	if fileVersionOnNode < int(version) {
+		log.Printf("[ DataNode ][ GetFileVersions ]The primary replica doesnt have the version requested for %v; Version on node: %v; Version requested: %v", filename, fileVersionOnNode, version)
+		return errors.New("]The primary replica doesnt have the version requested")
+	}
+
+	replicaChannel := make(chan bool)
+	quorum := false
+	quorumCount := 1
+	for _, replicaNode := range replicas {
+		go dataNode_GetFileQuorumFromReplica(replicaNode, filename, version, replicaChannel)
+	}
+	for {
+		status := <-replicaChannel
+		if status {
+			quorumCount++
+			log.Printf("[ Primary Replica ][ GetFileVersions ]Receieved a read success from a replica; Current quorum: %v", quorumCount)
+		}
+		if quorumCount >= conf.ReadQuorum {
+			log.Printf("[ Primary Replica ][ GetFileVersions ]Quorum achieved")
+			quorum = true
+			break
+		}
+	}
+	if quorum {
+		// increase sequence number on all the replica nodes
+		return sendFileVersionsToClient(filename, int(version), stream, int(numVersions))
 	} else {
 		// increase sequence number on all the replica nodes
 		return errors.New("Quorum not obtained")
@@ -785,6 +830,62 @@ func sendFileToClient(filename string, version int, stream dn.DataNodeService_Da
 		}
 		chunkId++
 	}
+	return nil
+}
+
+func sendFileVersionsToClient(filename string, version int, stream dn.DataNodeService_DataNode_GetFileVersionsServer, numVersions int) error {
+	conf := config.GetConfig("../../config/config.json")
+	l := int(math.Max(float64(version-numVersions+1), 1.0))
+
+	for v := version; v >= l; v-- {
+		filePath := fmt.Sprintf("%v/%v/%v-%v-%v", conf.SDFSDataFolder, filename, filename, v, dataNode_GetOutboundIP())
+
+		file, err := os.Open(filePath)
+
+		if err != nil {
+			log.Fatalf("cannot open File: %v - %v", filePath, err)
+			return errors.New("[ Primary Replica ][ GetFileVersions ]Cannot open the file: " + filename)
+		}
+		defer file.Close()
+
+		reader := bufio.NewReader(file)
+		buffer := make([]byte, conf.ChunkSize)
+		versionString := fmt.Sprintf("_____________________________Version - %v_____________________________\n\n", v)
+		vs := []byte(versionString)
+		chunkId := 0
+
+		for {
+			n, err := reader.Read(buffer)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("cannot read chunk to buffer: %v", err)
+				return errors.New("[ Primary Replica ][ GetFileVersions ]Cannot read chunk to the buffer; Filename: " + filename)
+			}
+			bufferToSend := buffer[:n]
+			if chunkId == 0 {
+				newBuffer := []byte(vs)
+				newBuffer = append(newBuffer, bufferToSend...)
+				bufferToSend = newBuffer
+			}
+
+			req := &dn.FileChunk{
+				ChunkId:  int64(chunkId),
+				Filename: filename,
+				Version:  int64(v),
+				Chunk:    bufferToSend,
+			}
+			log.Printf("[ Primary Replica ][ GetFileVersions ]Sending chunk %v of file: %v with version: %v", chunkId, filename, v)
+			e := stream.Send(req)
+			if e != nil {
+				log.Fatalf("[ Primary Replica ][ GetFileVersions ]Cannot send chunk %v of file %v with version: %v to dataNode: %v", chunkId, filename, v, e)
+				return errors.New("Cannot send chunk of file: " + filename)
+			}
+			chunkId++
+		}
+	}
+
 	return nil
 }
 

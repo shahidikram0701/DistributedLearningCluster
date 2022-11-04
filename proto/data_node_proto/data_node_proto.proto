@@ -13,6 +13,7 @@ service DataNodeService {
     rpc DataNode_GetFileQuorum(DataNode_GetFileQuorumRequest) returns (DataNode_GetFileQuorumResponse) {}
     rpc DataNode_DeleteFileQuorumCheck(DataNode_DeleteFileQuorumCheckRequest) returns (DataNode_DeleteFileQuorumCheckResponse) {}
     rpc DataNode_CommitDelete(DataNode_CommitDeleteRequest) returns (DataNode_CommitDeleteResponse) {}
+    rpc DataNode_GetFileVersions(DataNode_GetFileVersionsRequest) returns (stream FileChunk) {}
 }
 
 message DataNode_CommitDeleteRequest {
@@ -98,6 +99,13 @@ message DataNode_GetFileRequest {
     int64 sequenceNumber = 2;
     repeated string replicas = 3;
     int64 version = 4;
+}
+
+message DataNode_GetFileVersionsRequest {
+    string filename = 1;
+    repeated string replicas = 3;
+    int64 version = 4;
+    int64 numVersions = 5;
 }
 
 message DataNode_InitiateReplicaRecoveryResponse {

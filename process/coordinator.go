@@ -422,7 +422,8 @@ func (s *CoordinatorServerForSDFS) GetFile(ctx context.Context, in *cs.Coordinat
 		return nil, errors.New("File doesn't exist")
 	}
 
-	sequenceNumber := coordinatorState.GetGlobalSequenceNumber(filename)
+	// sequenceNumber := coordinatorState.GetGlobalSequenceNumber(filename)
+	sequenceNumber := -1
 	log.Printf("[ Coordinator ][ GetFile ]Sequence number for File: %v is %v", filename, sequenceNumber)
 
 	nodeMappings := coordinatorState.GetNodeMappingsForFile(filename)
@@ -433,6 +434,25 @@ func (s *CoordinatorServerForSDFS) GetFile(ctx context.Context, in *cs.Coordinat
 		SequenceNumber: int64(sequenceNumber),
 		Version:        int64(coordinatorState.GetVersionOfFile(filename)),
 		DataNodes:      nodeMappings,
+	}, nil
+}
+
+func (s *CoordinatorServerForSDFS) GetFileVersions(ctx context.Context, in *cs.CoordinatorGetFileVersionsRequest) (*cs.CoordinatorGetFileVersionsResponse, error) {
+	filename := in.GetFilename()
+	log.Printf("[ Coordinator ][ GetFileVersions ]GetFileVersions(%v)", filename)
+
+	if !coordinatorState.FileExists(filename) {
+		log.Printf("[ Coordinator ][ GetFileVersions ]File %v doesn't exist", filename)
+		return nil, errors.New("File doesn't exist")
+	}
+
+	nodeMappings := coordinatorState.GetNodeMappingsForFile(filename)
+
+	log.Printf("[ Coordinator ][ GetFile ]Data nodes: %v;", nodeMappings)
+
+	return &cs.CoordinatorGetFileVersionsResponse{
+		Version:   int64(coordinatorState.GetVersionOfFile(filename)),
+		DataNodes: nodeMappings,
 	}, nil
 }
 

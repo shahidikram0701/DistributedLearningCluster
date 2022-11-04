@@ -363,12 +363,12 @@ func GetFile(filename string) bool {
 		status, err := getFileFromSDFS(filename, currentCommittedVersion, sequenceNumberOfThisGet, dataNodesForCurrentGet)
 		log.Printf("[ Client ][ GetFile ]The execution of the GetFile operation of file %v with sequenceNumber %v done on all the data nodes %v", filename, sequenceNumberOfThisGet, dataNodesForCurrentGet)
 
-		log.Printf("[ Client ][ GetFile ]Updating the sequence number for getFile(%v) with sequence number %v on all the data nodes", filename, sequenceNumberOfThisGet)
+		// log.Printf("[ Client ][ GetFile ]Updating the sequence number for getFile(%v) with sequence number %v on all the data nodes", filename, sequenceNumberOfThisGet)
 
 		// update the sequence number for the file on all its data nodes
-		for _, dataNode := range dataNodesForCurrentGet {
-			go updateSequenceNumberForTheFile(filename, sequenceNumberOfThisGet, dataNode)
-		}
+		// for _, dataNode := range dataNodesForCurrentGet {
+		// 	go updateSequenceNumberForTheFile(filename, sequenceNumberOfThisGet, dataNode)
+		// }
 
 		if err != nil {
 			log.Printf("[ Client ][ GetFile ]Error getting file %v:%v - %v", filename, currentCommittedVersion, err)
@@ -377,6 +377,51 @@ func GetFile(filename string) bool {
 
 		if !status {
 			log.Printf("[ Client ][ GetFile ]Failed for file %v:%v - %v", filename, currentCommittedVersion, err)
+			return status
+		}
+	}
+	log.Printf("[ Client ][ GetFile ]Successfully fetched the file %v from SDFS", filename)
+	return true
+}
+
+func GetFileVersions(filename string, numVersions int) bool {
+	client, ctx, conn, cancel := getClientForCoordinatorService()
+
+	defer conn.Close()
+	defer cancel()
+	log.Printf("[ Client ][ GetFileVersions ]GetFileVersions(%v): Intiating request to the coordinator!", filename)
+
+	// Call the RPC function on the coordinator process to process the query
+	r, err := client.GetFileVersions(ctx, &cs.CoordinatorGetFileVersionsRequest{Filename: filename})
+
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("[ Client ][ GetFileVersions ]Error: %v", err)
+		return false
+	} else {
+		dataNodesForCurrentGet := r.DataNodes
+		currentCommittedVersion := r.Version
+
+		log.Printf("[ Client ][ GetFileVersions ]Replicas containing the file: %v", dataNodesForCurrentGet)
+		log.Printf("[ Client ][ GetFileVersions ]Current Committed Version of the file: %v is %v", filename, currentCommittedVersion)
+
+		status, err := getFileVersionsFromSDFS(filename, currentCommittedVersion, dataNodesForCurrentGet, int64(numVersions))
+		log.Printf("[ Client ][ GetFileVersions ]The execution of the GetFileVersions operation of file %v done on all the data nodes %v", filename, dataNodesForCurrentGet)
+
+		// log.Printf("[ Client ][ GetFileVersions ]Updating the sequence number for getFile(%v) with sequence number %v on all the data nodes", filename, sequenceNumberOfThisGet)
+
+		// update the sequence number for the file on all its data nodes
+		// for _, dataNode := range dataNodesForCurrentGet {
+		// 	go updateSequenceNumberForTheFile(filename, sequenceNumberOfThisGet, dataNode)
+		// }
+
+		if err != nil {
+			log.Printf("[ Client ][ GetFileVersions ]Error getting %v versions of the file %v:%v - %v", numVersions, filename, currentCommittedVersion, err)
+			return status
+		}
+
+		if !status {
+			log.Printf("[ Client ][ GetFileVersions ]Failed for file %v versions of the file %v:%v - %v", numVersions, filename, currentCommittedVersion, err)
 			return status
 		}
 	}
@@ -576,6 +621,71 @@ func getFileFromSDFS(filename string, currentCommittedVersion int64, sequenceNum
 
 	if err != nil {
 		log.Fatalf("[ Client ][ GetFile ]File writing failed: %v", err)
+		return false, err
+	}
+
+	return true, nil
+}
+
+func getFileVersionsFromSDFS(filename string, currentCommittedVersion int64, replicas []string, numVersions int64) (bool, error) {
+	conf := config.GetConfig("../../config/config.json")
+	client, ctx, conn, cancel := getClientToReplicaServer(replicas[0])
+	defer conn.Close()
+	defer cancel()
+
+	stream, err := client.DataNode_GetFileVersions(ctx, &dn.DataNode_GetFileVersionsRequest{
+		Filename:    filename,
+		Replicas:    replicas[1:],
+		Version:     currentCommittedVersion,
+		NumVersions: numVersions,
+	})
+
+	if err != nil {
+		log.Fatalf("[ Client ][ GetFileVersions ]Getting %v versions of the file %v:%v FAILED", numVersions, filename, currentCommittedVersion)
+		return false, err
+	}
+
+	data := bytes.Buffer{}
+
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			log.Printf("[ Client ][ GetFileVersions ]Got all the chunks of the %v versions of the file %v-%v", numVersions, filename, currentCommittedVersion)
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+		_, err = data.Write(chunk.GetChunk())
+		if err != nil {
+			log.Panicf("[ Client ][ GetFileVersions ]Chunk aggregation failed - %v", err)
+			return false, err
+		}
+	}
+
+	if _, err := os.Stat(conf.OutputDataFolder); os.IsNotExist(err) {
+		err := os.Mkdir(conf.OutputDataFolder, os.ModePerm)
+		if err != nil {
+			log.Printf("[ Client ][ GetFileVersions ]Error creating output folder\n")
+			return false, err
+		}
+	}
+
+	folder_for_the_file := fmt.Sprintf("%v/%v", conf.OutputDataFolder, filename)
+
+	if _, err := os.Stat(folder_for_the_file); os.IsNotExist(err) {
+		err := os.Mkdir(folder_for_the_file, os.ModePerm)
+		if err != nil {
+			log.Printf("[ Client ][ GetFileVersions ]Error creating folder %v\n", folder_for_the_file)
+
+			return false, err
+		}
+	}
+
+	err = os.WriteFile(fmt.Sprintf("%v/%v-latest_%v_versions", folder_for_the_file, filename, numVersions), data.Bytes(), 0644)
+
+	if err != nil {
+		log.Fatalf("[ Client ][ GetFileVersions ]File writing failed: %v", err)
 		return false, err
 	}
 

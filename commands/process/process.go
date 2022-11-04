@@ -67,7 +67,7 @@ func main() {
 	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorServiceLoggerPort, configuration.CoordinatorServiceSDFSPort, configuration.DataNodeServiceSDFSPort, wg, introAddr, *devmode, outboundIp)
 
 	for {
-		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - `${query-string}` (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put (create or update a file)\n\t - get (get a file)\n\t - delete (Delete file)\n\t - ls (List all nodes storing the file)\n\t - store (List all files stored in a node)\n\n\t: ")
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - `${query-string}` (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put (create or update a file)\n\t - get (get a file)\n\t - delete (Delete file)\n\t - ls (List all nodes storing the file)\n\t - store (List all files stored in a node)\n\t - get-versions (Get all the 'n' last versions of the file)\n\n\t: ")
 		var command string
 
 		// Taking input from user
@@ -117,6 +117,18 @@ func main() {
 			// Taking input from user
 			fmt.Scanln(&filename)
 			fmt.Println(process.DeleteFile(filename))
+
+		case "get-versions":
+			var filename string
+			fmt.Printf("\tFilename: ")
+
+			// Taking input from user
+			fmt.Scanln(&filename)
+
+			var numVersions int
+			fmt.Printf("\tn: ")
+			fmt.Scanln(&numVersions)
+			fmt.Println(process.GetFileVersions(filename, numVersions))
 
 		default:
 			process.SendLogQueryRequest(configuration.CoordinatorServiceLoggerPort, command)
