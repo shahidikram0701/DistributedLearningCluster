@@ -267,7 +267,7 @@ func getClientForCoordinatorService() (cs.CoordinatorServiceForSDFSClient, conte
 	return c, ctx, conn, cancel
 }
 
-func PutFile(filename string) bool {
+func PutFile(filename string, localfilename string) bool {
 	conf := config.GetConfig("../../config/config.json")
 	client, ctx, conn, cancel := getClientForCoordinatorService()
 
@@ -295,7 +295,7 @@ func PutFile(filename string) bool {
 			log.Printf("[ Client ]Current Committed Version of the file: %v is %v", filename, currentCommittedVersion)
 			log.Printf("[ Client ]Sequence number of the PUT: %v", sequenceNumberOfThisPut)
 
-			status, err := saveFileToSDFS(filename, currentCommittedVersion, sequenceNumberOfThisPut, dataNodesForCurrentPut)
+			status, err := saveFileToSDFS(filename, localfilename, currentCommittedVersion, sequenceNumberOfThisPut, dataNodesForCurrentPut)
 
 			if err != nil {
 				log.Printf("[ Client ][ PutFile ]Cannot receive response: %v", err)
@@ -337,7 +337,7 @@ func ListAllNodesForAFile(filename string) []string {
 
 	return dataNodes
 }
-func GetFile(filename string) bool {
+func GetFile(filename string, localfilename string) bool {
 	client, ctx, conn, cancel := getClientForCoordinatorService()
 
 	defer conn.Close()
@@ -360,7 +360,7 @@ func GetFile(filename string) bool {
 		log.Printf("[ Client ][ GetFile ]Current Committed Version of the file: %v is %v", filename, currentCommittedVersion)
 		log.Printf("[ Client ][ GetFile ]Sequence number of the Get: %v", sequenceNumberOfThisGet)
 
-		status, err := getFileFromSDFS(filename, currentCommittedVersion, sequenceNumberOfThisGet, dataNodesForCurrentGet)
+		status, err := getFileFromSDFS(filename, localfilename, currentCommittedVersion, sequenceNumberOfThisGet, dataNodesForCurrentGet)
 		log.Printf("[ Client ][ GetFile ]The execution of the GetFile operation of file %v with sequenceNumber %v done on all the data nodes %v", filename, sequenceNumberOfThisGet, dataNodesForCurrentGet)
 
 		// log.Printf("[ Client ][ GetFile ]Updating the sequence number for getFile(%v) with sequence number %v on all the data nodes", filename, sequenceNumberOfThisGet)
@@ -384,12 +384,12 @@ func GetFile(filename string) bool {
 	return true
 }
 
-func GetFileVersions(filename string, numVersions int) bool {
+func GetFileVersions(filename string, numVersions int, localfilename string) bool {
 	client, ctx, conn, cancel := getClientForCoordinatorService()
 
 	defer conn.Close()
 	defer cancel()
-	log.Printf("[ Client ][ GetFileVersions ]GetFileVersions(%v): Intiating request to the coordinator!", filename)
+	log.Printf("[ Client ][ GetFileVersions ]GetFileVersions(%v, %v): Intiating request to the coordinator!", filename, numVersions)
 
 	// Call the RPC function on the coordinator process to process the query
 	r, err := client.GetFileVersions(ctx, &cs.CoordinatorGetFileVersionsRequest{Filename: filename})
@@ -405,7 +405,7 @@ func GetFileVersions(filename string, numVersions int) bool {
 		log.Printf("[ Client ][ GetFileVersions ]Replicas containing the file: %v", dataNodesForCurrentGet)
 		log.Printf("[ Client ][ GetFileVersions ]Current Committed Version of the file: %v is %v", filename, currentCommittedVersion)
 
-		status, err := getFileVersionsFromSDFS(filename, currentCommittedVersion, dataNodesForCurrentGet, int64(numVersions))
+		status, err := getFileVersionsFromSDFS(filename, localfilename, currentCommittedVersion, dataNodesForCurrentGet, int64(numVersions))
 		log.Printf("[ Client ][ GetFileVersions ]The execution of the GetFileVersions operation of file %v done on all the data nodes %v", filename, dataNodesForCurrentGet)
 
 		// log.Printf("[ Client ][ GetFileVersions ]Updating the sequence number for getFile(%v) with sequence number %v on all the data nodes", filename, sequenceNumberOfThisGet)
@@ -489,7 +489,7 @@ func DeleteFile(filename string) bool {
 	return true
 }
 
-func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumberOfThisPut int64, dataNodesForCurrentPut []string) (bool, error) {
+func saveFileToSDFS(filename string, localfilename string, currentCommittedVersion int64, sequenceNumberOfThisPut int64, dataNodesForCurrentPut []string) (bool, error) {
 	conf := config.GetConfig("../../config/config.json")
 
 	client, ctx, conn, cancel := getClientToReplicaServer(dataNodesForCurrentPut[0]) // currently always picking the first allocated node as the primary replica
@@ -502,7 +502,7 @@ func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumb
 		return false, nil
 	}
 
-	filePath := fmt.Sprintf("%v/%v", conf.DataRootFolder, filename)
+	filePath := fmt.Sprintf("%v/%v", conf.DataRootFolder, localfilename)
 
 	log.Printf("[ Client ]Sending the file: %v", filePath)
 
@@ -562,7 +562,7 @@ func saveFileToSDFS(filename string, currentCommittedVersion int64, sequenceNumb
 	return res.Status, err
 }
 
-func getFileFromSDFS(filename string, currentCommittedVersion int64, sequenceNumberOfThisGet int64, replicas []string) (bool, error) {
+func getFileFromSDFS(filename string, localfilename string, currentCommittedVersion int64, sequenceNumberOfThisGet int64, replicas []string) (bool, error) {
 	conf := config.GetConfig("../../config/config.json")
 	client, ctx, conn, cancel := getClientToReplicaServer(replicas[0])
 	defer conn.Close()
@@ -606,7 +606,7 @@ func getFileFromSDFS(filename string, currentCommittedVersion int64, sequenceNum
 		}
 	}
 
-	folder_for_the_file := fmt.Sprintf("%v/%v", conf.OutputDataFolder, filename)
+	folder_for_the_file := fmt.Sprintf("%v/%v", conf.OutputDataFolder, localfilename)
 
 	if _, err := os.Stat(folder_for_the_file); os.IsNotExist(err) {
 		err := os.Mkdir(folder_for_the_file, os.ModePerm)
@@ -617,7 +617,7 @@ func getFileFromSDFS(filename string, currentCommittedVersion int64, sequenceNum
 		}
 	}
 
-	err = os.WriteFile(fmt.Sprintf("%v/%v-%v-%v", folder_for_the_file, filename, currentCommittedVersion, dataNode_GetOutboundIP()), data.Bytes(), 0644)
+	err = os.WriteFile(fmt.Sprintf("%v/%v-%v", folder_for_the_file, localfilename, currentCommittedVersion), data.Bytes(), 0644)
 
 	if err != nil {
 		log.Fatalf("[ Client ][ GetFile ]File writing failed: %v", err)
@@ -627,7 +627,7 @@ func getFileFromSDFS(filename string, currentCommittedVersion int64, sequenceNum
 	return true, nil
 }
 
-func getFileVersionsFromSDFS(filename string, currentCommittedVersion int64, replicas []string, numVersions int64) (bool, error) {
+func getFileVersionsFromSDFS(filename string, localfilename string, currentCommittedVersion int64, replicas []string, numVersions int64) (bool, error) {
 	conf := config.GetConfig("../../config/config.json")
 	client, ctx, conn, cancel := getClientToReplicaServer(replicas[0])
 	defer conn.Close()
@@ -671,7 +671,7 @@ func getFileVersionsFromSDFS(filename string, currentCommittedVersion int64, rep
 		}
 	}
 
-	folder_for_the_file := fmt.Sprintf("%v/%v", conf.OutputDataFolder, filename)
+	folder_for_the_file := fmt.Sprintf("%v/%v", conf.OutputDataFolder, localfilename)
 
 	if _, err := os.Stat(folder_for_the_file); os.IsNotExist(err) {
 		err := os.Mkdir(folder_for_the_file, os.ModePerm)
@@ -682,7 +682,7 @@ func getFileVersionsFromSDFS(filename string, currentCommittedVersion int64, rep
 		}
 	}
 
-	err = os.WriteFile(fmt.Sprintf("%v/%v-latest_%v_versions", folder_for_the_file, filename, numVersions), data.Bytes(), 0644)
+	err = os.WriteFile(fmt.Sprintf("%v/%v-latest_%v_versions", folder_for_the_file, localfilename, numVersions), data.Bytes(), 0644)
 
 	if err != nil {
 		log.Fatalf("[ Client ][ GetFileVersions ]File writing failed: %v", err)
