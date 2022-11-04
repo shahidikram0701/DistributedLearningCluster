@@ -20,6 +20,193 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type CoordinatorGetFileVersionsRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Filename string `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+}
+
+func (x *CoordinatorGetFileVersionsRequest) Reset() {
+	*x = CoordinatorGetFileVersionsRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[0]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CoordinatorGetFileVersionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CoordinatorGetFileVersionsRequest) ProtoMessage() {}
+
+func (x *CoordinatorGetFileVersionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[0]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CoordinatorGetFileVersionsRequest.ProtoReflect.Descriptor instead.
+func (*CoordinatorGetFileVersionsRequest) Descriptor() ([]byte, []int) {
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *CoordinatorGetFileVersionsRequest) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
+type CoordinatorGetFileVersionsResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Version   int64    `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+	DataNodes []string `protobuf:"bytes,3,rep,name=dataNodes,proto3" json:"dataNodes,omitempty"`
+}
+
+func (x *CoordinatorGetFileVersionsResponse) Reset() {
+	*x = CoordinatorGetFileVersionsResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CoordinatorGetFileVersionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CoordinatorGetFileVersionsResponse) ProtoMessage() {}
+
+func (x *CoordinatorGetFileVersionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CoordinatorGetFileVersionsResponse.ProtoReflect.Descriptor instead.
+func (*CoordinatorGetFileVersionsResponse) Descriptor() ([]byte, []int) {
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *CoordinatorGetFileVersionsResponse) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *CoordinatorGetFileVersionsResponse) GetDataNodes() []string {
+	if x != nil {
+		return x.DataNodes
+	}
+	return nil
+}
+
+type CoordinatorSyncRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	CoordinatorState []byte `protobuf:"bytes,1,opt,name=coordinatorState,proto3" json:"coordinatorState,omitempty"`
+}
+
+func (x *CoordinatorSyncRequest) Reset() {
+	*x = CoordinatorSyncRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CoordinatorSyncRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CoordinatorSyncRequest) ProtoMessage() {}
+
+func (x *CoordinatorSyncRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CoordinatorSyncRequest.ProtoReflect.Descriptor instead.
+func (*CoordinatorSyncRequest) Descriptor() ([]byte, []int) {
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CoordinatorSyncRequest) GetCoordinatorState() []byte {
+	if x != nil {
+		return x.CoordinatorState
+	}
+	return nil
+}
+
+type CoordinatorSyncResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *CoordinatorSyncResponse) Reset() {
+	*x = CoordinatorSyncResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CoordinatorSyncResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CoordinatorSyncResponse) ProtoMessage() {}
+
+func (x *CoordinatorSyncResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CoordinatorSyncResponse.ProtoReflect.Descriptor instead.
+func (*CoordinatorSyncResponse) Descriptor() ([]byte, []int) {
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{3}
+}
+
 type CoordinatorPutFileRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -31,7 +218,7 @@ type CoordinatorPutFileRequest struct {
 func (x *CoordinatorPutFileRequest) Reset() {
 	*x = CoordinatorPutFileRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_coordinator_sdfs_proto_proto_msgTypes[0]
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -44,7 +231,7 @@ func (x *CoordinatorPutFileRequest) String() string {
 func (*CoordinatorPutFileRequest) ProtoMessage() {}
 
 func (x *CoordinatorPutFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_coordinator_sdfs_proto_proto_msgTypes[0]
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +244,7 @@ func (x *CoordinatorPutFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinatorPutFileRequest.ProtoReflect.Descriptor instead.
 func (*CoordinatorPutFileRequest) Descriptor() ([]byte, []int) {
-	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{0}
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CoordinatorPutFileRequest) GetFilename() string {
@@ -80,7 +267,7 @@ type CoordinatorPutFileReply struct {
 func (x *CoordinatorPutFileReply) Reset() {
 	*x = CoordinatorPutFileReply{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_coordinator_sdfs_proto_proto_msgTypes[1]
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -93,7 +280,7 @@ func (x *CoordinatorPutFileReply) String() string {
 func (*CoordinatorPutFileReply) ProtoMessage() {}
 
 func (x *CoordinatorPutFileReply) ProtoReflect() protoreflect.Message {
-	mi := &file_coordinator_sdfs_proto_proto_msgTypes[1]
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -106,7 +293,7 @@ func (x *CoordinatorPutFileReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinatorPutFileReply.ProtoReflect.Descriptor instead.
 func (*CoordinatorPutFileReply) Descriptor() ([]byte, []int) {
-	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{1}
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CoordinatorPutFileReply) GetSequenceNumber() int64 {
@@ -141,7 +328,7 @@ type CoordinatorGetFileRequest struct {
 func (x *CoordinatorGetFileRequest) Reset() {
 	*x = CoordinatorGetFileRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_coordinator_sdfs_proto_proto_msgTypes[2]
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -154,7 +341,7 @@ func (x *CoordinatorGetFileRequest) String() string {
 func (*CoordinatorGetFileRequest) ProtoMessage() {}
 
 func (x *CoordinatorGetFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_coordinator_sdfs_proto_proto_msgTypes[2]
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -167,7 +354,7 @@ func (x *CoordinatorGetFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinatorGetFileRequest.ProtoReflect.Descriptor instead.
 func (*CoordinatorGetFileRequest) Descriptor() ([]byte, []int) {
-	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{2}
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CoordinatorGetFileRequest) GetFilename() string {
@@ -190,7 +377,7 @@ type CoordinatorGetFileReply struct {
 func (x *CoordinatorGetFileReply) Reset() {
 	*x = CoordinatorGetFileReply{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_coordinator_sdfs_proto_proto_msgTypes[3]
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -203,7 +390,7 @@ func (x *CoordinatorGetFileReply) String() string {
 func (*CoordinatorGetFileReply) ProtoMessage() {}
 
 func (x *CoordinatorGetFileReply) ProtoReflect() protoreflect.Message {
-	mi := &file_coordinator_sdfs_proto_proto_msgTypes[3]
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -216,7 +403,7 @@ func (x *CoordinatorGetFileReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinatorGetFileReply.ProtoReflect.Descriptor instead.
 func (*CoordinatorGetFileReply) Descriptor() ([]byte, []int) {
-	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{3}
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CoordinatorGetFileReply) GetSequenceNumber() int64 {
@@ -240,6 +427,202 @@ func (x *CoordinatorGetFileReply) GetDataNodes() []string {
 	return nil
 }
 
+type CoordinatorDeleteFileRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Filename string `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+}
+
+func (x *CoordinatorDeleteFileRequest) Reset() {
+	*x = CoordinatorDeleteFileRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CoordinatorDeleteFileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CoordinatorDeleteFileRequest) ProtoMessage() {}
+
+func (x *CoordinatorDeleteFileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CoordinatorDeleteFileRequest.ProtoReflect.Descriptor instead.
+func (*CoordinatorDeleteFileRequest) Descriptor() ([]byte, []int) {
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *CoordinatorDeleteFileRequest) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
+type CoordinatorDeleteFileResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	SequenceNumber int64    `protobuf:"varint,1,opt,name=sequenceNumber,proto3" json:"sequenceNumber,omitempty"`
+	Replicas       []string `protobuf:"bytes,2,rep,name=replicas,proto3" json:"replicas,omitempty"`
+}
+
+func (x *CoordinatorDeleteFileResponse) Reset() {
+	*x = CoordinatorDeleteFileResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CoordinatorDeleteFileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CoordinatorDeleteFileResponse) ProtoMessage() {}
+
+func (x *CoordinatorDeleteFileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CoordinatorDeleteFileResponse.ProtoReflect.Descriptor instead.
+func (*CoordinatorDeleteFileResponse) Descriptor() ([]byte, []int) {
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *CoordinatorDeleteFileResponse) GetSequenceNumber() int64 {
+	if x != nil {
+		return x.SequenceNumber
+	}
+	return 0
+}
+
+func (x *CoordinatorDeleteFileResponse) GetReplicas() []string {
+	if x != nil {
+		return x.Replicas
+	}
+	return nil
+}
+
+type CoordinatorDeleteFileAckRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Filename string `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+}
+
+func (x *CoordinatorDeleteFileAckRequest) Reset() {
+	*x = CoordinatorDeleteFileAckRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CoordinatorDeleteFileAckRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CoordinatorDeleteFileAckRequest) ProtoMessage() {}
+
+func (x *CoordinatorDeleteFileAckRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CoordinatorDeleteFileAckRequest.ProtoReflect.Descriptor instead.
+func (*CoordinatorDeleteFileAckRequest) Descriptor() ([]byte, []int) {
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *CoordinatorDeleteFileAckRequest) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
+type CoordinatorDeleteFileAckResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Status bool `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
+}
+
+func (x *CoordinatorDeleteFileAckResponse) Reset() {
+	*x = CoordinatorDeleteFileAckResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CoordinatorDeleteFileAckResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CoordinatorDeleteFileAckResponse) ProtoMessage() {}
+
+func (x *CoordinatorDeleteFileAckResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CoordinatorDeleteFileAckResponse.ProtoReflect.Descriptor instead.
+func (*CoordinatorDeleteFileAckResponse) Descriptor() ([]byte, []int) {
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *CoordinatorDeleteFileAckResponse) GetStatus() bool {
+	if x != nil {
+		return x.Status
+	}
+	return false
+}
+
 type CoordinatorUpdateFileVersionRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -253,7 +636,7 @@ type CoordinatorUpdateFileVersionRequest struct {
 func (x *CoordinatorUpdateFileVersionRequest) Reset() {
 	*x = CoordinatorUpdateFileVersionRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_coordinator_sdfs_proto_proto_msgTypes[4]
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -266,7 +649,7 @@ func (x *CoordinatorUpdateFileVersionRequest) String() string {
 func (*CoordinatorUpdateFileVersionRequest) ProtoMessage() {}
 
 func (x *CoordinatorUpdateFileVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_coordinator_sdfs_proto_proto_msgTypes[4]
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -279,7 +662,7 @@ func (x *CoordinatorUpdateFileVersionRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use CoordinatorUpdateFileVersionRequest.ProtoReflect.Descriptor instead.
 func (*CoordinatorUpdateFileVersionRequest) Descriptor() ([]byte, []int) {
-	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{4}
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CoordinatorUpdateFileVersionRequest) GetFilename() string {
@@ -314,7 +697,7 @@ type CoordinatorUpdateFileVersionReply struct {
 func (x *CoordinatorUpdateFileVersionReply) Reset() {
 	*x = CoordinatorUpdateFileVersionReply{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_coordinator_sdfs_proto_proto_msgTypes[5]
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -327,7 +710,7 @@ func (x *CoordinatorUpdateFileVersionReply) String() string {
 func (*CoordinatorUpdateFileVersionReply) ProtoMessage() {}
 
 func (x *CoordinatorUpdateFileVersionReply) ProtoReflect() protoreflect.Message {
-	mi := &file_coordinator_sdfs_proto_proto_msgTypes[5]
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -340,7 +723,7 @@ func (x *CoordinatorUpdateFileVersionReply) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use CoordinatorUpdateFileVersionReply.ProtoReflect.Descriptor instead.
 func (*CoordinatorUpdateFileVersionReply) Descriptor() ([]byte, []int) {
-	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{5}
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CoordinatorUpdateFileVersionReply) GetStatus() bool {
@@ -350,12 +733,122 @@ func (x *CoordinatorUpdateFileVersionReply) GetStatus() bool {
 	return false
 }
 
+type CoordinatorListAllNodesForFileRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	FileName string `protobuf:"bytes,1,opt,name=fileName,proto3" json:"fileName,omitempty"`
+}
+
+func (x *CoordinatorListAllNodesForFileRequest) Reset() {
+	*x = CoordinatorListAllNodesForFileRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[14]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CoordinatorListAllNodesForFileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CoordinatorListAllNodesForFileRequest) ProtoMessage() {}
+
+func (x *CoordinatorListAllNodesForFileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[14]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CoordinatorListAllNodesForFileRequest.ProtoReflect.Descriptor instead.
+func (*CoordinatorListAllNodesForFileRequest) Descriptor() ([]byte, []int) {
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *CoordinatorListAllNodesForFileRequest) GetFileName() string {
+	if x != nil {
+		return x.FileName
+	}
+	return ""
+}
+
+type CoordinatorListAllNodesForFileReply struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	DataNodes []string `protobuf:"bytes,1,rep,name=dataNodes,proto3" json:"dataNodes,omitempty"`
+}
+
+func (x *CoordinatorListAllNodesForFileReply) Reset() {
+	*x = CoordinatorListAllNodesForFileReply{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_coordinator_sdfs_proto_proto_msgTypes[15]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CoordinatorListAllNodesForFileReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CoordinatorListAllNodesForFileReply) ProtoMessage() {}
+
+func (x *CoordinatorListAllNodesForFileReply) ProtoReflect() protoreflect.Message {
+	mi := &file_coordinator_sdfs_proto_proto_msgTypes[15]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CoordinatorListAllNodesForFileReply.ProtoReflect.Descriptor instead.
+func (*CoordinatorListAllNodesForFileReply) Descriptor() ([]byte, []int) {
+	return file_coordinator_sdfs_proto_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *CoordinatorListAllNodesForFileReply) GetDataNodes() []string {
+	if x != nil {
+		return x.DataNodes
+	}
+	return nil
+}
+
 var File_coordinator_sdfs_proto_proto protoreflect.FileDescriptor
 
 var file_coordinator_sdfs_proto_proto_rawDesc = []byte{
 	0x0a, 0x1c, 0x63, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x5f, 0x73, 0x64,
 	0x66, 0x73, 0x5f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x07,
-	0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x22, 0x37, 0x0a, 0x19, 0x43, 0x6f, 0x6f, 0x72, 0x64,
+	0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x22, 0x3f, 0x0a, 0x21, 0x43, 0x6f, 0x6f, 0x72, 0x64,
+	0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x56, 0x65, 0x72,
+	0x73, 0x69, 0x6f, 0x6e, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1a, 0x0a, 0x08,
+	0x66, 0x69, 0x6c, 0x65, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08,
+	0x66, 0x69, 0x6c, 0x65, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x5c, 0x0a, 0x22, 0x43, 0x6f, 0x6f, 0x72,
+	0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x56, 0x65,
+	0x72, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x18,
+	0x0a, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52,
+	0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x1c, 0x0a, 0x09, 0x64, 0x61, 0x74, 0x61,
+	0x4e, 0x6f, 0x64, 0x65, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x52, 0x09, 0x64, 0x61, 0x74,
+	0x61, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x22, 0x44, 0x0a, 0x16, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69,
+	0x6e, 0x61, 0x74, 0x6f, 0x72, 0x53, 0x79, 0x6e, 0x63, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x12, 0x2a, 0x0a, 0x10, 0x63, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x53,
+	0x74, 0x61, 0x74, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x10, 0x63, 0x6f, 0x6f, 0x72,
+	0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x53, 0x74, 0x61, 0x74, 0x65, 0x22, 0x19, 0x0a, 0x17,
+	0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x53, 0x79, 0x6e, 0x63, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x37, 0x0a, 0x19, 0x43, 0x6f, 0x6f, 0x72, 0x64,
 	0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x50, 0x75, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71,
 	0x75, 0x65, 0x73, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x6e, 0x61, 0x6d, 0x65,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x6e, 0x61, 0x6d, 0x65,
@@ -378,40 +871,98 @@ var file_coordinator_sdfs_proto_proto_rawDesc = []byte{
 	0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f,
 	0x6e, 0x12, 0x1c, 0x0a, 0x09, 0x64, 0x61, 0x74, 0x61, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x18, 0x03,
 	0x20, 0x03, 0x28, 0x09, 0x52, 0x09, 0x64, 0x61, 0x74, 0x61, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x22,
-	0x83, 0x01, 0x0a, 0x23, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x55,
-	0x70, 0x64, 0x61, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x6e,
-	0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x6e,
-	0x61, 0x6d, 0x65, 0x12, 0x26, 0x0a, 0x0e, 0x73, 0x65, 0x71, 0x75, 0x65, 0x6e, 0x63, 0x65, 0x4e,
-	0x75, 0x6d, 0x62, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0e, 0x73, 0x65, 0x71,
-	0x75, 0x65, 0x6e, 0x63, 0x65, 0x4e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x12, 0x18, 0x0a, 0x07, 0x76,
-	0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x03, 0x52, 0x07, 0x76, 0x65,
-	0x72, 0x73, 0x69, 0x6f, 0x6e, 0x22, 0x3b, 0x0a, 0x21, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e,
+	0x3a, 0x0a, 0x1c, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x44, 0x65,
+	0x6c, 0x65, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
+	0x1a, 0x0a, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x63, 0x0a, 0x1d, 0x43,
+	0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65,
+	0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x26, 0x0a, 0x0e,
+	0x73, 0x65, 0x71, 0x75, 0x65, 0x6e, 0x63, 0x65, 0x4e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x03, 0x52, 0x0e, 0x73, 0x65, 0x71, 0x75, 0x65, 0x6e, 0x63, 0x65, 0x4e, 0x75,
+	0x6d, 0x62, 0x65, 0x72, 0x12, 0x1a, 0x0a, 0x08, 0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x73,
+	0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52, 0x08, 0x72, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x73,
+	0x22, 0x3d, 0x0a, 0x1f, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x44,
+	0x65, 0x6c, 0x65, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x41, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x6e, 0x61, 0x6d, 0x65, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x6e, 0x61, 0x6d, 0x65, 0x22,
+	0x3a, 0x0a, 0x20, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x44, 0x65,
+	0x6c, 0x65, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x41, 0x63, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x08, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x22, 0x83, 0x01, 0x0a, 0x23,
+	0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x55, 0x70, 0x64, 0x61, 0x74,
+	0x65, 0x46, 0x69, 0x6c, 0x65, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x6e, 0x61, 0x6d, 0x65, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x6e, 0x61, 0x6d, 0x65, 0x12,
+	0x26, 0x0a, 0x0e, 0x73, 0x65, 0x71, 0x75, 0x65, 0x6e, 0x63, 0x65, 0x4e, 0x75, 0x6d, 0x62, 0x65,
+	0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0e, 0x73, 0x65, 0x71, 0x75, 0x65, 0x6e, 0x63,
+	0x65, 0x4e, 0x75, 0x6d, 0x62, 0x65, 0x72, 0x12, 0x18, 0x0a, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69,
+	0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x03, 0x52, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f,
+	0x6e, 0x22, 0x3b, 0x0a, 0x21, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72,
+	0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f,
+	0x6e, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x22, 0x43,
+	0x0a, 0x25, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x4c, 0x69, 0x73,
+	0x74, 0x41, 0x6c, 0x6c, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x46, 0x6f, 0x72, 0x46, 0x69, 0x6c, 0x65,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x4e,
+	0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x4e,
+	0x61, 0x6d, 0x65, 0x22, 0x43, 0x0a, 0x23, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74,
+	0x6f, 0x72, 0x4c, 0x69, 0x73, 0x74, 0x41, 0x6c, 0x6c, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x46, 0x6f,
+	0x72, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x12, 0x1c, 0x0a, 0x09, 0x64, 0x61,
+	0x74, 0x61, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x09, 0x64,
+	0x61, 0x74, 0x61, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x32, 0xb6, 0x06, 0x0a, 0x19, 0x43, 0x6f, 0x6f,
+	0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x46,
+	0x6f, 0x72, 0x53, 0x44, 0x46, 0x53, 0x12, 0x51, 0x0a, 0x07, 0x50, 0x75, 0x74, 0x46, 0x69, 0x6c,
+	0x65, 0x12, 0x22, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72,
+	0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x50, 0x75, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e,
+	0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x50, 0x75, 0x74, 0x46, 0x69,
+	0x6c, 0x65, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x22, 0x00, 0x12, 0x6f, 0x0a, 0x11, 0x55, 0x70, 0x64,
+	0x61, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x2c,
+	0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e,
 	0x61, 0x74, 0x6f, 0x72, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x56, 0x65,
-	0x72, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74,
-	0x61, 0x74, 0x75, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74,
-	0x75, 0x73, 0x32, 0xb2, 0x02, 0x0a, 0x19, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74,
-	0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x46, 0x6f, 0x72, 0x53, 0x44, 0x46, 0x53,
-	0x12, 0x51, 0x0a, 0x07, 0x50, 0x75, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x22, 0x2e, 0x70, 0x72,
-	0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f,
-	0x72, 0x50, 0x75, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x72, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2a, 0x2e, 0x70,
+	0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74,
+	0x6f, 0x72, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x56, 0x65, 0x72, 0x73,
+	0x69, 0x6f, 0x6e, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x22, 0x00, 0x12, 0x75, 0x0a, 0x13, 0x4c, 0x69,
+	0x73, 0x74, 0x41, 0x6c, 0x6c, 0x4e, 0x6f, 0x64, 0x65, 0x73, 0x46, 0x6f, 0x72, 0x46, 0x69, 0x6c,
+	0x65, 0x12, 0x2e, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72,
+	0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x4c, 0x69, 0x73, 0x74, 0x41, 0x6c, 0x6c, 0x4e, 0x6f,
+	0x64, 0x65, 0x73, 0x46, 0x6f, 0x72, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x2c, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72,
+	0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x4c, 0x69, 0x73, 0x74, 0x41, 0x6c, 0x6c, 0x4e, 0x6f,
+	0x64, 0x65, 0x73, 0x46, 0x6f, 0x72, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x22,
+	0x00, 0x12, 0x51, 0x0a, 0x07, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x22, 0x2e, 0x70,
+	0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74,
+	0x6f, 0x72, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x1a, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64,
+	0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x70,
+	0x6c, 0x79, 0x22, 0x00, 0x12, 0x5d, 0x0a, 0x0a, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x46, 0x69,
+	0x6c, 0x65, 0x12, 0x25, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f,
+	0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x46, 0x69,
+	0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x26, 0x2e, 0x70, 0x72, 0x6f, 0x63,
+	0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x44,
+	0x65, 0x6c, 0x65, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x00, 0x12, 0x66, 0x0a, 0x0d, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x46, 0x69, 0x6c,
+	0x65, 0x41, 0x63, 0x6b, 0x12, 0x28, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43,
+	0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65,
+	0x46, 0x69, 0x6c, 0x65, 0x41, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x29,
+	0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e,
+	0x61, 0x74, 0x6f, 0x72, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x41, 0x63,
+	0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x56, 0x0a, 0x0f, 0x43,
+	0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x53, 0x79, 0x6e, 0x63, 0x12, 0x1f,
+	0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e,
+	0x61, 0x74, 0x6f, 0x72, 0x53, 0x79, 0x6e, 0x63, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
 	0x20, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69,
-	0x6e, 0x61, 0x74, 0x6f, 0x72, 0x50, 0x75, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x70, 0x6c,
-	0x79, 0x22, 0x00, 0x12, 0x6f, 0x0a, 0x11, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x46, 0x69, 0x6c,
-	0x65, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x2c, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65,
-	0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x55, 0x70,
-	0x64, 0x61, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2a, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73,
-	0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x55, 0x70, 0x64, 0x61,
-	0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x70,
-	0x6c, 0x79, 0x22, 0x00, 0x12, 0x51, 0x0a, 0x07, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x12,
-	0x22, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69,
-	0x6e, 0x61, 0x74, 0x6f, 0x72, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f,
-	0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65,
-	0x52, 0x65, 0x70, 0x6c, 0x79, 0x22, 0x00, 0x42, 0x12, 0x5a, 0x10, 0x63, 0x73, 0x34, 0x32, 0x35,
-	0x2f, 0x6d, 0x70, 0x2f, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x33,
+	0x6e, 0x61, 0x74, 0x6f, 0x72, 0x53, 0x79, 0x6e, 0x63, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x00, 0x12, 0x6c, 0x0a, 0x0f, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x56, 0x65,
+	0x72, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x2a, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73,
+	0x2e, 0x43, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x47, 0x65, 0x74, 0x46,
+	0x69, 0x6c, 0x65, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x2b, 0x2e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x2e, 0x43, 0x6f, 0x6f,
+	0x72, 0x64, 0x69, 0x6e, 0x61, 0x74, 0x6f, 0x72, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x56,
+	0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
+	0x00, 0x42, 0x12, 0x5a, 0x10, 0x63, 0x73, 0x34, 0x32, 0x35, 0x2f, 0x6d, 0x70, 0x2f, 0x70, 0x72,
+	0x6f, 0x63, 0x65, 0x73, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -426,27 +977,47 @@ func file_coordinator_sdfs_proto_proto_rawDescGZIP() []byte {
 	return file_coordinator_sdfs_proto_proto_rawDescData
 }
 
-var file_coordinator_sdfs_proto_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_coordinator_sdfs_proto_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_coordinator_sdfs_proto_proto_goTypes = []interface{}{
-	(*CoordinatorPutFileRequest)(nil),           // 0: process.CoordinatorPutFileRequest
-	(*CoordinatorPutFileReply)(nil),             // 1: process.CoordinatorPutFileReply
-	(*CoordinatorGetFileRequest)(nil),           // 2: process.CoordinatorGetFileRequest
-	(*CoordinatorGetFileReply)(nil),             // 3: process.CoordinatorGetFileReply
-	(*CoordinatorUpdateFileVersionRequest)(nil), // 4: process.CoordinatorUpdateFileVersionRequest
-	(*CoordinatorUpdateFileVersionReply)(nil),   // 5: process.CoordinatorUpdateFileVersionReply
+	(*CoordinatorGetFileVersionsRequest)(nil),     // 0: process.CoordinatorGetFileVersionsRequest
+	(*CoordinatorGetFileVersionsResponse)(nil),    // 1: process.CoordinatorGetFileVersionsResponse
+	(*CoordinatorSyncRequest)(nil),                // 2: process.CoordinatorSyncRequest
+	(*CoordinatorSyncResponse)(nil),               // 3: process.CoordinatorSyncResponse
+	(*CoordinatorPutFileRequest)(nil),             // 4: process.CoordinatorPutFileRequest
+	(*CoordinatorPutFileReply)(nil),               // 5: process.CoordinatorPutFileReply
+	(*CoordinatorGetFileRequest)(nil),             // 6: process.CoordinatorGetFileRequest
+	(*CoordinatorGetFileReply)(nil),               // 7: process.CoordinatorGetFileReply
+	(*CoordinatorDeleteFileRequest)(nil),          // 8: process.CoordinatorDeleteFileRequest
+	(*CoordinatorDeleteFileResponse)(nil),         // 9: process.CoordinatorDeleteFileResponse
+	(*CoordinatorDeleteFileAckRequest)(nil),       // 10: process.CoordinatorDeleteFileAckRequest
+	(*CoordinatorDeleteFileAckResponse)(nil),      // 11: process.CoordinatorDeleteFileAckResponse
+	(*CoordinatorUpdateFileVersionRequest)(nil),   // 12: process.CoordinatorUpdateFileVersionRequest
+	(*CoordinatorUpdateFileVersionReply)(nil),     // 13: process.CoordinatorUpdateFileVersionReply
+	(*CoordinatorListAllNodesForFileRequest)(nil), // 14: process.CoordinatorListAllNodesForFileRequest
+	(*CoordinatorListAllNodesForFileReply)(nil),   // 15: process.CoordinatorListAllNodesForFileReply
 }
 var file_coordinator_sdfs_proto_proto_depIdxs = []int32{
-	0, // 0: process.CoordinatorServiceForSDFS.PutFile:input_type -> process.CoordinatorPutFileRequest
-	4, // 1: process.CoordinatorServiceForSDFS.UpdateFileVersion:input_type -> process.CoordinatorUpdateFileVersionRequest
-	2, // 2: process.CoordinatorServiceForSDFS.GetFile:input_type -> process.CoordinatorGetFileRequest
-	1, // 3: process.CoordinatorServiceForSDFS.PutFile:output_type -> process.CoordinatorPutFileReply
-	5, // 4: process.CoordinatorServiceForSDFS.UpdateFileVersion:output_type -> process.CoordinatorUpdateFileVersionReply
-	3, // 5: process.CoordinatorServiceForSDFS.GetFile:output_type -> process.CoordinatorGetFileReply
-	3, // [3:6] is the sub-list for method output_type
-	0, // [0:3] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	4,  // 0: process.CoordinatorServiceForSDFS.PutFile:input_type -> process.CoordinatorPutFileRequest
+	12, // 1: process.CoordinatorServiceForSDFS.UpdateFileVersion:input_type -> process.CoordinatorUpdateFileVersionRequest
+	14, // 2: process.CoordinatorServiceForSDFS.ListAllNodesForFile:input_type -> process.CoordinatorListAllNodesForFileRequest
+	6,  // 3: process.CoordinatorServiceForSDFS.GetFile:input_type -> process.CoordinatorGetFileRequest
+	8,  // 4: process.CoordinatorServiceForSDFS.DeleteFile:input_type -> process.CoordinatorDeleteFileRequest
+	10, // 5: process.CoordinatorServiceForSDFS.DeleteFileAck:input_type -> process.CoordinatorDeleteFileAckRequest
+	2,  // 6: process.CoordinatorServiceForSDFS.CoordinatorSync:input_type -> process.CoordinatorSyncRequest
+	0,  // 7: process.CoordinatorServiceForSDFS.GetFileVersions:input_type -> process.CoordinatorGetFileVersionsRequest
+	5,  // 8: process.CoordinatorServiceForSDFS.PutFile:output_type -> process.CoordinatorPutFileReply
+	13, // 9: process.CoordinatorServiceForSDFS.UpdateFileVersion:output_type -> process.CoordinatorUpdateFileVersionReply
+	15, // 10: process.CoordinatorServiceForSDFS.ListAllNodesForFile:output_type -> process.CoordinatorListAllNodesForFileReply
+	7,  // 11: process.CoordinatorServiceForSDFS.GetFile:output_type -> process.CoordinatorGetFileReply
+	9,  // 12: process.CoordinatorServiceForSDFS.DeleteFile:output_type -> process.CoordinatorDeleteFileResponse
+	11, // 13: process.CoordinatorServiceForSDFS.DeleteFileAck:output_type -> process.CoordinatorDeleteFileAckResponse
+	3,  // 14: process.CoordinatorServiceForSDFS.CoordinatorSync:output_type -> process.CoordinatorSyncResponse
+	1,  // 15: process.CoordinatorServiceForSDFS.GetFileVersions:output_type -> process.CoordinatorGetFileVersionsResponse
+	8,  // [8:16] is the sub-list for method output_type
+	0,  // [0:8] is the sub-list for method input_type
+	0,  // [0:0] is the sub-list for extension type_name
+	0,  // [0:0] is the sub-list for extension extendee
+	0,  // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_coordinator_sdfs_proto_proto_init() }
@@ -456,7 +1027,7 @@ func file_coordinator_sdfs_proto_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_coordinator_sdfs_proto_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CoordinatorPutFileRequest); i {
+			switch v := v.(*CoordinatorGetFileVersionsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -468,7 +1039,7 @@ func file_coordinator_sdfs_proto_proto_init() {
 			}
 		}
 		file_coordinator_sdfs_proto_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CoordinatorPutFileReply); i {
+			switch v := v.(*CoordinatorGetFileVersionsResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -480,7 +1051,7 @@ func file_coordinator_sdfs_proto_proto_init() {
 			}
 		}
 		file_coordinator_sdfs_proto_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CoordinatorGetFileRequest); i {
+			switch v := v.(*CoordinatorSyncRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -492,7 +1063,7 @@ func file_coordinator_sdfs_proto_proto_init() {
 			}
 		}
 		file_coordinator_sdfs_proto_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CoordinatorGetFileReply); i {
+			switch v := v.(*CoordinatorSyncResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -504,7 +1075,7 @@ func file_coordinator_sdfs_proto_proto_init() {
 			}
 		}
 		file_coordinator_sdfs_proto_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CoordinatorUpdateFileVersionRequest); i {
+			switch v := v.(*CoordinatorPutFileRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -516,7 +1087,127 @@ func file_coordinator_sdfs_proto_proto_init() {
 			}
 		}
 		file_coordinator_sdfs_proto_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CoordinatorPutFileReply); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_coordinator_sdfs_proto_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CoordinatorGetFileRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_coordinator_sdfs_proto_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CoordinatorGetFileReply); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_coordinator_sdfs_proto_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CoordinatorDeleteFileRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_coordinator_sdfs_proto_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CoordinatorDeleteFileResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_coordinator_sdfs_proto_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CoordinatorDeleteFileAckRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_coordinator_sdfs_proto_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CoordinatorDeleteFileAckResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_coordinator_sdfs_proto_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CoordinatorUpdateFileVersionRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_coordinator_sdfs_proto_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CoordinatorUpdateFileVersionReply); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_coordinator_sdfs_proto_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CoordinatorListAllNodesForFileRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_coordinator_sdfs_proto_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CoordinatorListAllNodesForFileReply); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -534,7 +1225,7 @@ func file_coordinator_sdfs_proto_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_coordinator_sdfs_proto_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

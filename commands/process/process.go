@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 
 	config "cs425/mp/config"
@@ -67,41 +70,82 @@ func main() {
 	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorServiceLoggerPort, configuration.CoordinatorServiceSDFSPort, configuration.DataNodeServiceSDFSPort, wg, introAddr, *devmode, outboundIp)
 
 	for {
-		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - `${query-string}` (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put (create or update a file)\n\t - get (get a file)\n\n\t: ")
-		var command string
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - search-logs <query> (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put <localfilename> <sdfsfilename>\n\t - get <sdfsfilename> <localfilename>\n\t - delete <sdfsfilename>\n\t - ls <sdfsfilename>\n\t - store\n\t - get-versions <sdfsfilename> <numVersions> <localfilename>\n\n\t: ")
 
-		// Taking input from user
-		fmt.Scanln(&command)
+		inputReader := bufio.NewReader(os.Stdin)
+		command, _ := inputReader.ReadString('\n')
+		command = strings.TrimSuffix(command, "\n")
+		parsedCommand := strings.Split(command, " ")
 
-		switch command {
+		switch parsedCommand[0] {
 		case "leave":
 			process.LeaveNetwork()
 		case "printmembershiplist":
-			fmt.Println(process.GetMemberList().GetList())
+			fmt.Println("\n", process.GetMemberList().GetList())
 		case "printtopology":
-			fmt.Println(process.GetNetworkTopology())
+			fmt.Println("\n", process.GetNetworkTopology())
 		case "getallcoordinators":
-			fmt.Printf("%v\n", process.GetAllCoordinators())
+			fmt.Printf("\n%v\n", process.GetAllCoordinators())
 		case "exit":
 			os.Exit(3)
 
 		case "put":
-			var filename string
-			fmt.Printf("\tFilename: ")
+			if len(parsedCommand) <= 2 {
+				fmt.Printf("\n\tSpecify both localfilename and filename")
+				continue
+			}
+			localfilename := parsedCommand[1]
+			filename := parsedCommand[2]
+			fmt.Println("\n\t", process.PutFile(filename, localfilename))
 
-			// Taking input from user
-			fmt.Scanln(&filename)
-			fmt.Println(process.PutFile(filename))
+		case "ls":
+			if len(parsedCommand) <= 1 {
+				fmt.Printf("\n\tSpecify filename")
+				continue
+			}
+			filename := parsedCommand[1]
+			fmt.Println("\n\t", process.ListAllNodesForAFile(filename))
+
+		case "store":
+			fmt.Println("\n\t", process.DataNode_ListAllFilesOnTheNode())
 
 		case "get":
-			var filename string
-			fmt.Printf("\tFilename: ")
+			if len(parsedCommand) <= 2 {
+				fmt.Printf("\n\tSpecify filename")
+				continue
+			}
+			filename := parsedCommand[1]
+			localfilename := parsedCommand[2]
+			fmt.Println("\n\t", process.GetFile(filename, localfilename))
 
-			// Taking input from user
-			fmt.Scanln(&filename)
-			fmt.Println(process.GetFile(filename))
+		case "delete":
+			if len(parsedCommand) <= 1 {
+				fmt.Printf("\n\tSpecify filename")
+				continue
+			}
+			filename := parsedCommand[1]
+			fmt.Println("\n\t", process.DeleteFile(filename))
+
+		case "get-versions":
+			if len(parsedCommand) <= 3 {
+				fmt.Printf("\n\tSpecify filename and versions")
+				continue
+			}
+			filename := parsedCommand[1]
+			numVersions, _ := strconv.Atoi(parsedCommand[2])
+			localfilename := parsedCommand[3]
+			fmt.Println("\n\t", process.GetFileVersions(filename, numVersions, localfilename))
+
+		case "search-logs":
+			if len(parsedCommand) <= 1 {
+				fmt.Printf("\n\tSpecify query")
+				continue
+			}
+			query := parsedCommand[1]
+			process.SendLogQueryRequest(configuration.CoordinatorServiceLoggerPort, query)
+
 		default:
-			process.SendLogQueryRequest(configuration.CoordinatorServiceLoggerPort, command)
+			continue
 		}
 
 	}

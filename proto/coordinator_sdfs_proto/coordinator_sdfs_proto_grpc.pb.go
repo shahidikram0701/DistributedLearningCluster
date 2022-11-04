@@ -24,7 +24,12 @@ const _ = grpc.SupportPackageIsVersion7
 type CoordinatorServiceForSDFSClient interface {
 	PutFile(ctx context.Context, in *CoordinatorPutFileRequest, opts ...grpc.CallOption) (*CoordinatorPutFileReply, error)
 	UpdateFileVersion(ctx context.Context, in *CoordinatorUpdateFileVersionRequest, opts ...grpc.CallOption) (*CoordinatorUpdateFileVersionReply, error)
+	ListAllNodesForFile(ctx context.Context, in *CoordinatorListAllNodesForFileRequest, opts ...grpc.CallOption) (*CoordinatorListAllNodesForFileReply, error)
 	GetFile(ctx context.Context, in *CoordinatorGetFileRequest, opts ...grpc.CallOption) (*CoordinatorGetFileReply, error)
+	DeleteFile(ctx context.Context, in *CoordinatorDeleteFileRequest, opts ...grpc.CallOption) (*CoordinatorDeleteFileResponse, error)
+	DeleteFileAck(ctx context.Context, in *CoordinatorDeleteFileAckRequest, opts ...grpc.CallOption) (*CoordinatorDeleteFileAckResponse, error)
+	CoordinatorSync(ctx context.Context, in *CoordinatorSyncRequest, opts ...grpc.CallOption) (*CoordinatorSyncResponse, error)
+	GetFileVersions(ctx context.Context, in *CoordinatorGetFileVersionsRequest, opts ...grpc.CallOption) (*CoordinatorGetFileVersionsResponse, error)
 }
 
 type coordinatorServiceForSDFSClient struct {
@@ -53,9 +58,54 @@ func (c *coordinatorServiceForSDFSClient) UpdateFileVersion(ctx context.Context,
 	return out, nil
 }
 
+func (c *coordinatorServiceForSDFSClient) ListAllNodesForFile(ctx context.Context, in *CoordinatorListAllNodesForFileRequest, opts ...grpc.CallOption) (*CoordinatorListAllNodesForFileReply, error) {
+	out := new(CoordinatorListAllNodesForFileReply)
+	err := c.cc.Invoke(ctx, "/process.CoordinatorServiceForSDFS/ListAllNodesForFile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *coordinatorServiceForSDFSClient) GetFile(ctx context.Context, in *CoordinatorGetFileRequest, opts ...grpc.CallOption) (*CoordinatorGetFileReply, error) {
 	out := new(CoordinatorGetFileReply)
 	err := c.cc.Invoke(ctx, "/process.CoordinatorServiceForSDFS/GetFile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *coordinatorServiceForSDFSClient) DeleteFile(ctx context.Context, in *CoordinatorDeleteFileRequest, opts ...grpc.CallOption) (*CoordinatorDeleteFileResponse, error) {
+	out := new(CoordinatorDeleteFileResponse)
+	err := c.cc.Invoke(ctx, "/process.CoordinatorServiceForSDFS/DeleteFile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *coordinatorServiceForSDFSClient) DeleteFileAck(ctx context.Context, in *CoordinatorDeleteFileAckRequest, opts ...grpc.CallOption) (*CoordinatorDeleteFileAckResponse, error) {
+	out := new(CoordinatorDeleteFileAckResponse)
+	err := c.cc.Invoke(ctx, "/process.CoordinatorServiceForSDFS/DeleteFileAck", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *coordinatorServiceForSDFSClient) CoordinatorSync(ctx context.Context, in *CoordinatorSyncRequest, opts ...grpc.CallOption) (*CoordinatorSyncResponse, error) {
+	out := new(CoordinatorSyncResponse)
+	err := c.cc.Invoke(ctx, "/process.CoordinatorServiceForSDFS/CoordinatorSync", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *coordinatorServiceForSDFSClient) GetFileVersions(ctx context.Context, in *CoordinatorGetFileVersionsRequest, opts ...grpc.CallOption) (*CoordinatorGetFileVersionsResponse, error) {
+	out := new(CoordinatorGetFileVersionsResponse)
+	err := c.cc.Invoke(ctx, "/process.CoordinatorServiceForSDFS/GetFileVersions", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +118,12 @@ func (c *coordinatorServiceForSDFSClient) GetFile(ctx context.Context, in *Coord
 type CoordinatorServiceForSDFSServer interface {
 	PutFile(context.Context, *CoordinatorPutFileRequest) (*CoordinatorPutFileReply, error)
 	UpdateFileVersion(context.Context, *CoordinatorUpdateFileVersionRequest) (*CoordinatorUpdateFileVersionReply, error)
+	ListAllNodesForFile(context.Context, *CoordinatorListAllNodesForFileRequest) (*CoordinatorListAllNodesForFileReply, error)
 	GetFile(context.Context, *CoordinatorGetFileRequest) (*CoordinatorGetFileReply, error)
+	DeleteFile(context.Context, *CoordinatorDeleteFileRequest) (*CoordinatorDeleteFileResponse, error)
+	DeleteFileAck(context.Context, *CoordinatorDeleteFileAckRequest) (*CoordinatorDeleteFileAckResponse, error)
+	CoordinatorSync(context.Context, *CoordinatorSyncRequest) (*CoordinatorSyncResponse, error)
+	GetFileVersions(context.Context, *CoordinatorGetFileVersionsRequest) (*CoordinatorGetFileVersionsResponse, error)
 	mustEmbedUnimplementedCoordinatorServiceForSDFSServer()
 }
 
@@ -82,8 +137,23 @@ func (UnimplementedCoordinatorServiceForSDFSServer) PutFile(context.Context, *Co
 func (UnimplementedCoordinatorServiceForSDFSServer) UpdateFileVersion(context.Context, *CoordinatorUpdateFileVersionRequest) (*CoordinatorUpdateFileVersionReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateFileVersion not implemented")
 }
+func (UnimplementedCoordinatorServiceForSDFSServer) ListAllNodesForFile(context.Context, *CoordinatorListAllNodesForFileRequest) (*CoordinatorListAllNodesForFileReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAllNodesForFile not implemented")
+}
 func (UnimplementedCoordinatorServiceForSDFSServer) GetFile(context.Context, *CoordinatorGetFileRequest) (*CoordinatorGetFileReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetFile not implemented")
+}
+func (UnimplementedCoordinatorServiceForSDFSServer) DeleteFile(context.Context, *CoordinatorDeleteFileRequest) (*CoordinatorDeleteFileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteFile not implemented")
+}
+func (UnimplementedCoordinatorServiceForSDFSServer) DeleteFileAck(context.Context, *CoordinatorDeleteFileAckRequest) (*CoordinatorDeleteFileAckResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteFileAck not implemented")
+}
+func (UnimplementedCoordinatorServiceForSDFSServer) CoordinatorSync(context.Context, *CoordinatorSyncRequest) (*CoordinatorSyncResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CoordinatorSync not implemented")
+}
+func (UnimplementedCoordinatorServiceForSDFSServer) GetFileVersions(context.Context, *CoordinatorGetFileVersionsRequest) (*CoordinatorGetFileVersionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFileVersions not implemented")
 }
 func (UnimplementedCoordinatorServiceForSDFSServer) mustEmbedUnimplementedCoordinatorServiceForSDFSServer() {
 }
@@ -135,6 +205,24 @@ func _CoordinatorServiceForSDFS_UpdateFileVersion_Handler(srv interface{}, ctx c
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CoordinatorServiceForSDFS_ListAllNodesForFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CoordinatorListAllNodesForFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoordinatorServiceForSDFSServer).ListAllNodesForFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.CoordinatorServiceForSDFS/ListAllNodesForFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoordinatorServiceForSDFSServer).ListAllNodesForFile(ctx, req.(*CoordinatorListAllNodesForFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CoordinatorServiceForSDFS_GetFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CoordinatorGetFileRequest)
 	if err := dec(in); err != nil {
@@ -149,6 +237,78 @@ func _CoordinatorServiceForSDFS_GetFile_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CoordinatorServiceForSDFSServer).GetFile(ctx, req.(*CoordinatorGetFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CoordinatorServiceForSDFS_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CoordinatorDeleteFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoordinatorServiceForSDFSServer).DeleteFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.CoordinatorServiceForSDFS/DeleteFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoordinatorServiceForSDFSServer).DeleteFile(ctx, req.(*CoordinatorDeleteFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CoordinatorServiceForSDFS_DeleteFileAck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CoordinatorDeleteFileAckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoordinatorServiceForSDFSServer).DeleteFileAck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.CoordinatorServiceForSDFS/DeleteFileAck",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoordinatorServiceForSDFSServer).DeleteFileAck(ctx, req.(*CoordinatorDeleteFileAckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CoordinatorServiceForSDFS_CoordinatorSync_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CoordinatorSyncRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoordinatorServiceForSDFSServer).CoordinatorSync(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.CoordinatorServiceForSDFS/CoordinatorSync",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoordinatorServiceForSDFSServer).CoordinatorSync(ctx, req.(*CoordinatorSyncRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CoordinatorServiceForSDFS_GetFileVersions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CoordinatorGetFileVersionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoordinatorServiceForSDFSServer).GetFileVersions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.CoordinatorServiceForSDFS/GetFileVersions",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoordinatorServiceForSDFSServer).GetFileVersions(ctx, req.(*CoordinatorGetFileVersionsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -169,8 +329,28 @@ var CoordinatorServiceForSDFS_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _CoordinatorServiceForSDFS_UpdateFileVersion_Handler,
 		},
 		{
+			MethodName: "ListAllNodesForFile",
+			Handler:    _CoordinatorServiceForSDFS_ListAllNodesForFile_Handler,
+		},
+		{
 			MethodName: "GetFile",
 			Handler:    _CoordinatorServiceForSDFS_GetFile_Handler,
+		},
+		{
+			MethodName: "DeleteFile",
+			Handler:    _CoordinatorServiceForSDFS_DeleteFile_Handler,
+		},
+		{
+			MethodName: "DeleteFileAck",
+			Handler:    _CoordinatorServiceForSDFS_DeleteFileAck_Handler,
+		},
+		{
+			MethodName: "CoordinatorSync",
+			Handler:    _CoordinatorServiceForSDFS_CoordinatorSync_Handler,
+		},
+		{
+			MethodName: "GetFileVersions",
+			Handler:    _CoordinatorServiceForSDFS_GetFileVersions_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

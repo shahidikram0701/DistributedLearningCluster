@@ -352,8 +352,16 @@ func (ml *MembershipList) GetCoordinatorNode() string {
 }
 
 func (ml *MembershipList) GetAllCoordinators() []string {
+	if ml == nil {
+		return []string{}
+	}
+
 	ml.RLock()
 	defer ml.RUnlock()
+
+	if len(ml.items) <= 0 {
+		return []string{}
+	}
 
 	var coordinators []string
 	for _, value := range ml.items {
@@ -400,10 +408,13 @@ func (ml *MembershipList) GetRandomNode() string {
 	ml.RLock()
 	defer ml.RUnlock()
 
-	n := len(ml.items)
-
 	for {
-		node := ml.items[rand.Int()%n]
+		n := len(ml.items)
+		idx := rand.Int() % n
+		if idx == 0 {
+			continue
+		}
+		node := ml.items[idx]
 		if node.State.Status == Alive {
 			return strings.Split(node.Id, ":")[0]
 		}

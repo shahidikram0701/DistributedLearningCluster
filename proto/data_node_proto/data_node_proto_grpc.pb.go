@@ -29,6 +29,9 @@ type DataNodeServiceClient interface {
 	DataNode_ReplicaRecovery(ctx context.Context, in *DataNode_ReplicaRecoveryRequest, opts ...grpc.CallOption) (DataNodeService_DataNode_ReplicaRecoveryClient, error)
 	DataNode_GetFile(ctx context.Context, in *DataNode_GetFileRequest, opts ...grpc.CallOption) (DataNodeService_DataNode_GetFileClient, error)
 	DataNode_GetFileQuorum(ctx context.Context, in *DataNode_GetFileQuorumRequest, opts ...grpc.CallOption) (*DataNode_GetFileQuorumResponse, error)
+	DataNode_DeleteFileQuorumCheck(ctx context.Context, in *DataNode_DeleteFileQuorumCheckRequest, opts ...grpc.CallOption) (*DataNode_DeleteFileQuorumCheckResponse, error)
+	DataNode_CommitDelete(ctx context.Context, in *DataNode_CommitDeleteRequest, opts ...grpc.CallOption) (*DataNode_CommitDeleteResponse, error)
+	DataNode_GetFileVersions(ctx context.Context, in *DataNode_GetFileVersionsRequest, opts ...grpc.CallOption) (DataNodeService_DataNode_GetFileVersionsClient, error)
 }
 
 type dataNodeServiceClient struct {
@@ -173,6 +176,56 @@ func (c *dataNodeServiceClient) DataNode_GetFileQuorum(ctx context.Context, in *
 	return out, nil
 }
 
+func (c *dataNodeServiceClient) DataNode_DeleteFileQuorumCheck(ctx context.Context, in *DataNode_DeleteFileQuorumCheckRequest, opts ...grpc.CallOption) (*DataNode_DeleteFileQuorumCheckResponse, error) {
+	out := new(DataNode_DeleteFileQuorumCheckResponse)
+	err := c.cc.Invoke(ctx, "/process.DataNodeService/DataNode_DeleteFileQuorumCheck", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dataNodeServiceClient) DataNode_CommitDelete(ctx context.Context, in *DataNode_CommitDeleteRequest, opts ...grpc.CallOption) (*DataNode_CommitDeleteResponse, error) {
+	out := new(DataNode_CommitDeleteResponse)
+	err := c.cc.Invoke(ctx, "/process.DataNodeService/DataNode_CommitDelete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dataNodeServiceClient) DataNode_GetFileVersions(ctx context.Context, in *DataNode_GetFileVersionsRequest, opts ...grpc.CallOption) (DataNodeService_DataNode_GetFileVersionsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &DataNodeService_ServiceDesc.Streams[3], "/process.DataNodeService/DataNode_GetFileVersions", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &dataNodeServiceDataNode_GetFileVersionsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type DataNodeService_DataNode_GetFileVersionsClient interface {
+	Recv() (*FileChunk, error)
+	grpc.ClientStream
+}
+
+type dataNodeServiceDataNode_GetFileVersionsClient struct {
+	grpc.ClientStream
+}
+
+func (x *dataNodeServiceDataNode_GetFileVersionsClient) Recv() (*FileChunk, error) {
+	m := new(FileChunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // DataNodeServiceServer is the server API for DataNodeService service.
 // All implementations must embed UnimplementedDataNodeServiceServer
 // for forward compatibility
@@ -184,6 +237,9 @@ type DataNodeServiceServer interface {
 	DataNode_ReplicaRecovery(*DataNode_ReplicaRecoveryRequest, DataNodeService_DataNode_ReplicaRecoveryServer) error
 	DataNode_GetFile(*DataNode_GetFileRequest, DataNodeService_DataNode_GetFileServer) error
 	DataNode_GetFileQuorum(context.Context, *DataNode_GetFileQuorumRequest) (*DataNode_GetFileQuorumResponse, error)
+	DataNode_DeleteFileQuorumCheck(context.Context, *DataNode_DeleteFileQuorumCheckRequest) (*DataNode_DeleteFileQuorumCheckResponse, error)
+	DataNode_CommitDelete(context.Context, *DataNode_CommitDeleteRequest) (*DataNode_CommitDeleteResponse, error)
+	DataNode_GetFileVersions(*DataNode_GetFileVersionsRequest, DataNodeService_DataNode_GetFileVersionsServer) error
 	mustEmbedUnimplementedDataNodeServiceServer()
 }
 
@@ -211,6 +267,15 @@ func (UnimplementedDataNodeServiceServer) DataNode_GetFile(*DataNode_GetFileRequ
 }
 func (UnimplementedDataNodeServiceServer) DataNode_GetFileQuorum(context.Context, *DataNode_GetFileQuorumRequest) (*DataNode_GetFileQuorumResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DataNode_GetFileQuorum not implemented")
+}
+func (UnimplementedDataNodeServiceServer) DataNode_DeleteFileQuorumCheck(context.Context, *DataNode_DeleteFileQuorumCheckRequest) (*DataNode_DeleteFileQuorumCheckResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DataNode_DeleteFileQuorumCheck not implemented")
+}
+func (UnimplementedDataNodeServiceServer) DataNode_CommitDelete(context.Context, *DataNode_CommitDeleteRequest) (*DataNode_CommitDeleteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DataNode_CommitDelete not implemented")
+}
+func (UnimplementedDataNodeServiceServer) DataNode_GetFileVersions(*DataNode_GetFileVersionsRequest, DataNodeService_DataNode_GetFileVersionsServer) error {
+	return status.Errorf(codes.Unimplemented, "method DataNode_GetFileVersions not implemented")
 }
 func (UnimplementedDataNodeServiceServer) mustEmbedUnimplementedDataNodeServiceServer() {}
 
@@ -365,6 +430,63 @@ func _DataNodeService_DataNode_GetFileQuorum_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DataNodeService_DataNode_DeleteFileQuorumCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DataNode_DeleteFileQuorumCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataNodeServiceServer).DataNode_DeleteFileQuorumCheck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.DataNodeService/DataNode_DeleteFileQuorumCheck",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataNodeServiceServer).DataNode_DeleteFileQuorumCheck(ctx, req.(*DataNode_DeleteFileQuorumCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DataNodeService_DataNode_CommitDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DataNode_CommitDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataNodeServiceServer).DataNode_CommitDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.DataNodeService/DataNode_CommitDelete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataNodeServiceServer).DataNode_CommitDelete(ctx, req.(*DataNode_CommitDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DataNodeService_DataNode_GetFileVersions_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DataNode_GetFileVersionsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DataNodeServiceServer).DataNode_GetFileVersions(m, &dataNodeServiceDataNode_GetFileVersionsServer{stream})
+}
+
+type DataNodeService_DataNode_GetFileVersionsServer interface {
+	Send(*FileChunk) error
+	grpc.ServerStream
+}
+
+type dataNodeServiceDataNode_GetFileVersionsServer struct {
+	grpc.ServerStream
+}
+
+func (x *dataNodeServiceDataNode_GetFileVersionsServer) Send(m *FileChunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // DataNodeService_ServiceDesc is the grpc.ServiceDesc for DataNodeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -388,6 +510,14 @@ var DataNodeService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "DataNode_GetFileQuorum",
 			Handler:    _DataNodeService_DataNode_GetFileQuorum_Handler,
 		},
+		{
+			MethodName: "DataNode_DeleteFileQuorumCheck",
+			Handler:    _DataNodeService_DataNode_DeleteFileQuorumCheck_Handler,
+		},
+		{
+			MethodName: "DataNode_CommitDelete",
+			Handler:    _DataNodeService_DataNode_CommitDelete_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -403,6 +533,11 @@ var DataNodeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "DataNode_GetFile",
 			Handler:       _DataNodeService_DataNode_GetFile_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "DataNode_GetFileVersions",
+			Handler:       _DataNodeService_DataNode_GetFileVersions_Handler,
 			ServerStreams: true,
 		},
 	},
