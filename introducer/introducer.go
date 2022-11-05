@@ -114,11 +114,11 @@ func (s *server) Introduce(ctx context.Context, in *intro.IntroduceRequest) (*in
 
 	requestorIP := in.Ip
 	requestorPort := in.Port
-	requestorTimestamp := in.Timestamp
+	// requestorTimestamp := in.Timestamp
 	udpserverport := in.Udpserverport
 
 	// create an id for the new process
-	newProcessId := fmt.Sprintf("%s:%d:%s", requestorIP, requestorPort, requestorTimestamp)
+	newProcessId := fmt.Sprintf("%s:%d:%v", requestorIP, requestorPort, time.Now().Nanosecond())
 
 	log.Printf("Introducing process %s to the system", newProcessId)
 

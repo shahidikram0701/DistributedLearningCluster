@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -294,7 +295,13 @@ func (m1 *MembershipList) Merge(m2 []MembershipListItem) {
 			i++
 			j++
 		} else {
-			j++
+			m1ItemTimestamp, _ := strconv.Atoi(strings.Split(m1Item.Id, ":")[2])
+			m2ItemTimestamp, _ := strconv.Atoi(strings.Split(m2Item.Id, ":")[2])
+			if m2ItemTimestamp > m1ItemTimestamp {
+				i++
+			} else {
+				j++
+			}
 		}
 	}
 	// Current list has more itemss
