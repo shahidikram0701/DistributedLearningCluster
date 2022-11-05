@@ -447,10 +447,13 @@ func (s *DataNodeServer) DataNode_ReplicaRecovery(in *dn.DataNode_ReplicaRecover
 	conf := config.GetConfig("../../config/config.json")
 	filename := in.GetFilename()
 
+	log.Printf("[ DataNode ][ Replica Recovery ]DataNode_ReplicaRecovery - Filename: %v", filename)
+
 	fileFolder := fmt.Sprintf("%v/%v", conf.SDFSDataFolder, filename)
 	files, err := ioutil.ReadDir(fileFolder)
 	if err != nil {
-		log.Fatalf("[ DataNode ][ Replica Recovery ]SDFS directory (%v) read failed: %v", fileFolder, err)
+		log.Printf("[ DataNode ][ Replica Recovery ]SDFS directory (%v) read failed: %v", fileFolder, err)
+		return err
 	}
 
 	for _, f := range files {

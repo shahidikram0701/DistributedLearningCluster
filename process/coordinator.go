@@ -720,7 +720,7 @@ func sendStateSnapToBackupCoordinator(coordinator string) bool {
 	conf := config.GetConfig("../../config/config.json")
 	coordinatorAddr := fmt.Sprintf("%v:%v", coordinator, conf.CoordinatorServiceSDFSPort)
 
-	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Getting the grpc client for the Coordinator at: %v", coordinatorAddr)
+	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Sending snap of my state to: %v", coordinatorAddr)
 	conn, err := grpc.Dial(coordinatorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	if err != nil {
@@ -760,6 +760,7 @@ func (s *CoordinatorServerForSDFS) CoordinatorSync(ctx context.Context, in *cs.C
 	}
 
 	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Received State: %v", newState)
+	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Current State: %v", string(coordinatorState.GetSnapOfState()[:]))
 
 	coordinatorState.SetState(&newState)
 

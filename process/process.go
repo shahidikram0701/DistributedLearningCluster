@@ -276,6 +276,11 @@ func PutFile(filename string, localfilename string) bool {
 	retries := 0
 	for {
 		log.Printf("[ Client ]PutFile(%v): Intiating request to the coordinator!", filename)
+		filePath := fmt.Sprintf("%v/%v", conf.DataRootFolder, localfilename)
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			log.Printf("[ Client ][ PutFile ]File %v doesnt exist", localfilename)
+			return false
+		}
 
 		// Call the RPC function on the coordinator process to process the query
 		r, err := client.PutFile(ctx, &cs.CoordinatorPutFileRequest{Filename: filename})
@@ -498,19 +503,20 @@ func saveFileToSDFS(filename string, localfilename string, currentCommittedVersi
 
 	stream, streamErr := client.DataNode_PutFile(ctx)
 	if streamErr != nil {
-		log.Printf("Cannot upload File: %v", streamErr)
+		log.Printf("[ Client ][ PutFile ]Cannot upload File: %v", streamErr)
 		return false, nil
 	}
 
 	filePath := fmt.Sprintf("%v/%v", conf.DataRootFolder, localfilename)
 
-	log.Printf("[ Client ]Sending the file: %v", filePath)
+	log.Printf("[ Client ][ PutFile ]Sending the file: %v", filePath)
 
 	file, err := os.Open(filePath)
 
 	if err != nil {
-		fmt.Printf("File %v doesn't exist :(", filePath)
-		log.Printf("cannot open File: %v - %v", filePath, err)
+		// fmt.Printf("File %v doesn't exist :(", filePath)
+		log.Printf("[ Client ][ PutFile ]Cannot open File: %v, File doesnt exist - err: %v", filePath, err)
+		return false, err
 	}
 	defer file.Close()
 
@@ -524,7 +530,8 @@ func saveFileToSDFS(filename string, localfilename string, currentCommittedVersi
 			break
 		}
 		if err != nil {
-			log.Printf("cannot read chunk to buffer: %v", err)
+			log.Printf("[ Client ][ PutFile ]Cannot read chunk to buffer: %v", err)
+			return false, err
 		}
 		req := &dn.Chunk{
 			ChunkId:        int64(chunkId),

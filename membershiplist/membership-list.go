@@ -275,8 +275,19 @@ func (m1 *MembershipList) Merge(m2 []MembershipListItem) {
 						m1Item.State.Timestamp = time.Now()
 						m1Item.IncarnationNumber = m2Item.IncarnationNumber
 						newItems = append(newItems, m1Item)
-					} else {
+					} else if m1Item.IncarnationNumber > m2Item.IncarnationNumber {
 						newItems = append(newItems, m1Item)
+					} else {
+						if m1Item.State.Status == Suspicious {
+							newItems = append(newItems, m1Item)
+						} else if m2Item.State.Status == Suspicious {
+							m1Item.State = m2Item.State
+							m1Item.State.Timestamp = time.Now()
+							m1Item.IncarnationNumber = m2Item.IncarnationNumber
+							newItems = append(newItems, m1Item)
+						} else {
+							newItems = append(newItems, m1Item)
+						}
 					}
 				}
 			}
