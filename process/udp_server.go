@@ -28,7 +28,7 @@ func StartUdpServer(getMembershipList func() *ml.MembershipList, port int, wg *s
 	server := NewServer(h, fmt.Sprintf(":%v", port))
 	// listen to incoming udp packets
 	var exited = make(chan bool)
-	go server.ListenServer(exited, getMembershipList())
+	go server.ListenServer(exited, getMembershipList)
 	log.Printf("[UDP Server]server listening at :%v", port)
 
 	if s := <-exited; s {

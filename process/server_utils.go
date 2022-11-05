@@ -97,7 +97,7 @@ func (server *Server) callMethod(methodName string, args interface{}) (string, e
 /**
 * Handle the rpc call of methods
  */
-func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte, n int, memberList *ml.MembershipList) {
+func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte, n int, getMemberList func() *ml.MembershipList) {
 	var requestRPCCall util.RPCBase
 	err := json.Unmarshal(buf[:n], &requestRPCCall)
 	if err != nil {
@@ -107,6 +107,8 @@ func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte
 	// Handle rpc options
 	args := make([]interface{}, 0)
 	var serialisedMemberList []byte
+
+	memberList = getMemberList()
 
 	if memberList == nil {
 		serialisedMemberList, _ = json.Marshal(GetMemberList().GetList())
@@ -142,7 +144,7 @@ func (server *Server) handleOptions(pc net.PacketConn, addr net.Addr, buf []byte
 /**
 * Listen in server.addr for calls of the rpc
  */
-func (server *Server) ListenServer(exit chan bool, memberList *ml.MembershipList) {
+func (server *Server) ListenServer(exit chan bool, getMemberList func() *ml.MembershipList) {
 	pc, err := net.ListenPacket("udp", server.addr)
 	if err != nil {
 		log.Printf("Error Listening to packet\n%v\n", err)
@@ -156,7 +158,7 @@ func (server *Server) ListenServer(exit chan bool, memberList *ml.MembershipList
 			server.Error = err
 			break
 		}
-		go server.handleOptions(pc, addr, buf, n, memberList)
+		go server.handleOptions(pc, addr, buf, n, getMemberList)
 
 	}
 	exit <- true
