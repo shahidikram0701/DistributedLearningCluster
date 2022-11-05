@@ -153,13 +153,14 @@ func (server *Server) ListenServer(exit chan bool, getMemberList func() *ml.Memb
 
 	for {
 		buf := make([]byte, 4096)
-		n, addr, err := pc.ReadFrom(buf)
+		n, addr, _ := pc.ReadFrom(buf)
 		if err != nil {
 			server.Error = err
-			break
+			log.Printf("[UDP Server] Error reading from buffer!")
+			continue
 		}
 		go server.handleOptions(pc, addr, buf, n, getMemberList)
 
 	}
-	exit <- true
+	// exit <- true
 }

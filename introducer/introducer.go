@@ -67,7 +67,7 @@ func StartIntroducerAndListenToConnections(devmode bool, port int, udpserverport
 	}
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 
-	id := fmt.Sprintf("%s:%d:%v", introducerAddress, port, time.Now().Nanosecond())
+	id := fmt.Sprintf("%s:%d:%v", introducerAddress, port, time.Now().UnixNano())
 	// Adding itself(introducer) to the membership list
 	memberList.Append(ml.MembershipListItem{
 		Id:                id,
@@ -118,7 +118,7 @@ func (s *server) Introduce(ctx context.Context, in *intro.IntroduceRequest) (*in
 	udpserverport := in.Udpserverport
 
 	// create an id for the new process
-	newProcessId := fmt.Sprintf("%s:%d:%v", requestorIP, requestorPort, time.Now().Nanosecond())
+	newProcessId := fmt.Sprintf("%s:%d:%v", requestorIP, requestorPort, time.Now().UnixNano())
 
 	log.Printf("Introducing process %s to the system", newProcessId)
 
