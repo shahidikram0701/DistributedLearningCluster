@@ -519,14 +519,21 @@ func replicaRepair() {
 	fileMapping := coordinatorState.GetFileToNodeMappings()
 	i := 0
 	for filename, nodes := range fileMapping {
+		start := time.Now()
+		n := 0
 		for idx, node := range nodes {
 			isNodeAlive := memberList.IsNodeAlive(node)
 			log.Printf("[ Coordinator ][ Replica Recovery ][ Report ]Filename:Node:Status::%v:%v:%v", filename, node, isNodeAlive)
 			if !isNodeAlive {
 				log.Printf("[ Coordinator ][ Replica Recovery ]Replica %v for file: %v is down", node, filename)
 				i += 1
+				n += 1
 				assignNewReplicaAndReplicate(filename, nodes, node, idx)
+
 			}
+		}
+		if n > 0 {
+			log.Printf("Time to recover file %v on %v nodes: %v", filename, n, time.Since(start).Seconds())
 		}
 	}
 }
