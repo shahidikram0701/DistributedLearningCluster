@@ -634,7 +634,7 @@ func dataNode_SendFileToReplica(replica string, filename string, allChunks []*dn
 	res, err := stream.CloseAndRecv()
 
 	if err != nil || res.Status == false {
-		log.Fatalf("[ Primary Replica ][ Replicate ]Replication of file %v failed for the replica: %v", filename, replica)
+		log.Printf("[ Primary Replica ][ Replicate ]Replication of file %v failed for the replica: %v", filename, replica)
 		replicaChannel <- false
 	} else {
 		log.Printf("[ Primary Replica ][ Replicate ]Replication of file %v succeeded for the replica: %v", filename, replica)

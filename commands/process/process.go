@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	config "cs425/mp/config"
 	process "cs425/mp/process"
@@ -96,7 +97,9 @@ func main() {
 			}
 			localfilename := parsedCommand[1]
 			filename := parsedCommand[2]
-			fmt.Println("\n\t", process.PutFile(filename, localfilename))
+			start := time.Now()
+			status := process.PutFile(filename, localfilename)
+			fmt.Printf("Status: %v\tTime taken: %v\n\t", status, time.Since(start).Seconds())
 
 		case "ls":
 			if len(parsedCommand) <= 1 {
@@ -116,7 +119,9 @@ func main() {
 			}
 			filename := parsedCommand[1]
 			localfilename := parsedCommand[2]
-			fmt.Println("\n\t", process.GetFile(filename, localfilename))
+			start := time.Now()
+			status := process.GetFile(filename, localfilename)
+			fmt.Printf("Status: %v\tTime taken: %v\n\t", status, time.Since(start).Seconds())
 
 		case "delete":
 			if len(parsedCommand) <= 1 {
@@ -124,7 +129,10 @@ func main() {
 				continue
 			}
 			filename := parsedCommand[1]
-			fmt.Println("\n\t", process.DeleteFile(filename))
+			start := time.Now()
+			status := process.DeleteFile(filename)
+
+			fmt.Printf("Status: %v\tTime taken: %v\n\t", status, time.Since(start).Seconds())
 
 		case "get-versions":
 			if len(parsedCommand) <= 3 {
@@ -134,7 +142,9 @@ func main() {
 			filename := parsedCommand[1]
 			numVersions, _ := strconv.Atoi(parsedCommand[2])
 			localfilename := parsedCommand[3]
-			fmt.Println("\n\t", process.GetFileVersions(filename, numVersions, localfilename))
+			start := time.Now()
+			status := process.GetFileVersions(filename, numVersions, localfilename)
+			fmt.Printf("Status: %v\tTime taken: %v\n\t", status, time.Since(start).Seconds())
 
 		case "search-logs":
 			if len(parsedCommand) <= 1 {

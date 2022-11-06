@@ -741,7 +741,7 @@ func getClientToReplicaServer(replicaIp string) (dn.DataNodeServiceClient, conte
 
 	// defer conn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	// defer cancel()
 
 	// Initialise a client to connect to the coordinator process
