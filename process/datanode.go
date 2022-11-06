@@ -6,6 +6,7 @@ import (
 	"context"
 	"cs425/mp/config"
 	dn "cs425/mp/proto/data_node_proto"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -39,8 +40,6 @@ var (
 var (
 	COMMIT_TIMEOUT = 5 // second
 )
-
-var allChunks map[string][]*dn.Chunk
 
 func (state *DataNodeState) dataNode_GetVersionOfFile(filename string) (int, bool) {
 	state.RLock()
@@ -245,18 +244,30 @@ func (s *DataNodeServer) DataNode_PutFile(stream dn.DataNodeService_DataNode_Put
 	var replicaNodes []string
 	sequenceNumberOfOperation := -1
 	var isReplica bool
-	allChunks_ := []*dn.Chunk{}
 
 	fileData := bytes.Buffer{}
 	startTime := time.Now()
+
+	var lastChunk *dn.Chunk
+
+	if _, err := os.Stat("../../tmp"); os.IsNotExist(err) {
+		err := os.Mkdir("../../tmp", os.ModePerm)
+		if err != nil {
+			log.Printf("Error creating tmp folder\n")
+		}
+	}
+
 	for {
 		chunk, err := stream.Recv()
 		if err == io.EOF {
 			endTime := time.Now()
 			log.Printf("Time taken for the transfer of the file: %v: %vs", filename, int32(endTime.Sub(startTime).Seconds()))
 
+			serialisedChunk, _ := json.Marshal(lastChunk)
+			os.WriteFile(fmt.Sprintf("../../tmp/%v/chunk-%v", filename, chunkCount), serialisedChunk, 0644)
+
 			// go dataNode_ProcessFile(filename, fileData, stream, sequenceNumberOfOperation)
-			return dataNode_ProcessFile(filename, fileData, stream, sequenceNumberOfOperation, replicaNodes, isReplica, allChunks_)
+			return dataNode_ProcessFile(filename, fileData, stream, sequenceNumberOfOperation, replicaNodes, isReplica, chunkCount)
 		}
 		if err != nil {
 			return stream.SendAndClose(&dn.DataNode_PutFile_Response{
@@ -266,12 +277,28 @@ func (s *DataNodeServer) DataNode_PutFile(stream dn.DataNodeService_DataNode_Put
 			log.Printf("Recieved chunk: %v of size: %v", chunk.GetChunkId(), len(chunk.GetChunk()))
 			_, err = fileData.Write(chunk.GetChunk())
 			if err != nil {
-				log.Panicf("Chunk aggregation failed - %v", err)
+				log.Printf("Chunk aggregation failed - %v", err)
+				return err
 			}
-			allChunks_ = append(allChunks_, chunk)
+			if lastChunk != nil {
+				serialisedChunk, err := json.Marshal(lastChunk)
+				if err != nil {
+					log.Panicf("serialization of chunk failed: err: %v", err)
+				}
+				os.WriteFile(fmt.Sprintf("../../tmp/%v/chunk-%v", filename, chunkCount), serialisedChunk, 0644)
+			}
 			chunkCount++
+			lastChunk = chunk
 			if filename == "" {
 				filename = chunk.GetFilename()
+				folder_for_the_file := fmt.Sprintf("../../tmp/%v", filename)
+
+				if _, err := os.Stat(folder_for_the_file); os.IsNotExist(err) {
+					err := os.Mkdir(folder_for_the_file, os.ModePerm)
+					if err != nil {
+						log.Printf("Error creating folder for file versions\n")
+					}
+				}
 			}
 			if replicaNodes == nil {
 				replicaNodes = chunk.GetReplicaNodes()
@@ -516,7 +543,7 @@ func (s *DataNodeServer) DataNode_ReplicaRecovery(in *dn.DataNode_ReplicaRecover
 	return nil
 }
 
-func dataNode_ProcessFile(filename string, fileData bytes.Buffer, stream dn.DataNodeService_DataNode_PutFileServer, operationSequenceNumber int, replicaNodes []string, isReplica bool, allChunks_ []*dn.Chunk) error {
+func dataNode_ProcessFile(filename string, fileData bytes.Buffer, stream dn.DataNodeService_DataNode_PutFileServer, operationSequenceNumber int, replicaNodes []string, isReplica bool, chunkCount int) error {
 	// wait until sequence number
 	log.Printf("[ DataNode ][ PutFile ]Received Write with sequence number %v and local sequence number for that file is %v", operationSequenceNumber, dataNodeState.dataNode_GetSequenceNumber(filename))
 	for dataNodeState.dataNode_GetSequenceNumber(filename) != operationSequenceNumber {
@@ -536,18 +563,17 @@ func dataNode_ProcessFile(filename string, fileData bytes.Buffer, stream dn.Data
 	}
 	// Replicate to other data nodes
 	log.Printf("[ Primary Replica ][ PutFile ]Replicating the file on the replica nodes")
-	return dataNode_Replicate(filename, allChunks_, replicaNodes, stream)
+	return dataNode_Replicate(filename, chunkCount, replicaNodes, stream)
 }
 
-func dataNode_Replicate(filename string, allChunks_ []*dn.Chunk, replicaNodes []string, stream dn.DataNodeService_DataNode_PutFileServer) error {
+func dataNode_Replicate(filename string, chunkCount int, replicaNodes []string, stream dn.DataNodeService_DataNode_PutFileServer) error {
 	conf := config.GetConfig("../../config/config.json")
 	// concurrently send chunks to all the replicas
 	replicaChannel := make(chan bool)
 	quorum := false
 	quorumCount := 1
-	allChunks[filename] = allChunks_
 	for _, replicaNode := range replicaNodes {
-		go dataNode_SendFileToReplica(replicaNode, filename, replicaChannel)
+		go dataNode_SendFileToReplica(replicaNode, filename, replicaChannel, chunkCount)
 	}
 	for {
 		status := <-replicaChannel
@@ -614,7 +640,7 @@ func dataNode_UpdateSequenceNumberOnReplica(replica string, filename string, new
 	}
 }
 
-func dataNode_SendFileToReplica(replica string, filename string, replicaChannel chan bool) {
+func dataNode_SendFileToReplica(replica string, filename string, replicaChannel chan bool, chunkCount int) {
 	client, ctx, conn, cancel := getClientToReplicaServer(replica)
 	defer conn.Close()
 	defer cancel()
@@ -624,7 +650,19 @@ func dataNode_SendFileToReplica(replica string, filename string, replicaChannel 
 		log.Printf("Cannot upload File: %v", streamErr)
 	}
 
-	for _, chunk := range allChunks[filename] {
+	for i := 1; i <= chunkCount; i++ {
+		chunkFile := fmt.Sprintf("../../tmp/%v/chunk-%v", filename, i)
+		c, err := os.ReadFile(chunkFile)
+		if err != nil {
+			log.Panicf("Issue reading tmp file chunk: %v", chunkFile)
+		}
+		var chunk *dn.Chunk
+
+		unmarshallingError := json.Unmarshal(c, &chunk)
+		if unmarshallingError != nil {
+			log.Printf("[ Primary Replica ][ Replicate ]Error while unmarshalling the chunk file: %v; error: %v\n", chunkFile, unmarshallingError)
+		}
+
 		chunk.IsReplicaChunk = true
 		req := chunk
 		log.Printf("[ Primary Replica ][ Replicate ]Replicate chunk %v of file: %v to replica: %v", req.ChunkId, filename, replica)
@@ -683,7 +721,6 @@ func StartDataNodeService_SDFS(port int, wg *sync.WaitGroup) {
 		preCommitBuffer:             make(map[string][]byte),
 		forceUpdateSequenceNumTimer: make(map[string]*time.Timer),
 	}
-	allChunks = make(map[string][]*dn.Chunk)
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
