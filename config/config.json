@@ -8,7 +8,7 @@
     "CoordinatorServiceSDFSPort": 50055,
     "DataNodeServiceSDFSPort": 50056,
     "FailureDetectorPort": 50054,
-    "NumOfCoordinators": 2,
+    "NumOfCoordinators": 4,
     "NumOfReplicas": 5,
     "ChunkSize": 4000000,
     "DataRootFolder": "../../data",

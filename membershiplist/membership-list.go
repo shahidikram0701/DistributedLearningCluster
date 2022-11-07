@@ -14,8 +14,8 @@ type NodeStatus int
 
 // Define timeouts
 var (
-	T_FAIL   = 2 // 2 second
-	T_DELETE = 2 // 2 second
+	T_FAIL   = 1 // 2 second
+	T_DELETE = 1 // 2 second
 	T_LEAVE  = 2 // 2 second
 )
 

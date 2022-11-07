@@ -563,7 +563,8 @@ func saveFileToSDFS(filename string, localfilename string, currentCommittedVersi
 		log.Printf("[ Client ][ PutFile ]Sending commit message for File %v and Informing master of Version Bump", filename)
 		sendCommitAndInformMasterOfUpdatedVersion(filename, currentCommittedVersion, sequenceNumberOfThisPut, dataNodesForCurrentPut) // Currently Primary Replica is first of the allocated nodes
 	} else {
-		log.Fatalf("[ Client ][ PutFile ]Saving the file in SDFS failed")
+		log.Printf("[ Client ][ PutFile ]Saving the file in SDFS failed")
+		return false, errors.New("Saving the file in SDFS failed")
 	}
 
 	return res.Status, err
@@ -583,7 +584,7 @@ func getFileFromSDFS(filename string, localfilename string, currentCommittedVers
 	})
 
 	if err != nil {
-		log.Fatalf("[ Client ][ GetFile ]Getting file %v:%v FAILED", filename, currentCommittedVersion)
+		log.Printf("[ Client ][ GetFile ]Getting file %v:%v FAILED", filename, currentCommittedVersion)
 		return false, err
 	}
 
@@ -627,7 +628,7 @@ func getFileFromSDFS(filename string, localfilename string, currentCommittedVers
 	err = os.WriteFile(fmt.Sprintf("%v/%v-%v", folder_for_the_file, localfilename, currentCommittedVersion), data.Bytes(), 0644)
 
 	if err != nil {
-		log.Fatalf("[ Client ][ GetFile ]File writing failed: %v", err)
+		log.Printf("[ Client ][ GetFile ]File getting failed: %v", err)
 		return false, err
 	}
 
@@ -648,7 +649,7 @@ func getFileVersionsFromSDFS(filename string, localfilename string, currentCommi
 	})
 
 	if err != nil {
-		log.Fatalf("[ Client ][ GetFileVersions ]Getting %v versions of the file %v:%v FAILED", numVersions, filename, currentCommittedVersion)
+		log.Printf("[ Client ][ GetFileVersions ]Getting %v versions of the file %v:%v FAILED", numVersions, filename, currentCommittedVersion)
 		return false, err
 	}
 
@@ -692,7 +693,7 @@ func getFileVersionsFromSDFS(filename string, localfilename string, currentCommi
 	err = os.WriteFile(fmt.Sprintf("%v/%v-latest_%v_versions", folder_for_the_file, localfilename, numVersions), data.Bytes(), 0644)
 
 	if err != nil {
-		log.Fatalf("[ Client ][ GetFileVersions ]File writing failed: %v", err)
+		log.Printf("[ Client ][ GetFileVersions ]File getting failed: %v", err)
 		return false, err
 	}
 
@@ -775,7 +776,7 @@ func sendCommitAndInformMasterOfUpdatedVersion(filename string, currentCommitted
 	})
 
 	if err != nil {
-		log.Fatalf("Failed to establish connection with the coordinator")
+		log.Printf("Failed to establish connection with the coordinator")
 	} else {
 		if r.Status {
 			log.Printf("[ Client ]Successfully bumped the current committed version of the file on the coordinator")
@@ -794,13 +795,13 @@ func sendCommitMessageToReplica(replicaIp string, filename string, sequenceNumbe
 	r, err := client.DataNode_CommitFile(ctx, &dn.DataNode_CommitFileRequest{Filename: filename, SequenceNumber: sequenceNumberOfThisPut, IsReplica: isReplica})
 
 	if err != nil {
-		log.Fatalf("[ Client ][ PutFile ]Commit Failed for file %v at replica: %v", filename, replicaIp)
+		log.Printf("[ Client ][ PutFile ]Commit Failed for file %v at replica: %v", filename, replicaIp)
 	} else {
 		status := r.GetStatus()
 		newVersion := r.GetVersion()
 
 		if status == false {
-			log.Fatalf("[ Client ][ PutFile ]Commit Failed after getting response")
+			log.Printf("[ Client ][ PutFile ]Commit Failed after getting response")
 		} else {
 			log.Printf("[ Client ][ PutFile ]New version after PutFile(%v) committed: %v", filename, newVersion)
 		}
@@ -830,7 +831,7 @@ func sendDeleteCommitAndInformMaster(filename string, sequenceNumberOfThisDelete
 	})
 
 	if err != nil {
-		log.Fatalf("[ Client ][ DeleteFile ]Failed to establish connection with the coordinator")
+		log.Printf("[ Client ][ DeleteFile ]Failed to establish connection with the coordinator")
 	} else {
 		if r.Status {
 			log.Printf("[ Client ][ DeleteFile ]Successfully informed coordinator")
@@ -849,13 +850,12 @@ func sendDeleteCommitToReplica(replicaIp string, filename string, sequenceNumber
 	r, err := client.DataNode_CommitDelete(ctx, &dn.DataNode_CommitDeleteRequest{Filename: filename, SequenceNumber: sequenceNumberOfThisDelete, IsReplica: isReplica})
 
 	if err != nil {
-		log.Fatalf("[ Client ][ DeleteFile ]Delete Commit Failed for file %v at replica: %v", filename, replicaIp)
+		log.Printf("[ Client ][ DeleteFile ]Delete Commit Failed for file %v at replica: %v", filename, replicaIp)
 	} else {
 		status := r.GetStatus()
 
 		if status == false {
 			log.Printf("[ Client ][ DeleteFile ]Delete Commit Failed after getting response")
-			fmt.Printf("[ Client ][ DeleteFile ]Delete Commit Failed after getting response")
 		} else {
 			log.Printf("[ Client ][ DeleteFile ]DeleteFile(%v) committed", filename)
 		}

@@ -186,7 +186,8 @@ func (state *DataNodeState) dataNode_CommitFileChange(filename string) (bool, in
 	err := os.WriteFile(fmt.Sprintf("%v/%v-%v-%v", folder_for_the_file, filename, newVersion, myIpAddr), dataNodeState.preCommitBuffer[filename], 0644)
 
 	if err != nil {
-		log.Fatalf("File writing failed: %v", err)
+		log.Printf("File writing failed: %v", err)
+		return false, -1
 	}
 
 	dataNodeState.sequenceNumber[filename]++
@@ -430,7 +431,7 @@ func (s *DataNodeServer) DataNode_InitiateReplicaRecovery(ctx context.Context, i
 		err := os.WriteFile(filepath, b, 0644)
 
 		if err != nil {
-			log.Fatalf("File writing failed: %v", err)
+			log.Printf("File writing failed: %v", err)
 			return &dn.DataNode_InitiateReplicaRecoveryResponse{
 				Status: false,
 			}, err
@@ -477,7 +478,8 @@ func (s *DataNodeServer) DataNode_ReplicaRecovery(in *dn.DataNode_ReplicaRecover
 
 		if err != nil {
 			// fmt.Printf("File %v doesn't exist :(", fName)
-			log.Fatalf("[ DataNode ][ Replica Recovery ]Cannot open File: %v - %v", filePath, err)
+			log.Printf("[ DataNode ][ Replica Recovery ]Cannot open File: %v - %v", filePath, err)
+			return err
 		}
 		defer file.Close()
 
@@ -491,7 +493,8 @@ func (s *DataNodeServer) DataNode_ReplicaRecovery(in *dn.DataNode_ReplicaRecover
 				break
 			}
 			if err != nil {
-				log.Fatalf("[ DataNode ][ Replica Recovery ]Cannot read chunk to buffer: %v", err)
+				log.Printf("[ DataNode ][ Replica Recovery ]Cannot read chunk to buffer: %v", err)
+				return err
 			}
 
 			req := &dn.FileChunk{
@@ -505,7 +508,8 @@ func (s *DataNodeServer) DataNode_ReplicaRecovery(in *dn.DataNode_ReplicaRecover
 			log.Printf("[ DataNode ][ Replica Recovery ]Sending chunk %v of file: %v", chunkId, fName)
 			e := stream.Send(req)
 			if e != nil {
-				log.Fatalf("[ DataNode ][ Replica Recovery ]Cannot send chunk %v of file %v to dataNode: %v", chunkId, fName, e)
+				log.Printf("[ DataNode ][ Replica Recovery ]Cannot send chunk %v of file %v to dataNode: %v", chunkId, fName, e)
+				return e
 			}
 			chunkId++
 		}
@@ -627,7 +631,9 @@ func dataNode_SendFileToReplica(replica string, filename string, allChunks []*dn
 		log.Printf("[ Primary Replica ][ Replicate ]Replicate chunk %v of file: %v to replica: %v", req.ChunkId, filename, replica)
 		e := stream.Send(req)
 		if e != nil {
-			log.Fatalf("[ Primary Replica ][ Replicate ]Cannot send chunk %v of file %v to replica: %v --- %v", req.ChunkId, filename, replica, e)
+			log.Printf("[ Primary Replica ][ Replicate ]Cannot send chunk %v of file %v to replica: %v --- %v", req.ChunkId, filename, replica, e)
+			replicaChannel <- false
+			return
 		}
 	}
 
@@ -683,7 +689,7 @@ func StartDataNodeService_SDFS(port int, wg *sync.WaitGroup) {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Printf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
 
@@ -693,7 +699,7 @@ func StartDataNodeService_SDFS(port int, wg *sync.WaitGroup) {
 
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		log.Printf("failed to serve: %v", err)
 		wg.Done()
 	}
 }
@@ -815,7 +821,7 @@ func sendFileToClient(filename string, version int, stream dn.DataNodeService_Da
 			break
 		}
 		if err != nil {
-			log.Fatalf("cannot read chunk to buffer: %v", err)
+			log.Printf("cannot read chunk to buffer: %v", err)
 			return errors.New("[ Primary Replica ][ GetFile ]Cannot read chunk to the buffer; Filename: " + filename)
 		}
 		req := &dn.FileChunk{
@@ -828,7 +834,7 @@ func sendFileToClient(filename string, version int, stream dn.DataNodeService_Da
 		log.Printf("[ Primary Replica ][ GetFile ]Sending chunk %v of file: %v with version: %v", chunkId, filename, version)
 		e := stream.Send(req)
 		if e != nil {
-			log.Fatalf("[ Primary Replica ][ GetFile ]Cannot send chunk %v of file %v with version: %v to dataNode: %v", chunkId, filename, version, e)
+			log.Printf("[ Primary Replica ][ GetFile ]Cannot send chunk %v of file %v with version: %v to dataNode: %v", chunkId, filename, version, e)
 			return errors.New("Cannot send chunk of file: " + filename)
 		}
 		chunkId++
@@ -846,7 +852,7 @@ func sendFileVersionsToClient(filename string, version int, stream dn.DataNodeSe
 		file, err := os.Open(filePath)
 
 		if err != nil {
-			log.Fatalf("cannot open File: %v - %v", filePath, err)
+			log.Printf("cannot open File: %v - %v", filePath, err)
 			return errors.New("[ Primary Replica ][ GetFileVersions ]Cannot open the file: " + filename)
 		}
 		defer file.Close()
@@ -863,7 +869,7 @@ func sendFileVersionsToClient(filename string, version int, stream dn.DataNodeSe
 				break
 			}
 			if err != nil {
-				log.Fatalf("cannot read chunk to buffer: %v", err)
+				log.Printf("[ Primary Replica ][ GetFileVersions ]cannot read chunk to buffer: %v", err)
 				return errors.New("[ Primary Replica ][ GetFileVersions ]Cannot read chunk to the buffer; Filename: " + filename)
 			}
 			bufferToSend := buffer[:n]
@@ -882,7 +888,7 @@ func sendFileVersionsToClient(filename string, version int, stream dn.DataNodeSe
 			log.Printf("[ Primary Replica ][ GetFileVersions ]Sending chunk %v of file: %v with version: %v", chunkId, filename, v)
 			e := stream.Send(req)
 			if e != nil {
-				log.Fatalf("[ Primary Replica ][ GetFileVersions ]Cannot send chunk %v of file %v with version: %v to dataNode: %v", chunkId, filename, v, e)
+				log.Printf("[ Primary Replica ][ GetFileVersions ]Cannot send chunk %v of file %v with version: %v to dataNode: %v", chunkId, filename, v, e)
 				return errors.New("Cannot send chunk of file: " + filename)
 			}
 			chunkId++
