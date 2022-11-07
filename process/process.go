@@ -76,6 +76,9 @@ func Run(port int, udpserverport int, log_process_port int, coordinatorServiceFo
 	go StartUdpServer(GetMemberList, udpserverport, wg)
 }
 
+/**
+* Sends the request to search for logs containing @param<query> to the coordinator service
+ */
 func SendLogQueryRequest(coordinatorServiceForLogsPort int, query string) {
 	coordinatorIp := memberList.GetCoordinatorNode()
 	if coordinatorIp == "" {
@@ -235,7 +238,6 @@ func getWhichNeighbourToPing(network_topology *topology.Topology) func() topolog
 * Called when a process wants to leave the cluster. A delay is given to ensure
 * membership list propagation to all nodes
  */
-
 func LeaveNetwork() {
 	log.Printf("Leaving Network\n")
 	me := network_topology.GetSelfNodeId()
@@ -244,6 +246,9 @@ func LeaveNetwork() {
 	os.Exit(3)
 }
 
+/**
+* Returns a grpc client to the coordinator process
+ */
 func getClientForCoordinatorService() (cs.CoordinatorServiceForSDFSClient, context.Context, *grpc.ClientConn, context.CancelFunc) {
 	conf := config.GetConfig("../../config/config.json")
 	coordinatorAddr := fmt.Sprintf("%v:%v", memberList.GetCoordinatorNode(), conf.CoordinatorServiceSDFSPort)
@@ -252,21 +257,21 @@ func getClientForCoordinatorService() (cs.CoordinatorServiceForSDFSClient, conte
 	conn, err := grpc.Dial(coordinatorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	if err != nil {
-		// If the connection fails to the picked coordinator node, retry connection to another node
 		log.Printf("Failed to establish connection with the coordinator: %v", err)
 	}
-
-	// defer conn.Close()
 
 	// Initialise a client to connect to the coordinator process
 	c := cs.NewCoordinatorServiceForSDFSClient(conn)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	// defer cancel()
 
 	return c, ctx, conn, cancel
 }
 
+/**
+* API for the client to create/update a file
+* Retries the put operation multiple times in the case of failures
+ */
 func PutFile(filename string, localfilename string) bool {
 	conf := config.GetConfig("../../config/config.json")
 	client, ctx, conn, cancel := getClientForCoordinatorService()
@@ -282,11 +287,9 @@ func PutFile(filename string, localfilename string) bool {
 			return false
 		}
 
-		// Call the RPC function on the coordinator process to process the query
 		r, err := client.PutFile(ctx, &cs.CoordinatorPutFileRequest{Filename: filename})
 
 		if err != nil {
-			// If the connection fails to the picked coordinator node, retry connection to another node
 			log.Printf("Failed to establish connection with the coordinator: %v", err)
 		} else {
 			dataNodesForCurrentPut := r.DataNodes
@@ -323,6 +326,10 @@ func PutFile(filename string, localfilename string) bool {
 	return true
 }
 
+/**
+* API for the client to List all the data nodes allocated to the file
+* Fetches this information from the coordinator
+ */
 func ListAllNodesForAFile(filename string) []string {
 	client, ctx, conn, cancel := getClientForCoordinatorService()
 	dataNodes := []string{}
@@ -342,6 +349,14 @@ func ListAllNodesForAFile(filename string) []string {
 
 	return dataNodes
 }
+
+/**
+* API for the client to fetch the latest committed version of the file
+* that is saved on the SDFS to local machine
+*
+* Returns true/ false indicating the status of the operation
+* In the case of a successful get, the file will be saved in a folder named outdata
+ */
 func GetFile(filename string, localfilename string) bool {
 	client, ctx, conn, cancel := getClientForCoordinatorService()
 
@@ -349,11 +364,9 @@ func GetFile(filename string, localfilename string) bool {
 	defer cancel()
 	log.Printf("[ Client ][ GetFile ]GetFile(%v): Intiating request to the coordinator!", filename)
 
-	// Call the RPC function on the coordinator process to process the query
 	r, err := client.GetFile(ctx, &cs.CoordinatorGetFileRequest{Filename: filename})
 
 	if err != nil {
-		// If the connection fails to the picked coordinator node, retry connection to another node
 		log.Printf("[ Client ][ GetFile ]Error: %v", err)
 		return false
 	} else {
@@ -389,6 +402,13 @@ func GetFile(filename string, localfilename string) bool {
 	return true
 }
 
+/*
+*
+* API for the client for the operation get-versions that fetches the last @param<numVersions>
+* versions of file stored on the sdfs and stores it with the local file name in outdata
+
+* Returns true/ false to indicate the status of the operation
+ */
 func GetFileVersions(filename string, numVersions int, localfilename string) bool {
 	client, ctx, conn, cancel := getClientForCoordinatorService()
 
@@ -396,11 +416,9 @@ func GetFileVersions(filename string, numVersions int, localfilename string) boo
 	defer cancel()
 	log.Printf("[ Client ][ GetFileVersions ]GetFileVersions(%v, %v): Intiating request to the coordinator!", filename, numVersions)
 
-	// Call the RPC function on the coordinator process to process the query
 	r, err := client.GetFileVersions(ctx, &cs.CoordinatorGetFileVersionsRequest{Filename: filename})
 
 	if err != nil {
-		// If the connection fails to the picked coordinator node, retry connection to another node
 		log.Printf("[ Client ][ GetFileVersions ]Error: %v", err)
 		return false
 	} else {
@@ -434,6 +452,9 @@ func GetFileVersions(filename string, numVersions int, localfilename string) boo
 	return true
 }
 
+/**
+* Helper function that updates the local sequence number for the given file on the data nodes
+ */
 func updateSequenceNumberForTheFile(filename string, seqNum int64, dataNode string) {
 	log.Printf("[ Client ][ GetFile ]Initiating update Sequence number on node %v for file %v. The new sequence number would be: %v", dataNode, filename, seqNum+1)
 
@@ -454,6 +475,11 @@ func updateSequenceNumberForTheFile(filename string, seqNum int64, dataNode stri
 
 }
 
+/**
+* API for the client to delete file from SDFS
+*
+* Returns the status of the operation
+ */
 func DeleteFile(filename string) bool {
 	client, ctx, conn, cancel := getClientForCoordinatorService()
 
@@ -461,11 +487,9 @@ func DeleteFile(filename string) bool {
 	defer cancel()
 	log.Printf("[ Client ][ DeleteFile ]DeleteFile(%v): Intiating request to the coordinator!", filename)
 
-	// Call the RPC function on the coordinator process to process the query
 	r, err := client.DeleteFile(ctx, &cs.CoordinatorDeleteFileRequest{Filename: filename})
 
 	if err != nil {
-		// If the connection fails to the picked coordinator node, retry connection to another node
 		log.Printf("[ Client ][ DeleteFile ]Error: %v", err)
 		return false
 	} else {
@@ -494,6 +518,11 @@ func DeleteFile(filename string) bool {
 	return true
 }
 
+/**
+* Helper function that streams the data for put/update operation to the
+* primary replica using grpc client streaming
+* The function returns true if the put is acknowledged by a write quorum of nodes
+ */
 func saveFileToSDFS(filename string, localfilename string, currentCommittedVersion int64, sequenceNumberOfThisPut int64, dataNodesForCurrentPut []string) (bool, error) {
 	conf := config.GetConfig("../../config/config.json")
 
@@ -514,7 +543,6 @@ func saveFileToSDFS(filename string, localfilename string, currentCommittedVersi
 	file, err := os.Open(filePath)
 
 	if err != nil {
-		// fmt.Printf("File %v doesn't exist :(", filePath)
 		log.Printf("[ Client ][ PutFile ]Cannot open File: %v, File doesnt exist - err: %v", filePath, err)
 		return false, err
 	}
@@ -570,6 +598,10 @@ func saveFileToSDFS(filename string, localfilename string, currentCommittedVersi
 	return res.Status, err
 }
 
+/**
+* Helper function that receives the stream of chunks of the requested file sent from the
+* primary replica if a read quorum is attained and saves the file to outdata/@param<localfilename>
+ */
 func getFileFromSDFS(filename string, localfilename string, currentCommittedVersion int64, sequenceNumberOfThisGet int64, replicas []string) (bool, error) {
 	conf := config.GetConfig("../../config/config.json")
 	client, ctx, conn, cancel := getClientToReplicaServer(replicas[0])
@@ -635,6 +667,11 @@ func getFileFromSDFS(filename string, localfilename string, currentCommittedVers
 	return true, nil
 }
 
+/**
+* Helper function that receives the stream of chunks of the @param<numVersions> versions of the
+* requested file sent from the primary replica if a read quorum is attained
+* and saves the file to outdata/@param<localfilename>
+ */
 func getFileVersionsFromSDFS(filename string, localfilename string, currentCommittedVersion int64, replicas []string, numVersions int64) (bool, error) {
 	conf := config.GetConfig("../../config/config.json")
 	client, ctx, conn, cancel := getClientToReplicaServer(replicas[0])
@@ -700,6 +737,9 @@ func getFileVersionsFromSDFS(filename string, localfilename string, currentCommi
 	return true, nil
 }
 
+/**
+* Helper function that deletes the file on the sdfs if a write quorum is attained
+ */
 func deleteFileInSDFS(filename string, sequenceNumberOfThisDelete int64, replicas []string) (bool, error) {
 	client, ctx, conn, cancel := getClientToReplicaServer(replicas[0]) // currently always picking the first allocated node as the primary replica
 	defer conn.Close()
@@ -726,6 +766,9 @@ func deleteFileInSDFS(filename string, sequenceNumberOfThisDelete int64, replica
 	return false, errors.New("DeleteFile failed for the file: %v" + filename)
 }
 
+/**
+* Helper function that returns a grpc client to the data node process
+ */
 func getClientToReplicaServer(replicaIp string) (dn.DataNodeServiceClient, context.Context, *grpc.ClientConn, context.CancelFunc) {
 	conf := config.GetConfig("../../config/config.json")
 
@@ -736,14 +779,10 @@ func getClientToReplicaServer(replicaIp string) (dn.DataNodeServiceClient, conte
 
 	conn, err := grpc.Dial(replica, grpc.WithInsecure())
 	if err != nil {
-		// If the connection fails to the picked coordinator node, retry connection to another node
 		log.Printf("Failed to establish connection with the coordinator....Retrying")
 	}
 
-	// defer conn.Close()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
-	// defer cancel()
 
 	// Initialise a client to connect to the coordinator process
 	client := dn.NewDataNodeServiceClient(conn)
@@ -751,6 +790,10 @@ func getClientToReplicaServer(replicaIp string) (dn.DataNodeServiceClient, conte
 	return client, ctx, conn, cancel
 }
 
+/**
+* Send put commit to the primary replica
+* Send a request to the coordinator to bump the version of the file
+ */
 func sendCommitAndInformMasterOfUpdatedVersion(filename string, currentCommittedVersion int64, sequenceNumberOfThisPut int64, replicaIps []string) {
 	// send commit to the data nodes
 	for idx, replicaIp := range replicaIps {
@@ -784,6 +827,9 @@ func sendCommitAndInformMasterOfUpdatedVersion(filename string, currentCommitted
 	}
 }
 
+/**
+* Helper function that sends a commit request to a replica node concurrently
+ */
 func sendCommitMessageToReplica(replicaIp string, filename string, sequenceNumberOfThisPut int64, isReplica bool) {
 	client, ctx, conn, cancel := getClientToReplicaServer(replicaIp)
 
@@ -808,6 +854,10 @@ func sendCommitMessageToReplica(replicaIp string, filename string, sequenceNumbe
 	}
 }
 
+/**
+* Send delete commit to the primary replica
+* Inform the coordinator node of the delete so that it updates its meta data
+ */
 func sendDeleteCommitAndInformMaster(filename string, sequenceNumberOfThisDelete int64, replicaIps []string) {
 	// send commit to the data nodes
 	for idx, replicaIp := range replicaIps {
@@ -839,6 +889,9 @@ func sendDeleteCommitAndInformMaster(filename string, sequenceNumberOfThisDelete
 	}
 }
 
+/**
+* Send delete commit message to a replica node concurrently
+ */
 func sendDeleteCommitToReplica(replicaIp string, filename string, sequenceNumberOfThisDelete int64, isReplica bool) {
 	client, ctx, conn, cancel := getClientToReplicaServer(replicaIp)
 

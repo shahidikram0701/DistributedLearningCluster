@@ -1,10 +1,12 @@
 # ignore ALL .log files
 *.log
 
-# ignore ALL files in ANY directory named temp, demo-data, loggen
+# ignore ALL files mentioned below
 temp/
 demo-data/
 loggen/
 data/
 sdfs/
 outdata/
+tmp/
+.DS_Store

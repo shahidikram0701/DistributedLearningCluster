@@ -22,6 +22,9 @@ import (
 	"google.golang.org/grpc"
 )
 
+/**
+* State of the DataNode
+ */
 type DataNodeState struct {
 	sync.RWMutex
 	fileVersionMapping map[string]int
@@ -36,10 +39,15 @@ var (
 	dataNodeState *DataNodeState
 )
 
+// Timeout for when a put/delete should be abandoned after
+// acknowledging to the client about the write quorum attained
 var (
 	COMMIT_TIMEOUT = 5 // second
 )
 
+/**
+* Get the version of a given file that is resident on the data node
+ */
 func (state *DataNodeState) dataNode_GetVersionOfFile(filename string) (int, bool) {
 	state.RLock()
 	defer state.RUnlock()
@@ -49,6 +57,9 @@ func (state *DataNodeState) dataNode_GetVersionOfFile(filename string) (int, boo
 	return v, ok
 }
 
+/**
+* Set the version of the file in the data node state
+ */
 func (state *DataNodeState) dataNode_SetVersionOfFile(filename string, version int) {
 	state.Lock()
 	defer state.Unlock()
@@ -56,6 +67,10 @@ func (state *DataNodeState) dataNode_SetVersionOfFile(filename string, version i
 	state.fileVersionMapping[filename] = version
 }
 
+/**
+* Initialise the version of the file when it is created for the first time
+* in the data node state
+ */
 func (state *DataNodeState) dataNode_InitialiseVersionOfFile(filename string) int {
 	state.Lock()
 	defer state.Unlock()
@@ -65,6 +80,9 @@ func (state *DataNodeState) dataNode_InitialiseVersionOfFile(filename string) in
 	return state.fileVersionMapping[filename]
 }
 
+/**
+* [ DataNode state operation ] Increment the version of the file
+ */
 func (state *DataNodeState) dataNode_IncrementVersionOfFile(filename string) int {
 	state.Lock()
 	defer state.Unlock()
@@ -74,6 +92,9 @@ func (state *DataNodeState) dataNode_IncrementVersionOfFile(filename string) int
 	return state.fileVersionMapping[filename]
 }
 
+/**
+* [ DataNode state operation ] Increment the local sequence number for that file
+ */
 func (state *DataNodeState) dataNode_IncrementSequenceNumber(filename string) int {
 	state.Lock()
 	defer state.Unlock()
@@ -89,6 +110,10 @@ func (state *DataNodeState) dataNode_IncrementSequenceNumber(filename string) in
 	return state.sequenceNumber[filename]
 }
 
+/**
+* [ DataNode state operation ] Add Sequence number for a file in the data node state
+* Used in replica recovery for a file
+ */
 func (state *DataNodeState) dataNode_AddSequenceNumber(filename string, seqNum int) bool {
 	state.Lock()
 	defer state.Unlock()
@@ -105,6 +130,9 @@ func (state *DataNodeState) dataNode_AddSequenceNumber(filename string, seqNum i
 
 }
 
+/**
+* [ DataNode state operation ] Get the current local sequence number for a resident file
+ */
 func (state *DataNodeState) dataNode_GetSequenceNumber(filename string) int {
 	state.RLock()
 	defer state.RUnlock()
@@ -119,6 +147,10 @@ func (state *DataNodeState) dataNode_GetSequenceNumber(filename string) int {
 	return seqNum
 }
 
+/**
+* [ DataNode state operation ] Get the buffer contents for a given file that is kept
+* until a commit is issued
+ */
 func (state *DataNodeState) dataNode_GetPreCommitBufferEntry(filename string) []byte {
 	state.RLock()
 	defer state.RUnlock()
@@ -126,6 +158,10 @@ func (state *DataNodeState) dataNode_GetPreCommitBufferEntry(filename string) []
 	return state.preCommitBuffer[filename]
 }
 
+/**
+* [ DataNode state operation ] Add the file data bytes to the pre commit buffer until a
+* commit is issued from the client
+ */
 func (state *DataNodeState) dataNode_AddToPreCommitBuffer(filename string, data []byte) {
 	state.Lock()
 	defer state.Unlock()
@@ -133,6 +169,9 @@ func (state *DataNodeState) dataNode_AddToPreCommitBuffer(filename string, data 
 	state.preCommitBuffer[filename] = data
 }
 
+/**
+* [ DataNode state operation ] Clear the contents of the pre-commit buffer before the filename
+ */
 func (state *DataNodeState) dataNode_ClearPreCommitBufferForFile(filename string) {
 	state.Lock()
 	defer state.Unlock()
@@ -140,6 +179,9 @@ func (state *DataNodeState) dataNode_ClearPreCommitBufferForFile(filename string
 	delete(state.preCommitBuffer, filename)
 }
 
+/**
+* Helper function to the outbound ip address
+ */
 func dataNode_GetOutboundIP() net.IP {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
@@ -152,6 +194,11 @@ func dataNode_GetOutboundIP() net.IP {
 	return localAddr.IP
 }
 
+/**
+* [ DataNode state operation ] Commit the Put operation
+* Stores the bytes that is buffered for that file into data node file system,
+* qualified with version number
+ */
 func (state *DataNodeState) dataNode_CommitFileChange(filename string) (bool, int) {
 	state.Lock()
 	defer state.Unlock()
@@ -197,6 +244,9 @@ func (state *DataNodeState) dataNode_CommitFileChange(filename string) (bool, in
 	return true, newVersion
 }
 
+/**
+* [ DataNode state operation ] Delete the file from the datanode file system
+ */
 func (state *DataNodeState) dataNode_DeleteFile(filename string) bool {
 	state.Lock()
 	defer state.Unlock()
@@ -232,10 +282,19 @@ func (state *DataNodeState) dataNode_DeleteFile(filename string) bool {
 	return true
 }
 
+/**
+* DataNode server to define the grpc endpoints
+ */
 type DataNodeServer struct {
 	dn.UnimplementedDataNodeServiceServer
 }
 
+/**
+* Recieves the chunks of the file streamed by the client
+* Replicates the chunks to the replicas
+* Waits for a write quorum to be attained
+* Acknowledges the request to the client
+ */
 func (s *DataNodeServer) DataNode_PutFile(stream dn.DataNodeService_DataNode_PutFileServer) error {
 	var chunkCount int
 	var filename string
@@ -289,6 +348,9 @@ func (s *DataNodeServer) DataNode_PutFile(stream dn.DataNodeService_DataNode_Put
 	}
 }
 
+/**
+* [ DataNode RPC handler ] Recieves request to commit the put operation
+ */
 func (s *DataNodeServer) DataNode_CommitFile(ctx context.Context, in *dn.DataNode_CommitFileRequest) (*dn.DataNode_CommitFileResponse, error) {
 	filename := in.GetFilename()
 	sequenceNumberForOperation := in.GetSequenceNumber()
@@ -308,6 +370,11 @@ func (s *DataNodeServer) DataNode_CommitFile(ctx context.Context, in *dn.DataNod
 	}, nil
 }
 
+/**
+* [ DataNode RPC handler ] Recieves request to update the sequence number for
+* the given file in the local state.
+* This is for when client fails before issuing a write
+ */
 func (s *DataNodeServer) DataNode_UpdateSequenceNumber(ctx context.Context, in *dn.DataNode_UpdateSequenceNumberRequest) (*dn.DataNode_UpdateSequenceNumberResponse, error) {
 	filename := in.GetFilename()
 	newSequenceNumber := in.GetSequenceNumber()
@@ -323,6 +390,12 @@ func (s *DataNodeServer) DataNode_UpdateSequenceNumber(ctx context.Context, in *
 	return &dn.DataNode_UpdateSequenceNumberResponse{}, nil
 }
 
+/**
+* [ DataNode RPC handler ] Called from the coordinator to initiate replica-recovery
+* for a givent file.
+* Pulls data and state for the file from another active replica of the file
+* as assigned by the coordinator.
+ */
 func (s *DataNodeServer) DataNode_InitiateReplicaRecovery(ctx context.Context, in *dn.DataNode_InitiateReplicaRecoveryRequest) (*dn.DataNode_InitiateReplicaRecoveryResponse, error) {
 	conf := config.GetConfig("../../config/config.json")
 	filename := in.GetFilename()
@@ -444,6 +517,10 @@ func (s *DataNodeServer) DataNode_InitiateReplicaRecovery(ctx context.Context, i
 	}, nil
 }
 
+/**
+* [ DataNode RPC handler ] Serves the data for the file and the state corresponding
+* to that file as stored, to the newly allocated replica
+ */
 func (s *DataNodeServer) DataNode_ReplicaRecovery(in *dn.DataNode_ReplicaRecoveryRequest, stream dn.DataNodeService_DataNode_ReplicaRecoveryServer) error {
 	conf := config.GetConfig("../../config/config.json")
 	filename := in.GetFilename()
@@ -518,6 +595,12 @@ func (s *DataNodeServer) DataNode_ReplicaRecovery(in *dn.DataNode_ReplicaRecover
 	return nil
 }
 
+/**
+* Function that processes a put operation on the data node after recieving the file data
+* from the client
+* waits for the local sequence number for the operation matches that assigned to it
+* then buffers the write until a commit is issued
+ */
 func dataNode_ProcessFile(filename string, fileData bytes.Buffer, stream dn.DataNodeService_DataNode_PutFileServer, operationSequenceNumber int, replicaNodes []string, isReplica bool, allChunks []*dn.Chunk) error {
 	// wait until sequence number
 	log.Printf("[ DataNode ][ PutFile ]Received Write with sequence number %v and local sequence number for that file is %v", operationSequenceNumber, dataNodeState.dataNode_GetSequenceNumber(filename))
@@ -541,6 +624,10 @@ func dataNode_ProcessFile(filename string, fileData bytes.Buffer, stream dn.Data
 	return dataNode_Replicate(filename, allChunks, replicaNodes, stream)
 }
 
+/**
+* Function that primary replica uses to concurrently stream the file chunks of
+* the current put/update operation to the the backup replicas and waits for write quorum
+ */
 func dataNode_Replicate(filename string, allChunks []*dn.Chunk, replicaNodes []string, stream dn.DataNodeService_DataNode_PutFileServer) error {
 	conf := config.GetConfig("../../config/config.json")
 	// concurrently send chunks to all the replicas
@@ -587,6 +674,12 @@ func dataNode_Replicate(filename string, allChunks []*dn.Chunk, replicaNodes []s
 	}
 }
 
+/**
+* Primary replica sets a timer for the current put operation after
+* a successful quorum is attained. If the client doesnt send a commit message
+* in that timer then the buffer contents for that file are discarded
+* and sequence number for that file is advanced so that other operations can proceed
+ */
 func dataNode_HandleNoCommits(replicaNodes []string, filename string) {
 	log.Printf("[ Primary Replica ][ PutFile/DeleteFile ]Starting timer for the commit of the file: %v", filename)
 	dataNodeState.forceUpdateSequenceNumTimer[filename] = time.NewTimer(time.Duration(COMMIT_TIMEOUT) * time.Second)
@@ -599,6 +692,10 @@ func dataNode_HandleNoCommits(replicaNodes []string, filename string) {
 	}
 }
 
+/**
+* Primary replica requests all the backup replicas of that file to
+* update the sequence numbers due to an unsuccessful commit
+ */
 func dataNode_UpdateSequenceNumberOnReplica(replica string, filename string, newSequenceNumber int) {
 	client, ctx, conn, cancel := getClientToReplicaServer(replica)
 	defer conn.Close()
@@ -615,6 +712,10 @@ func dataNode_UpdateSequenceNumberOnReplica(replica string, filename string, new
 	}
 }
 
+/**
+* Helper function for primary replica to concurrently stream byte data of the
+* current put operation to a backup replica
+ */
 func dataNode_SendFileToReplica(replica string, filename string, allChunks []*dn.Chunk, replicaChannel chan bool) {
 	client, ctx, conn, cancel := getClientToReplicaServer(replica)
 	defer conn.Close()
@@ -648,6 +749,9 @@ func dataNode_SendFileToReplica(replica string, filename string, allChunks []*dn
 	}
 }
 
+/**
+* Commit changes for the current operation on the data nodes
+ */
 func dataNodeService_CommitFileChanges(filename string, sequenceNumberForOperation int) (bool, int) {
 	if dataNodeState.dataNode_GetSequenceNumber(filename) > sequenceNumberForOperation {
 		log.Fatalf("Sequence number has gone ahead at the server!! (DataNodeSequence Number: %v, SequenceForOperation: %v)", dataNodeState.dataNode_GetSequenceNumber(filename), sequenceNumberForOperation)
@@ -658,6 +762,9 @@ func dataNodeService_CommitFileChanges(filename string, sequenceNumberForOperati
 	return dataNodeState.dataNode_CommitFileChange(filename)
 }
 
+/**
+* Fetch all the files stored on the current data node
+ */
 func DataNode_ListAllFilesOnTheNode() []string {
 	// conf := config.GetConfig("../../config/config.json")
 
@@ -678,6 +785,10 @@ func DataNode_ListAllFilesOnTheNode() []string {
 	return filenames
 }
 
+/**
+* Initialise the state of the data node
+* Start the data node process
+ */
 func StartDataNodeService_SDFS(port int, wg *sync.WaitGroup) {
 	// Initialise the state of the data node
 	dataNodeState = &DataNodeState{
@@ -704,6 +815,9 @@ func StartDataNodeService_SDFS(port int, wg *sync.WaitGroup) {
 	}
 }
 
+/**
+* [ DataNode RPC handler ] Handle to get the file from the data node
+ */
 func (s *DataNodeServer) DataNode_GetFile(in *dn.DataNode_GetFileRequest, stream dn.DataNodeService_DataNode_GetFileServer) error {
 	conf := config.GetConfig("../../config/config.json")
 	filename := in.GetFilename()
@@ -753,6 +867,9 @@ func (s *DataNodeServer) DataNode_GetFile(in *dn.DataNode_GetFileRequest, stream
 
 }
 
+/**
+* [ DataNode RPC handler ]
+ */
 func (s *DataNodeServer) DataNode_GetFileVersions(in *dn.DataNode_GetFileVersionsRequest, stream dn.DataNodeService_DataNode_GetFileVersionsServer) error {
 	conf := config.GetConfig("../../config/config.json")
 	filename := in.GetFilename()
@@ -798,6 +915,10 @@ func (s *DataNodeServer) DataNode_GetFileVersions(in *dn.DataNode_GetFileVersion
 
 }
 
+/**
+* Helper function to stream the client requested file to the client
+* Called by the primary replica of the file once a read quorum is attained
+ */
 func sendFileToClient(filename string, version int, stream dn.DataNodeService_DataNode_GetFileServer, sequenceNum int) error {
 	conf := config.GetConfig("../../config/config.json")
 	filePath := fmt.Sprintf("%v/%v/%v-%v-%v", conf.SDFSDataFolder, filename, filename, version, dataNode_GetOutboundIP())
@@ -842,6 +963,11 @@ func sendFileToClient(filename string, version int, stream dn.DataNodeService_Da
 	return nil
 }
 
+/**
+* Helper function to stream the latest @param<numVersions> versions of the file
+* requested by the client
+* Called by the primary replica of the file once a read quorum is attained
+ */
 func sendFileVersionsToClient(filename string, version int, stream dn.DataNodeService_DataNode_GetFileVersionsServer, numVersions int) error {
 	conf := config.GetConfig("../../config/config.json")
 	l := int(math.Max(float64(version-numVersions+1), 1.0))
@@ -898,6 +1024,10 @@ func sendFileVersionsToClient(filename string, version int, stream dn.DataNodeSe
 	return nil
 }
 
+/**
+* Poll the replica set to see if a read quorum set of nodes have the
+* requested version
+ */
 func dataNode_GetFileQuorumFromReplica(replica string, filename string, version int64, replicaChannel chan bool) {
 	client, ctx, conn, cancel := getClientToReplicaServer(replica)
 	defer conn.Close()
@@ -917,6 +1047,10 @@ func dataNode_GetFileQuorumFromReplica(replica string, filename string, version 
 	}
 }
 
+/**
+* [ DataNode RPC handler ] Handler for checking if a read quroum of replicas have the requested
+* version of the file
+ */
 func (s *DataNodeServer) DataNode_GetFileQuorum(ctx context.Context, in *dn.DataNode_GetFileQuorumRequest) (*dn.DataNode_GetFileQuorumResponse, error) {
 	filename := in.GetFilename()
 	version := int(in.GetVersion())
@@ -940,6 +1074,10 @@ func (s *DataNodeServer) DataNode_GetFileQuorum(ctx context.Context, in *dn.Data
 	}, errors.New("The replica doesnt have that ")
 }
 
+/**
+* [ DataNode RPC handler ] Handle that checks for a write quorum for the delete operation
+* on the file
+ */
 func (s *DataNodeServer) DataNode_DeleteFileQuorumCheck(ctx context.Context, in *dn.DataNode_DeleteFileQuorumCheckRequest) (*dn.DataNode_DeleteFileQuorumCheckResponse, error) {
 	conf := config.GetConfig("../../config/config.json")
 	filename := in.GetFilename()
@@ -1016,6 +1154,10 @@ func (s *DataNodeServer) DataNode_DeleteFileQuorumCheck(ctx context.Context, in 
 	}
 }
 
+/**
+* Helper function used by the primary replica to concurrenly check with a replica
+* if the delete is possible
+ */
 func dataNode_CheckWithReplicaForDelete(replica string, filename string, sequenceNumber int64, replicaChannel chan bool) {
 	log.Printf("[ Primary Replica ][ DeleteFile ]Checking quorum for delete with replica: %v", replica)
 	client, ctx, conn, cancel := getClientToReplicaServer(replica) // currently always picking the first allocated node as the primary replica
@@ -1043,6 +1185,10 @@ func dataNode_CheckWithReplicaForDelete(replica string, filename string, sequenc
 	}
 }
 
+/**
+* [ DataNode RPC handler ] Handle to commit the delete operation, which
+* finally removes the file from the sdfs filesystem
+ */
 func (s *DataNodeServer) DataNode_CommitDelete(ctx context.Context, in *dn.DataNode_CommitDeleteRequest) (*dn.DataNode_CommitDeleteResponse, error) {
 	filename := in.GetFilename()
 	sequenceNumber := in.GetSequenceNumber()
