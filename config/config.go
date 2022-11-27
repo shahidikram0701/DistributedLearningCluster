@@ -27,6 +27,12 @@ type Configuration struct {
 	ReplicaRecoveryInterval      int    `json:"ReplicaRecoveryInterval"`
 	OutputDataFolder             string `json:"OutputDataFolder"`
 	CoordinatorSyncTimer         int    `json:"CoordinatorSyncTimer"`
+	NumOfWorkersPerModel         int    `json:"NumOfWorkersPerModel"`
+	SchedulerPort                int    `json:"SchedulerPort"`
+	ModelsDataFolder             string `json:"ModelsDataFolder"`
+	SDFSModelsFolder             string `json:"SDFSModelsFolder"`
+	WorkerPort                   int    `json:"WorkerPort"`
+	SchedulerPollInterval        int    `json:"SchedulerPollInterval"`
 }
 
 func GetConfig(configFilePath string, params ...string) Configuration {

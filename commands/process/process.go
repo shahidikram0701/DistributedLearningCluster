@@ -68,10 +68,10 @@ func main() {
 	introAddr := fmt.Sprintf("%s:%d", configuration.IntroducerAddress, configuration.IntroducerPort)
 
 	// Start the process
-	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorServiceLoggerPort, configuration.CoordinatorServiceSDFSPort, configuration.DataNodeServiceSDFSPort, wg, introAddr, *devmode, outboundIp)
+	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorServiceLoggerPort, configuration.CoordinatorServiceSDFSPort, configuration.DataNodeServiceSDFSPort, wg, introAddr, *devmode, outboundIp, configuration.SchedulerPort, configuration.WorkerPort)
 
 	for {
-		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - search-logs <query> (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put <localfilename> <sdfsfilename>\n\t - get <sdfsfilename> <localfilename>\n\t - delete <sdfsfilename>\n\t - ls <sdfsfilename>\n\t - store\n\t - get-versions <sdfsfilename> <numVersions> <localfilename>\n\n\t: ")
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - search-logs <query> (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put <localfilename> <sdfsfilename>\n\t - get <sdfsfilename> <localfilename>\n\t - delete <sdfsfilename>\n\t - ls <sdfsfilename>\n\t - store\n\t - get-versions <sdfsfilename> <numVersions> <localfilename>\n\n\tIDunno commands\n\n\t - deploy-model <modelname>\n\n\t: ")
 
 		inputReader := bufio.NewReader(os.Stdin)
 		command, _ := inputReader.ReadString('\n')
@@ -120,7 +120,7 @@ func main() {
 			filename := parsedCommand[1]
 			localfilename := parsedCommand[2]
 			start := time.Now()
-			status := process.GetFile(filename, localfilename)
+			status := process.GetFile(filename, localfilename, false)
 			fmt.Printf("Status: %v\tTime taken: %v\n\t", status, time.Since(start).Seconds())
 
 		case "delete":
@@ -153,6 +153,15 @@ func main() {
 			}
 			query := parsedCommand[1]
 			process.SendLogQueryRequest(configuration.CoordinatorServiceLoggerPort, query)
+
+		case "deploy-model":
+			if len(parsedCommand) <= 1 {
+				fmt.Printf("\n\tSpecify model name")
+				continue
+			}
+			modelname := parsedCommand[1]
+			start := time.Now()
+			fmt.Printf("Status: %v\t Time Taken: %vs\n\t;", process.DeployModel(modelname), time.Since(start).Seconds())
 
 		default:
 			continue

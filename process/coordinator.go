@@ -182,7 +182,7 @@ func (s *CoordinatorServerForLogs) Test_GenerateLogs(ctx context.Context, in *pb
 	return &pb.Test_Coordinator_GenerateLogsReply{Status: status}, nil
 }
 
-func StartCoordinatorService(coordinatorServiceForLogsPort int, coordinatorServiceForSDFSPort int, devmode bool, wg *sync.WaitGroup) {
+func StartCoordinatorService(coordinatorServiceForLogsPort int, coordinatorServiceForSDFSPort int, schedulerServicePort int, devmode bool, wg *sync.WaitGroup) {
 	getOutboundIP := func() net.IP {
 		conn, err := net.Dial("udp", "8.8.8.8:80")
 		if err != nil {
@@ -204,10 +204,20 @@ func StartCoordinatorService(coordinatorServiceForLogsPort int, coordinatorServi
 		myIpAddr:             fmt.Sprintf("%v", myIpAddr),
 	}
 
+	// Initialise the state of the scheduler
+	schedulerState = &SchedulerState{
+		models:              make(map[string]Model),
+		tasks:               []Task{},
+		taskQueue:           make(map[string][]string),
+		windowOfTasks:       []string{},
+		indexIntoMemberList: 0,
+	}
+
 	go coordintorService_ProcessLogs(coordinatorServiceForLogsPort, wg)
 	go coordinatorService_SDFS(coordinatorServiceForSDFSPort, wg)
 	go CoordinatorService_ReplicaRecovery(wg)
 	go CoordinatorService_SyncWithCoordinatorReplicas(wg)
+	go SchedulerService_IDunno(schedulerServicePort, wg)
 }
 
 func coordintorService_ProcessLogs(port int, wg *sync.WaitGroup) {

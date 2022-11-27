@@ -18,5 +18,11 @@
     "SDFSDataFolder": "../../sdfs",
     "ReplicaRecoveryInterval": 3,
     "OutputDataFolder": "../../outdata",
-    "CoordinatorSyncTimer": 3
+    "CoordinatorSyncTimer": 3,
+    "NumOfWorkersPerModel": 2,
+    "SchedulerPort": 50057,
+    "ModelsDataFolder": "../../models",
+    "SDFSModelsFolder": "../../sdfs_models",
+    "WorkerPort": 50058,
+    "SchedulerPollInterval": 1 
 }

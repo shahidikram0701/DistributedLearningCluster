@@ -369,6 +369,19 @@ func (ml *MembershipList) GetCoordinatorNode() string {
 	return ""
 }
 
+func (ml *MembershipList) IsCoordinatorNode(ip string) bool {
+	ml.RLock()
+	defer ml.RUnlock()
+
+	for _, value := range ml.items {
+		if strings.Split(value.Id, ":")[0] == ip && value.IsCoordinator {
+			return true
+		}
+	}
+	return false
+
+}
+
 func (ml *MembershipList) GetAllCoordinators() []string {
 	if ml == nil {
 		return []string{}

@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package process;
+
+option go_package = "cs425/mp/process";
+
+// The Scheduler service
+service SchedulerService {
+    rpc DeployModel (DeployModelRequest) returns (DeployModelReply) {}
+    rpc DeployModelAck (DeployModelAckRequest) returns (DeployModelAckReply) {}
+
+    rpc GimmeQuery (GimmeQueryRequest) returns (GimmeQueryResponse) {}
+    rpc UpdateQueryStatus (UpdateQueryStatusRequest) returns (UpdateQueryStatusResponse) {}
+}
+
+message DeployModelRequest {
+    string modelname = 1;
+}
+
+message DeployModelReply {
+    repeated string workers = 1;
+    string modelId = 2;
+}
+
+message DeployModelAckRequest {
+    string modelId = 1;
+    bool status = 2;
+}
+
+message DeployModelAckReply {
+}
+
+message GimmeQueryRequest {
+    string modelId = 1;
+    string workerId = 2;
+}
+
+message GimmeQueryResponse {
+    bool status = 1;
+    string queryinputfile = 2;
+}
+
+message UpdateQueryStatusRequest {
+    
+}
+
+message UpdateQueryStatusResponse {
+
+}

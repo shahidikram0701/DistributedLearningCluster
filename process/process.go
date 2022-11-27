@@ -60,11 +60,13 @@ func GetAllCoordinators() []string {
 /**
 * Bootstrapping the process
  */
-func Run(port int, udpserverport int, log_process_port int, coordinatorServiceForLogsPort int, coordinatorServiceForSDFSPort int, datanodeServiceForSDFSPort int, wg *sync.WaitGroup, introAddr string, devmode bool, outboundIp net.IP) {
+func Run(port int, udpserverport int, log_process_port int, coordinatorServiceForLogsPort int, coordinatorServiceForSDFSPort int, datanodeServiceForSDFSPort int, wg *sync.WaitGroup, introAddr string, devmode bool, outboundIp net.IP, schedulerServicePort int, workerPort int) {
 	// Start the coordinator server
-	go StartCoordinatorService(coordinatorServiceForLogsPort, coordinatorServiceForSDFSPort, devmode, wg)
+	go StartCoordinatorService(coordinatorServiceForLogsPort, coordinatorServiceForSDFSPort, schedulerServicePort, devmode, wg)
 
 	go StartDataNodeService_SDFS(datanodeServiceForSDFSPort, wg)
+
+	go StartWorkerService(workerPort, wg)
 
 	// Start the logger server
 	go StartLogServer(log_process_port, wg)
@@ -272,7 +274,7 @@ func getClientForCoordinatorService() (cs.CoordinatorServiceForSDFSClient, conte
 * API for the client to create/update a file
 * Retries the put operation multiple times in the case of failures
  */
-func PutFile(filename string, localfilename string) bool {
+func PutFile(filename string, localfilename string, basepath ...string) bool {
 	conf := config.GetConfig("../../config/config.json")
 	client, ctx, conn, cancel := getClientForCoordinatorService()
 
@@ -282,6 +284,9 @@ func PutFile(filename string, localfilename string) bool {
 	for {
 		log.Printf("[ Client ]PutFile(%v): Intiating request to the coordinator!", filename)
 		filePath := fmt.Sprintf("%v/%v", conf.DataRootFolder, localfilename)
+		if len(basepath) > 0 {
+			filePath = fmt.Sprintf("%v/%v", basepath[0], localfilename)
+		}
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			log.Printf("[ Client ][ PutFile ]File %v doesnt exist", localfilename)
 			return false
@@ -303,7 +308,7 @@ func PutFile(filename string, localfilename string) bool {
 			log.Printf("[ Client ]Current Committed Version of the file: %v is %v", filename, currentCommittedVersion)
 			log.Printf("[ Client ]Sequence number of the PUT: %v", sequenceNumberOfThisPut)
 
-			status, err := saveFileToSDFS(filename, localfilename, currentCommittedVersion, sequenceNumberOfThisPut, dataNodesForCurrentPut)
+			status, err := saveFileToSDFS(filename, localfilename, currentCommittedVersion, sequenceNumberOfThisPut, dataNodesForCurrentPut, filePath)
 
 			if err != nil {
 				log.Printf("[ Client ][ PutFile ]Cannot receive response: %v", err)
@@ -357,7 +362,7 @@ func ListAllNodesForAFile(filename string) []string {
 * Returns true/ false indicating the status of the operation
 * In the case of a successful get, the file will be saved in a folder named outdata
  */
-func GetFile(filename string, localfilename string) bool {
+func GetFile(filename string, localfilename string, isModel bool) bool {
 	client, ctx, conn, cancel := getClientForCoordinatorService()
 
 	defer conn.Close()
@@ -378,7 +383,7 @@ func GetFile(filename string, localfilename string) bool {
 		log.Printf("[ Client ][ GetFile ]Current Committed Version of the file: %v is %v", filename, currentCommittedVersion)
 		log.Printf("[ Client ][ GetFile ]Sequence number of the Get: %v", sequenceNumberOfThisGet)
 
-		status, err := getFileFromSDFS(filename, localfilename, currentCommittedVersion, sequenceNumberOfThisGet, dataNodesForCurrentGet)
+		status, err := getFileFromSDFS(filename, localfilename, currentCommittedVersion, sequenceNumberOfThisGet, dataNodesForCurrentGet, isModel)
 		log.Printf("[ Client ][ GetFile ]The execution of the GetFile operation of file %v with sequenceNumber %v done on all the data nodes %v", filename, sequenceNumberOfThisGet, dataNodesForCurrentGet)
 
 		// log.Printf("[ Client ][ GetFile ]Updating the sequence number for getFile(%v) with sequence number %v on all the data nodes", filename, sequenceNumberOfThisGet)
@@ -523,7 +528,7 @@ func DeleteFile(filename string) bool {
 * primary replica using grpc client streaming
 * The function returns true if the put is acknowledged by a write quorum of nodes
  */
-func saveFileToSDFS(filename string, localfilename string, currentCommittedVersion int64, sequenceNumberOfThisPut int64, dataNodesForCurrentPut []string) (bool, error) {
+func saveFileToSDFS(filename string, localfilename string, currentCommittedVersion int64, sequenceNumberOfThisPut int64, dataNodesForCurrentPut []string, filePath string) (bool, error) {
 	conf := config.GetConfig("../../config/config.json")
 
 	client, ctx, conn, cancel := getClientToReplicaServer(dataNodesForCurrentPut[0]) // currently always picking the first allocated node as the primary replica
@@ -535,8 +540,6 @@ func saveFileToSDFS(filename string, localfilename string, currentCommittedVersi
 		log.Printf("[ Client ][ PutFile ]Cannot upload File: %v", streamErr)
 		return false, nil
 	}
-
-	filePath := fmt.Sprintf("%v/%v", conf.DataRootFolder, localfilename)
 
 	log.Printf("[ Client ][ PutFile ]Sending the file: %v", filePath)
 
@@ -602,7 +605,7 @@ func saveFileToSDFS(filename string, localfilename string, currentCommittedVersi
 * Helper function that receives the stream of chunks of the requested file sent from the
 * primary replica if a read quorum is attained and saves the file to outdata/@param<localfilename>
  */
-func getFileFromSDFS(filename string, localfilename string, currentCommittedVersion int64, sequenceNumberOfThisGet int64, replicas []string) (bool, error) {
+func getFileFromSDFS(filename string, localfilename string, currentCommittedVersion int64, sequenceNumberOfThisGet int64, replicas []string, isModel bool) (bool, error) {
 	conf := config.GetConfig("../../config/config.json")
 	client, ctx, conn, cancel := getClientToReplicaServer(replicas[0])
 	defer conn.Close()
@@ -637,27 +640,50 @@ func getFileFromSDFS(filename string, localfilename string, currentCommittedVers
 			return false, err
 		}
 	}
-
-	if _, err := os.Stat(conf.OutputDataFolder); os.IsNotExist(err) {
-		err := os.Mkdir(conf.OutputDataFolder, os.ModePerm)
-		if err != nil {
-			log.Printf("[ Client ][ GetFile ]Error creating output folder\n")
-			return false, err
+	filePath := ""
+	if !isModel {
+		if _, err := os.Stat(conf.OutputDataFolder); os.IsNotExist(err) {
+			err := os.Mkdir(conf.OutputDataFolder, os.ModePerm)
+			if err != nil {
+				log.Printf("[ Client ][ GetFile ]Error creating output folder\n")
+				return false, err
+			}
 		}
+
+		folder_for_the_file := fmt.Sprintf("%v/%v", conf.OutputDataFolder, localfilename)
+
+		if _, err := os.Stat(folder_for_the_file); os.IsNotExist(err) {
+			err := os.Mkdir(folder_for_the_file, os.ModePerm)
+			if err != nil {
+				log.Printf("[ Client ][ GetFile ]Error creating folder %v\n", folder_for_the_file)
+
+				return false, err
+			}
+		}
+		filePath = fmt.Sprintf("%v/%v-%v", folder_for_the_file, localfilename, currentCommittedVersion)
+	} else {
+		if _, err := os.Stat(conf.SDFSModelsFolder); os.IsNotExist(err) {
+			err := os.Mkdir(conf.SDFSModelsFolder, os.ModePerm)
+			if err != nil {
+				log.Printf("[ Client ][ GetFile ]Error creating output folder %v: %v\n", conf.SDFSModelsFolder, err)
+				return false, err
+			}
+		}
+
+		// folder_for_the_file := fmt.Sprintf("%v/%v", conf.SDFSModelsFolder, localfilename)
+
+		// if _, err := os.Stat(folder_for_the_file); os.IsNotExist(err) {
+		// 	err := os.Mkdir(folder_for_the_file, os.ModePerm)
+		// 	if err != nil {
+		// 		log.Printf("[ Client ][ GetFile ]Error creating folder %v\n", folder_for_the_file)
+
+		// 		return false, err
+		// 	}
+		// }
+		filePath = fmt.Sprintf("%v/%v", conf.SDFSModelsFolder, localfilename)
 	}
 
-	folder_for_the_file := fmt.Sprintf("%v/%v", conf.OutputDataFolder, localfilename)
-
-	if _, err := os.Stat(folder_for_the_file); os.IsNotExist(err) {
-		err := os.Mkdir(folder_for_the_file, os.ModePerm)
-		if err != nil {
-			log.Printf("[ Client ][ GetFile ]Error creating folder %v\n", folder_for_the_file)
-
-			return false, err
-		}
-	}
-
-	err = os.WriteFile(fmt.Sprintf("%v/%v-%v", folder_for_the_file, localfilename, currentCommittedVersion), data.Bytes(), 0644)
+	err = os.WriteFile(filePath, data.Bytes(), 0644)
 
 	if err != nil {
 		log.Printf("[ Client ][ GetFile ]File getting failed: %v", err)
