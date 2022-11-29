@@ -5,6 +5,7 @@ import (
 	"cs425/mp/config"
 	ss "cs425/mp/proto/scheduler_proto"
 	ws "cs425/mp/proto/worker_proto"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -28,7 +29,7 @@ func getClientForSchedulerService() (ss.SchedulerServiceClient, context.Context,
 	// Initialise a client to connect to the coordinator process
 	c := ss.NewSchedulerServiceClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 
 	return c, ctx, conn, cancel
 }
@@ -45,7 +46,7 @@ func getClientForWorkerService(workerIp string) (ws.WorkerServiceClient, context
 		log.Printf("[ getClientForWorkerService ]Failed to establish connection with the worker....Retrying")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 
 	// Initialise a client to connect to the coordinator process
 	client := ws.NewWorkerServiceClient(conn)
@@ -55,7 +56,7 @@ func getClientForWorkerService(workerIp string) (ws.WorkerServiceClient, context
 
 func DeployModel(modelname string) bool {
 	conf := config.GetConfig("../../config/config.json")
-	weightsfilename := modelname + ".weights.h5"
+	weightsfilename := modelname + ".weights.pth"
 	codefile := modelname + ".py"
 
 	basepath := fmt.Sprintf("%v/%v", conf.ModelsDataFolder, modelname)
@@ -84,7 +85,7 @@ func DeployModel(modelname string) bool {
 	r, err := client.DeployModel(ctx, &ss.DeployModelRequest{Modelname: modelname})
 
 	if err != nil {
-		log.Printf("[ Client ][ DeployModel ][ DeployModel ]Failed to establish connection with the scheduler service: %v", err)
+		log.Printf("[ Client ][ DeployModel ][ DeployModel ]Deploy model failed: %v", err)
 
 		return false
 	}
@@ -94,7 +95,7 @@ func DeployModel(modelname string) bool {
 	// save the weights to SDFS
 	log.Printf("[ Client ][ DeployModel ][ DeployModel ]Saving the weights to SDFS")
 
-	sdfsModelWeightsFilename := fmt.Sprintf("%v.weights.h5", r.GetModelId())
+	sdfsModelWeightsFilename := fmt.Sprintf("%v.weights.pth", r.GetModelId())
 	sdfsModelCodeFilename := fmt.Sprintf("%v.py", r.GetModelId())
 	if !PutFile(sdfsModelWeightsFilename, weightsfilename, basepath) {
 		log.Printf("[ Client ][ DeployModel ][ DeployModel ]Error saving weights of the model")
@@ -121,7 +122,6 @@ func DeployModel(modelname string) bool {
 	})
 
 	return deploymentStatus
-
 }
 
 func deployModelOnWorkers(r *ss.DeployModelReply, numWorkers int) bool {
@@ -167,4 +167,73 @@ func setupModelOnWorker(worker string, modelId string, responseChannel chan bool
 	}
 
 	responseChannel <- r.GetStatus()
+}
+
+func QueryModel(modelname string, queryinputfilename string) string {
+	client, ctx, conn, cancel := getClientForSchedulerService()
+	defer conn.Close()
+	defer cancel()
+
+	r, err := client.SubmitTask(ctx, &ss.SubmitTaskRequest{
+		Modelname:      modelname,
+		Queryinputfile: queryinputfilename,
+		Owner:          dataNode_GetOutboundIP().String(),
+		Creationtime:   time.Now().String(),
+	})
+
+	if err != nil {
+		log.Printf("[ Client ][ ModelInference ][ QueryModel ]Submit task failed: %v", err)
+		return fmt.Sprintf("Submit Task failed: %v", err)
+	}
+
+	return fmt.Sprintf("Submitted Task: %v", r.GetTaskId())
+}
+
+func GetAllTasks() []Task {
+	client, ctx, conn, cancel := getClientForSchedulerService()
+	defer conn.Close()
+	defer cancel()
+
+	r, err := client.GetAllTasks(ctx, &ss.GetAllTasksRequest{
+		Owner: dataNode_GetOutboundIP().String(),
+	})
+
+	if err != nil {
+		log.Printf("[ Client ][ GetAllTasks ]GetAllTasks failed: %v", err)
+		return []Task{}
+	}
+
+	var tasks []Task
+	unmarshallingError := json.Unmarshal(r.Tasks, &tasks)
+	if unmarshallingError != nil {
+		log.Printf("[ Client ][ GetAllTasks ]Error while unmarshalling the tasks: %v\n", unmarshallingError)
+		return []Task{}
+	}
+
+	return tasks
+}
+
+func GetAllTasksOfModel(modelname string) []Task {
+	client, ctx, conn, cancel := getClientForSchedulerService()
+	defer conn.Close()
+	defer cancel()
+
+	r, err := client.GetAllTasksOfModel(ctx, &ss.GetAllTasksOfModelRequest{
+		Owner:     dataNode_GetOutboundIP().String(),
+		Modelname: modelname,
+	})
+
+	if err != nil {
+		log.Printf("[ Client ][ GetAllTasksOfModel ]GetAllTasksOfModel failed: %v", err)
+		return []Task{}
+	}
+
+	var tasks []Task
+	unmarshallingError := json.Unmarshal(r.Tasks, &tasks)
+	if unmarshallingError != nil {
+		log.Printf("[ Client ][ GetAllTasksOfModel ]Error while unmarshalling the tasks: %v\n", unmarshallingError)
+		return []Task{}
+	}
+
+	return tasks
 }

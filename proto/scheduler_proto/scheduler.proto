@@ -8,6 +8,9 @@ option go_package = "cs425/mp/process";
 service SchedulerService {
     rpc DeployModel (DeployModelRequest) returns (DeployModelReply) {}
     rpc DeployModelAck (DeployModelAckRequest) returns (DeployModelAckReply) {}
+    rpc SubmitTask (SubmitTaskRequest) returns (SubmitTaskResponse) {}
+    rpc GetAllTasks (GetAllTasksRequest) returns (GetAllTasksResponse) {}
+    rpc GetAllTasksOfModel (GetAllTasksOfModelRequest) returns (GetAllTasksOfModelResponse) {}
 
     rpc GimmeQuery (GimmeQueryRequest) returns (GimmeQueryResponse) {}
     rpc UpdateQueryStatus (UpdateQueryStatusRequest) returns (UpdateQueryStatusResponse) {}
@@ -30,6 +33,17 @@ message DeployModelAckRequest {
 message DeployModelAckReply {
 }
 
+message SubmitTaskRequest {
+    string modelname = 1;
+    string queryinputfile = 2;
+    string owner = 3;
+    string creationtime = 4;
+}
+
+message SubmitTaskResponse {
+    string taskId = 1;
+}
+
 message GimmeQueryRequest {
     string modelId = 1;
     string workerId = 2;
@@ -37,13 +51,31 @@ message GimmeQueryRequest {
 
 message GimmeQueryResponse {
     bool status = 1;
-    string queryinputfile = 2;
+    string taskId = 2;
+    string queryinputfile = 3;
+}
+
+message GetAllTasksRequest {
+    string owner = 1;
+}
+
+message GetAllTasksResponse {
+    bytes tasks = 1;
+}
+
+message GetAllTasksOfModelRequest {
+    string owner = 1;
+    string modelname = 2;
+}
+
+message GetAllTasksOfModelResponse {
+    bytes tasks = 1;
 }
 
 message UpdateQueryStatusRequest {
-    
+    string taskId = 1;
+    string outputfilename = 2 ;
 }
 
 message UpdateQueryStatusResponse {
-
 }

@@ -24,6 +24,9 @@ const _ = grpc.SupportPackageIsVersion7
 type SchedulerServiceClient interface {
 	DeployModel(ctx context.Context, in *DeployModelRequest, opts ...grpc.CallOption) (*DeployModelReply, error)
 	DeployModelAck(ctx context.Context, in *DeployModelAckRequest, opts ...grpc.CallOption) (*DeployModelAckReply, error)
+	SubmitTask(ctx context.Context, in *SubmitTaskRequest, opts ...grpc.CallOption) (*SubmitTaskResponse, error)
+	GetAllTasks(ctx context.Context, in *GetAllTasksRequest, opts ...grpc.CallOption) (*GetAllTasksResponse, error)
+	GetAllTasksOfModel(ctx context.Context, in *GetAllTasksOfModelRequest, opts ...grpc.CallOption) (*GetAllTasksOfModelResponse, error)
 	GimmeQuery(ctx context.Context, in *GimmeQueryRequest, opts ...grpc.CallOption) (*GimmeQueryResponse, error)
 	UpdateQueryStatus(ctx context.Context, in *UpdateQueryStatusRequest, opts ...grpc.CallOption) (*UpdateQueryStatusResponse, error)
 }
@@ -54,6 +57,33 @@ func (c *schedulerServiceClient) DeployModelAck(ctx context.Context, in *DeployM
 	return out, nil
 }
 
+func (c *schedulerServiceClient) SubmitTask(ctx context.Context, in *SubmitTaskRequest, opts ...grpc.CallOption) (*SubmitTaskResponse, error) {
+	out := new(SubmitTaskResponse)
+	err := c.cc.Invoke(ctx, "/process.SchedulerService/SubmitTask", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *schedulerServiceClient) GetAllTasks(ctx context.Context, in *GetAllTasksRequest, opts ...grpc.CallOption) (*GetAllTasksResponse, error) {
+	out := new(GetAllTasksResponse)
+	err := c.cc.Invoke(ctx, "/process.SchedulerService/GetAllTasks", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *schedulerServiceClient) GetAllTasksOfModel(ctx context.Context, in *GetAllTasksOfModelRequest, opts ...grpc.CallOption) (*GetAllTasksOfModelResponse, error) {
+	out := new(GetAllTasksOfModelResponse)
+	err := c.cc.Invoke(ctx, "/process.SchedulerService/GetAllTasksOfModel", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *schedulerServiceClient) GimmeQuery(ctx context.Context, in *GimmeQueryRequest, opts ...grpc.CallOption) (*GimmeQueryResponse, error) {
 	out := new(GimmeQueryResponse)
 	err := c.cc.Invoke(ctx, "/process.SchedulerService/GimmeQuery", in, out, opts...)
@@ -78,6 +108,9 @@ func (c *schedulerServiceClient) UpdateQueryStatus(ctx context.Context, in *Upda
 type SchedulerServiceServer interface {
 	DeployModel(context.Context, *DeployModelRequest) (*DeployModelReply, error)
 	DeployModelAck(context.Context, *DeployModelAckRequest) (*DeployModelAckReply, error)
+	SubmitTask(context.Context, *SubmitTaskRequest) (*SubmitTaskResponse, error)
+	GetAllTasks(context.Context, *GetAllTasksRequest) (*GetAllTasksResponse, error)
+	GetAllTasksOfModel(context.Context, *GetAllTasksOfModelRequest) (*GetAllTasksOfModelResponse, error)
 	GimmeQuery(context.Context, *GimmeQueryRequest) (*GimmeQueryResponse, error)
 	UpdateQueryStatus(context.Context, *UpdateQueryStatusRequest) (*UpdateQueryStatusResponse, error)
 	mustEmbedUnimplementedSchedulerServiceServer()
@@ -92,6 +125,15 @@ func (UnimplementedSchedulerServiceServer) DeployModel(context.Context, *DeployM
 }
 func (UnimplementedSchedulerServiceServer) DeployModelAck(context.Context, *DeployModelAckRequest) (*DeployModelAckReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeployModelAck not implemented")
+}
+func (UnimplementedSchedulerServiceServer) SubmitTask(context.Context, *SubmitTaskRequest) (*SubmitTaskResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SubmitTask not implemented")
+}
+func (UnimplementedSchedulerServiceServer) GetAllTasks(context.Context, *GetAllTasksRequest) (*GetAllTasksResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAllTasks not implemented")
+}
+func (UnimplementedSchedulerServiceServer) GetAllTasksOfModel(context.Context, *GetAllTasksOfModelRequest) (*GetAllTasksOfModelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAllTasksOfModel not implemented")
 }
 func (UnimplementedSchedulerServiceServer) GimmeQuery(context.Context, *GimmeQueryRequest) (*GimmeQueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GimmeQuery not implemented")
@@ -148,6 +190,60 @@ func _SchedulerService_DeployModelAck_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SchedulerService_SubmitTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubmitTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SchedulerServiceServer).SubmitTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.SchedulerService/SubmitTask",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SchedulerServiceServer).SubmitTask(ctx, req.(*SubmitTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SchedulerService_GetAllTasks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAllTasksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SchedulerServiceServer).GetAllTasks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.SchedulerService/GetAllTasks",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SchedulerServiceServer).GetAllTasks(ctx, req.(*GetAllTasksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SchedulerService_GetAllTasksOfModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAllTasksOfModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SchedulerServiceServer).GetAllTasksOfModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.SchedulerService/GetAllTasksOfModel",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SchedulerServiceServer).GetAllTasksOfModel(ctx, req.(*GetAllTasksOfModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SchedulerService_GimmeQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GimmeQueryRequest)
 	if err := dec(in); err != nil {
@@ -198,6 +294,18 @@ var SchedulerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeployModelAck",
 			Handler:    _SchedulerService_DeployModelAck_Handler,
+		},
+		{
+			MethodName: "SubmitTask",
+			Handler:    _SchedulerService_SubmitTask_Handler,
+		},
+		{
+			MethodName: "GetAllTasks",
+			Handler:    _SchedulerService_GetAllTasks_Handler,
+		},
+		{
+			MethodName: "GetAllTasksOfModel",
+			Handler:    _SchedulerService_GetAllTasksOfModel_Handler,
 		},
 		{
 			MethodName: "GimmeQuery",

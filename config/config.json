@@ -24,5 +24,6 @@
     "ModelsDataFolder": "../../models",
     "SDFSModelsFolder": "../../sdfs_models",
     "WorkerPort": 50058,
-    "SchedulerPollInterval": 1 
+    "SchedulerPollInterval": 1,
+    "TaskExecutionTimeout": 3
 }

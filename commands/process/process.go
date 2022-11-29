@@ -71,7 +71,7 @@ func main() {
 	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorServiceLoggerPort, configuration.CoordinatorServiceSDFSPort, configuration.DataNodeServiceSDFSPort, wg, introAddr, *devmode, outboundIp, configuration.SchedulerPort, configuration.WorkerPort)
 
 	for {
-		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - search-logs <query> (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put <localfilename> <sdfsfilename>\n\t - get <sdfsfilename> <localfilename>\n\t - delete <sdfsfilename>\n\t - ls <sdfsfilename>\n\t - store\n\t - get-versions <sdfsfilename> <numVersions> <localfilename>\n\n\tIDunno commands\n\n\t - deploy-model <modelname>\n\n\t: ")
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - search-logs <query> (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put <localfilename> <sdfsfilename>\n\t - get <sdfsfilename> <localfilename>\n\t - delete <sdfsfilename>\n\t - ls <sdfsfilename>\n\t - store\n\t - get-versions <sdfsfilename> <numVersions> <localfilename>\n\n\tIDunno commands\n\n\t - deploy-model <modelname>\n\t - query-model <modelname> <queryinputfilename>\n\t - get-tasks\n\t - get-model-tasks <modelname>\n\n\t: ")
 
 		inputReader := bufio.NewReader(os.Stdin)
 		command, _ := inputReader.ReadString('\n')
@@ -162,6 +162,34 @@ func main() {
 			modelname := parsedCommand[1]
 			start := time.Now()
 			fmt.Printf("Status: %v\t Time Taken: %vs\n\t;", process.DeployModel(modelname), time.Since(start).Seconds())
+
+		case "query-model":
+			if len(parsedCommand) <= 2 {
+				fmt.Printf("\n\tSpecify model name and query input file")
+				continue
+			}
+			modelname := parsedCommand[1]
+			queryinputfilename := parsedCommand[2]
+			fmt.Printf("%v\n", process.QueryModel(modelname, queryinputfilename))
+
+		case "get-tasks":
+			tasks := process.GetAllTasks()
+			fmt.Println("Tasks:")
+			for _, task := range tasks {
+				fmt.Println(task)
+			}
+
+		case "get-model-tasks":
+			if len(parsedCommand) <= 1 {
+				fmt.Printf("\n\tSpecify model name")
+				continue
+			}
+			modelname := parsedCommand[1]
+			tasks := process.GetAllTasksOfModel(modelname)
+			fmt.Println("Tasks:")
+			for _, task := range tasks {
+				fmt.Println(task)
+			}
 
 		default:
 			continue

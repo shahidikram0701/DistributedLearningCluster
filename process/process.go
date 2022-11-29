@@ -62,8 +62,9 @@ func GetAllCoordinators() []string {
  */
 func Run(port int, udpserverport int, log_process_port int, coordinatorServiceForLogsPort int, coordinatorServiceForSDFSPort int, datanodeServiceForSDFSPort int, wg *sync.WaitGroup, introAddr string, devmode bool, outboundIp net.IP, schedulerServicePort int, workerPort int) {
 	// Start the coordinator server
-	go StartCoordinatorService(coordinatorServiceForLogsPort, coordinatorServiceForSDFSPort, schedulerServicePort, devmode, wg)
+	go StartCoordinatorService(coordinatorServiceForLogsPort, coordinatorServiceForSDFSPort, devmode, wg)
 
+	go StartSchedulerService(schedulerServicePort, wg)
 	go StartDataNodeService_SDFS(datanodeServiceForSDFSPort, wg)
 
 	go StartWorkerService(workerPort, wg)

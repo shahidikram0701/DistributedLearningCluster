@@ -33,6 +33,7 @@ type Configuration struct {
 	SDFSModelsFolder             string `json:"SDFSModelsFolder"`
 	WorkerPort                   int    `json:"WorkerPort"`
 	SchedulerPollInterval        int    `json:"SchedulerPollInterval"`
+	TaskExecutionTimeout         int    `json:"TaskExecutionTimeout"`
 }
 
 func GetConfig(configFilePath string, params ...string) Configuration {
