@@ -71,7 +71,7 @@ func main() {
 	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorServiceLoggerPort, configuration.CoordinatorServiceSDFSPort, configuration.DataNodeServiceSDFSPort, wg, introAddr, *devmode, outboundIp, configuration.SchedulerPort, configuration.WorkerPort)
 
 	for {
-		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - search-logs <query> (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put <localfilename> <sdfsfilename>\n\t - get <sdfsfilename> <localfilename>\n\t - delete <sdfsfilename>\n\t - ls <sdfsfilename>\n\t - store\n\t - get-versions <sdfsfilename> <numVersions> <localfilename>\n\n\tIDunno commands\n\n\t - deploy-model <modelname>\n\t - query-model <modelname> <queryinputfilename>\n\t - get-tasks\n\t - get-model-tasks <modelname>\n\n\t: ")
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - search-logs <query> (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put <localfilename> <sdfsfilename>\n\t - get <sdfsfilename> <localfilename>\n\t - delete <sdfsfilename>\n\t - ls <sdfsfilename>\n\t - store\n\t - get-versions <sdfsfilename> <numVersions> <localfilename>\n\n\tIDunno commands\n\n\t - deploy-model <modelname>\n\t - query-model <modelname> <queryinputfilename>\n\t - start-inference <modelname> <numinputfiles> <files...>\n\t - get-tasks\n\t - get-model-tasks <modelname>\n\n\t: ")
 
 		inputReader := bufio.NewReader(os.Stdin)
 		command, _ := inputReader.ReadString('\n')
@@ -170,7 +170,21 @@ func main() {
 			}
 			modelname := parsedCommand[1]
 			queryinputfilename := parsedCommand[2]
-			fmt.Printf("%v\n", process.QueryModel(modelname, queryinputfilename))
+			fmt.Printf("%v\n", process.QueryModel(modelname, []string{queryinputfilename}))
+
+		case "start-inference":
+			if len(parsedCommand) <= 3 {
+				fmt.Printf("\n\nSpecify input filenames")
+				continue
+			}
+			modelname := parsedCommand[1]
+			numfiles, _ := strconv.Atoi(parsedCommand[2])
+			files := []string{}
+
+			for f := 0; f < numfiles; f++ {
+				files = append(files, parsedCommand[3+f])
+			}
+			process.StartInference(modelname, files)
 
 		case "get-tasks":
 			tasks := process.GetAllTasks()

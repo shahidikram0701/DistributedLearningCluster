@@ -192,8 +192,10 @@ while flag:
 
 	# receive
 	byte_message = new_socket.recv(SIZE)
-	inputfilepath = byte_message.decode("utf-8")
-	logging.info(f"Received packet from {address}: {inputfilepath}")
+	data = byte_message.decode("utf-8")
+	logging.info(f"Received packet from {address}: {data}")
+	inputfilepath = data.split("#")[1]
+	taskId = data.split("#")[0]
 
 	# send
 	label = model.process(inputfilepath)
@@ -201,7 +203,7 @@ while flag:
 	if not isExist:
 		os.mkdir("../../data/")
 		
-	outfile = inputfilepath.split("/")[-1] + "-out"
+	outfile = inputfilepath.split("/")[-1] + "-out-" + taskId
 	with open("../../data/" + outfile, 'w') as f:
 		f.write(label)
 		
@@ -289,12 +291,18 @@ func pollSchedulerForQueries(modelId string) {
 		} else if !r.GetStatus() {
 			log.Printf("[ Worker ][ ModelInference ][ pollSchedulerForQueries ]No queries are there to process yet")
 		} else {
-			log.Printf("[ Worker ][ ModelInference ][ pollSchedulerForQueries ]Query to execute: model:%v:::Task:%v:::Input:%v", modelId, r.GetTaskId(), r.GetQueryinputfile())
-			resultfilename, queryStatus := processQuery(modelId, r.GetTaskId(), r.GetQueryinputfile())
+			log.Printf("[ Worker ][ ModelInference ][ pollSchedulerForQueries ]Query to execute: model:%v:::Task:%v:::Inputs:%v", modelId, r.GetTaskId(), r.GetQueryinputfiles())
+			resultfilenames := []string{}
 
-			log.Printf("[ Worker ][ ModelInference ][ pollSchedulerForQueries ]Status of the query processing: %v; Result of the query stored in the filename: %v", queryStatus, resultfilename)
+			for _, queryinputfile := range r.GetQueryinputfiles() {
+				resultfilename, queryStatus := processQuery(modelId, r.GetTaskId(), queryinputfile)
 
-			go informSchedulerOfQueryExecution(modelId, r.GetTaskId(), resultfilename)
+				log.Printf("[ Worker ][ ModelInference ][ pollSchedulerForQueries ]Status of the query of file: %v -> %v; Result of the query stored in the filename: %v", queryinputfile, queryStatus, resultfilenames)
+
+				resultfilenames = append(resultfilenames, resultfilename)
+			}
+
+			go informSchedulerOfQueryExecution(modelId, r.GetTaskId(), resultfilenames)
 
 			conn.Close()
 			cancel()
@@ -349,7 +357,7 @@ func processQuery(modelId string, taskId string, queryinputfile string) (string,
 		return "", false
 	}
 
-	outfile, ok := queryTheModel(port, queryinputfile)
+	outfile, ok := queryTheModel(port, queryinputfile, taskId)
 
 	if !ok {
 		log.Printf("[ Worker ][ ModelInference ][ processQuery ]Model Query FAILED")
@@ -368,7 +376,7 @@ func processQuery(modelId string, taskId string, queryinputfile string) (string,
 	return outfile, true
 }
 
-func queryTheModel(port int, queryinputfile string) (string, bool) {
+func queryTheModel(port int, queryinputfile string, taskId string) (string, bool) {
 	conf := config.GetConfig("../../config/config.json")
 	hostname := dataNode_GetOutboundIP().String()
 	addrs, err := net.LookupHost(hostname)
@@ -397,8 +405,10 @@ func queryTheModel(port int, queryinputfile string) (string, bool) {
 
 	queryinputfilepath := fmt.Sprintf("%v/%v/%v-1", conf.OutputDataFolder, queryinputfile, queryinputfile)
 
+	toSend := fmt.Sprintf("%v_%v#%v", taskId, time.Now().UnixNano(), queryinputfile)
+
 	log.Printf("[ Worker ][ InferenceModel ]Query Input File Path: %v", queryinputfilepath)
-	_, err = conn.Write([]byte(queryinputfilepath))
+	_, err = conn.Write([]byte(toSend))
 
 	if err != nil {
 		log.Printf("[ Worker ][ ModelInference ][ queryTheModel ]Error Writing the query input file name to the buffer to send over to the model: %v", err)
@@ -414,14 +424,14 @@ func queryTheModel(port int, queryinputfile string) (string, bool) {
 	return string(outfile), true
 }
 
-func informSchedulerOfQueryExecution(modelId string, taskId string, filename string) {
+func informSchedulerOfQueryExecution(modelId string, taskId string, filenames []string) {
 	client, ctx, conn, cancel := getClientForSchedulerService()
 	defer conn.Close()
 	defer cancel()
 
 	_, err := client.UpdateQueryStatus(ctx, &ss.UpdateQueryStatusRequest{
-		TaskId:         taskId,
-		Outputfilename: filename,
+		TaskId:          taskId,
+		Outputfilenames: filenames,
 	})
 
 	if err != nil {

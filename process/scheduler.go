@@ -71,18 +71,18 @@ func (model Model) String() string {
 }
 
 type Task struct {
-	Id             string
-	Name           string
-	Status         TaskStatus
-	CreationTime   string
-	AssignedTo     string
-	ModelId        string
-	ModelName      string
-	StartTime      time.Time
-	EndTime        time.Time
-	OwnerId        string
-	Filename       string // input filename
-	Resultfilename string
+	Id              string
+	Name            string
+	Status          TaskStatus
+	CreationTime    string
+	AssignedTo      string
+	ModelId         string
+	ModelName       string
+	StartTime       time.Time
+	EndTime         time.Time
+	OwnerId         string
+	Filenames       []string // input filename
+	Resultfilenames []string
 }
 
 type TaskStatus int
@@ -112,7 +112,7 @@ func (taskStatus TaskStatus) String() string {
 func (task Task) String() string {
 	return fmt.Sprintf(
 		"\tId: %v\n\tStatus: %v\n\tCreated At: %v\n\tModel: %v\n\tInput File: %v\n\tOutput File: %v\n",
-		task.Id, task.Status, task.CreationTime, task.ModelName, task.Filename, task.Resultfilename,
+		task.Id, task.Status, task.CreationTime, task.ModelName, task.Filenames, task.Resultfilenames,
 	)
 }
 
@@ -218,7 +218,7 @@ func (state *SchedulerState) AddModel(modelname string) (string, []string) {
 	return modelId, nodes
 }
 
-func (state *SchedulerState) QueueTask(modelname string, modelId string, queryinputfile string, owner string, creationTime string) string {
+func (state *SchedulerState) QueueTask(modelname string, modelId string, queryinputfiles []string, owner string, creationTime string) string {
 	state.Lock()
 	defer state.Unlock()
 
@@ -232,7 +232,7 @@ func (state *SchedulerState) QueueTask(modelname string, modelId string, queryin
 		ModelId:      modelId,
 		ModelName:    modelname,
 		OwnerId:      owner,
-		Filename:     queryinputfile,
+		Filenames:    queryinputfiles,
 	}
 
 	log.Printf("[ Scheduler ][ ModelInference ]Adding task: %v to queue of model %v::%v", task, modelname, modelId)
@@ -288,7 +288,7 @@ func (state *SchedulerState) GetModelStatus(modelId string) (ModelStatus, bool) 
 	return state.Models[modelId].Status, true
 }
 
-func (state *SchedulerState) GetNextTaskToBeScheduled(modelId string, workerId string) (string, string, bool) {
+func (state *SchedulerState) GetNextTaskToBeScheduled(modelId string, workerId string) ([]string, string, bool) {
 	state.Lock()
 	defer state.Unlock()
 
@@ -312,11 +312,11 @@ func (state *SchedulerState) GetNextTaskToBeScheduled(modelId string, workerId s
 
 			state.Tasks[taskid] = task
 
-			return task.Filename, taskid, true
+			return task.Filenames, taskid, true
 		}
 	}
 
-	return "", "", false
+	return []string{}, "", false
 }
 
 func (state *SchedulerState) HandleRescheduleOfTask(taskId string) {
@@ -333,7 +333,7 @@ func (state *SchedulerState) HandleRescheduleOfTask(taskId string) {
 	log.Printf("[ Scheduler ][ ModelInference ][ HandleRescheduleOfTask ]Updated state of the task %v to Ready", taskId)
 }
 
-func (state *SchedulerState) MarkTaskComplete(taskId string, outputFile string) {
+func (state *SchedulerState) MarkTaskComplete(taskId string, outputFiles []string) {
 	state.Lock()
 	defer state.Unlock()
 
@@ -341,11 +341,11 @@ func (state *SchedulerState) MarkTaskComplete(taskId string, outputFile string) 
 
 	task.Status = Success
 	task.EndTime = time.Now()
-	task.Resultfilename = outputFile
+	task.Resultfilenames = outputFiles
 
 	state.Tasks[taskId] = task
 
-	log.Printf("[ Scheduler ][ ModelInference ][ MarkTaskComplete ]Marked task %v of model %v as complete; Output file: %v", taskId, task.ModelName, outputFile)
+	log.Printf("[ Scheduler ][ ModelInference ][ MarkTaskComplete ]Marked task %v of model %v as complete; Output file: %v", taskId, task.ModelName, outputFiles)
 }
 
 func handleTaskExecutionTimeout(taskid string, modelId string, workerId string) {
@@ -417,47 +417,47 @@ func (s *SchedulerServer) GimmeQuery(ctx context.Context, in *ss.GimmeQueryReque
 	if !ok {
 		log.Printf("[ Scheduler ][ Scheduling ][ GimmeQuery ]ModelId is invalid")
 		return &ss.GimmeQueryResponse{
-			Status:         false,
-			Queryinputfile: "",
+			Status:          false,
+			Queryinputfiles: []string{},
 		}, errors.New("ModelId is invalid")
 	}
 
 	if modelStatus == Undeployed {
 		log.Printf("[ Scheduler ][ Scheduling ][ GimmeQuery ]Model isnt deployed yet")
 		return &ss.GimmeQueryResponse{
-			Status:         false,
-			Queryinputfile: "",
+			Status:          false,
+			Queryinputfiles: []string{},
 		}, errors.New("Model isnt deployed")
 	}
 
 	// check if there are any queries for the model that are in the ready state waiting to be scheduled and schedule them
 
-	queryfilename, taskId, ok := schedulerState.GetNextTaskToBeScheduled(modelId, workerId)
+	queryfilenames, taskId, ok := schedulerState.GetNextTaskToBeScheduled(modelId, workerId)
 
 	return &ss.GimmeQueryResponse{
-		Status:         ok,
-		Queryinputfile: queryfilename,
-		TaskId:         taskId,
+		Status:          ok,
+		Queryinputfiles: queryfilenames,
+		TaskId:          taskId,
 	}, nil
 }
 
 func (s *SchedulerServer) UpdateQueryStatus(ctx context.Context, in *ss.UpdateQueryStatusRequest) (*ss.UpdateQueryStatusResponse, error) {
 	taskId := in.GetTaskId()
-	outputfile := in.GetOutputfilename()
+	outputfiles := in.GetOutputfilenames()
 
-	if outputfile == "" {
+	if len(outputfiles) == 0 {
 		log.Printf("[ Scheduler ][ ModelInference ][ UpdateQueryStatus ]Model inference on the work FAILED")
 	}
 
-	log.Printf("[ Scheduler ][ ModelInference ][ UpdateQueryStatus ]Task %v completed with output file stored as %v", taskId, outputfile)
+	log.Printf("[ Scheduler ][ ModelInference ][ UpdateQueryStatus ]Task %v completed with output file stored as %v", taskId, outputfiles)
 
 	// Stopping the timer
 	schedulerState.TaskTimer[taskId].Stop()
 
-	if outputfile == "" {
+	if len(outputfiles) == 0 {
 		schedulerState.HandleRescheduleOfTask(taskId)
 	} else {
-		schedulerState.MarkTaskComplete(taskId, outputfile)
+		schedulerState.MarkTaskComplete(taskId, outputfiles)
 	}
 
 	return &ss.UpdateQueryStatusResponse{}, nil
@@ -465,7 +465,7 @@ func (s *SchedulerServer) UpdateQueryStatus(ctx context.Context, in *ss.UpdateQu
 
 func (s *SchedulerServer) SubmitTask(ctx context.Context, in *ss.SubmitTaskRequest) (*ss.SubmitTaskResponse, error) {
 	modelname := in.GetModelname()
-	queryInputFile := in.GetQueryinputfile()
+	queryInputFiles := in.GetQueryinputfiles()
 	owner := in.GetOwner()
 	creationTime := in.GetCreationtime()
 
@@ -477,8 +477,8 @@ func (s *SchedulerServer) SubmitTask(ctx context.Context, in *ss.SubmitTaskReque
 			errors.New(fmt.Sprintf("Model %v doesn't exist", modelname))
 	}
 
-	log.Printf("[ Scheduler ][ ModelInference ][ SubmitTask ]Queueing query of input file %v on model %v::%v", queryInputFile, modelname, modelId)
-	taskId := schedulerState.QueueTask(modelname, modelId, queryInputFile, owner, creationTime)
+	log.Printf("[ Scheduler ][ ModelInference ][ SubmitTask ]Queueing query of input file %v on model %v::%v", queryInputFiles, modelname, modelId)
+	taskId := schedulerState.QueueTask(modelname, modelId, queryInputFiles, owner, creationTime)
 
 	return &ss.SubmitTaskResponse{
 		TaskId: taskId,

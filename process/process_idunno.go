@@ -169,16 +169,16 @@ func setupModelOnWorker(worker string, modelId string, responseChannel chan bool
 	responseChannel <- r.GetStatus()
 }
 
-func QueryModel(modelname string, queryinputfilename string) string {
+func QueryModel(modelname string, queryinputfilenames []string) string {
 	client, ctx, conn, cancel := getClientForSchedulerService()
 	defer conn.Close()
 	defer cancel()
 
 	r, err := client.SubmitTask(ctx, &ss.SubmitTaskRequest{
-		Modelname:      modelname,
-		Queryinputfile: queryinputfilename,
-		Owner:          dataNode_GetOutboundIP().String(),
-		Creationtime:   time.Now().String(),
+		Modelname:       modelname,
+		Queryinputfiles: queryinputfilenames,
+		Owner:           dataNode_GetOutboundIP().String(),
+		Creationtime:    time.Now().String(),
 	})
 
 	if err != nil {
@@ -236,4 +236,26 @@ func GetAllTasksOfModel(modelname string) []Task {
 	}
 
 	return tasks
+}
+
+func StartInference(modelName string, filenames []string) {
+	go runInferencePeriodically(modelName, filenames)
+}
+
+func runInferencePeriodically(modelName string, filenames []string) {
+	i := 0
+
+	BATCH_SIZE := 5
+	for {
+		batch := []string{}
+		for b := 0; b < BATCH_SIZE; b++ {
+			batch = append(batch, filenames[i])
+			i = (i + 1) % len(filenames)
+		}
+
+		taskId := QueryModel(modelName, batch)
+		log.Printf("[ Client ][ ModelInference ]Query model %v with inputs %v; TaskId: %v", modelName, batch, taskId)
+
+		time.Sleep(500 * time.Millisecond)
+	}
 }
