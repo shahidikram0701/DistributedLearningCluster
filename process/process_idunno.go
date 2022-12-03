@@ -251,10 +251,15 @@ func StartInference(modelName string, filenames []string) {
 }
 
 func runInferencePeriodically(modelName string, filenames []string) {
+	conf := config.GetConfig("../../config/config.json")
 	i := 0
 
 	for numTasks := 0; ; numTasks++ {
 		batch := []string{}
+		_, ok := BatchSize[modelName]
+		if !ok {
+			BatchSize[modelName] = conf.InitialBatchSize
+		}
 		batch_size := BatchSize[modelName]
 		log.Printf("[ Client ][ ModelInference ]Task number: %v; BatchSize: %v", numTasks, batch_size)
 		for b := 0; b < batch_size; b++ {
@@ -265,7 +270,7 @@ func runInferencePeriodically(modelName string, filenames []string) {
 		taskId := QueryModel(modelName, batch)
 		log.Printf("[ Client ][ ModelInference ]Query model %v with inputs %v; TaskId: %v", modelName, batch, taskId)
 
-		time.Sleep(4000 * time.Millisecond)
+		time.Sleep(5 * time.Second)
 	}
 }
 

@@ -414,13 +414,13 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 	perModelCompletedCounts := map[string]int{}
 	perModelTotal := map[string]int{}
 
-	for modelId := range state.Models {
-		perModelCompletedCounts[modelId] = 0
-		perModelTotal[modelId] = 0
-	}
-
 	for _, taskId := range state.WindowOfTasks {
 		task := state.Tasks[taskId]
+
+		if _, ok := perModelTotal[task.ModelId]; !ok {
+			perModelTotal[task.ModelId] = 0
+			perModelCompletedCounts[task.ModelId] = 0
+		}
 
 		perModelTotal[task.ModelId] += len(task.Filenames)
 
@@ -436,7 +436,7 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 	log.Printf("[ Scheduler ][ UpdateModelsQueryRates ]Clearing the past window of tasks")
 	state.WindowOfTasks = []string{}
 
-	for modelId := range state.Models {
+	for modelId := range perModelTotal {
 		model := state.Models[modelId]
 
 		if perModelTotal[modelId] > 0 {
@@ -451,8 +451,8 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 	}
 
 	// Check if need to deploy another model
-	for modelId := range state.Models {
-		for modelId2 := range state.Models {
+	for modelId := range perModelTotal {
+		for modelId2 := range perModelTotal {
 			if modelId == modelId2 {
 				continue
 			}
@@ -770,7 +770,15 @@ func (s *SchedulerServer) GetAllQueryRates(ctx context.Context, in *ss.GetAllQue
 func queryRateMonitor() {
 	conf := config.GetConfig("../../config/config.json")
 	for {
-		schedulerState.UpdateModelsQueryRates()
+		if memberList == nil {
+			continue
+		}
+		currentCoordinator := memberList.GetCoordinatorNode()
+		myIpAddr := coordinatorState.myIpAddr
+
+		if currentCoordinator == myIpAddr {
+			schedulerState.UpdateModelsQueryRates()
+		}
 		time.Sleep(time.Duration(conf.QueryMonitorInterval) * time.Second)
 	}
 }
