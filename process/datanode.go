@@ -730,6 +730,11 @@ func dataNode_SendFileToReplica(replica string, filename string, allChunks []*dn
 		chunk.IsReplicaChunk = true
 		req := chunk
 		log.Printf("[ Primary Replica ][ Replicate ]Replicate chunk %v of file: %v to replica: %v", req.ChunkId, filename, replica)
+		if stream == nil {
+			log.Printf("[ Primary Replica ][ Replicate ]Replicate chunk %v of file: %v to replica: %v FAILED", req.ChunkId, filename, replica)
+			replicaChannel <- false
+			return
+		}
 		e := stream.Send(req)
 		if e != nil {
 			log.Printf("[ Primary Replica ][ Replicate ]Cannot send chunk %v of file %v to replica: %v --- %v", req.ChunkId, filename, replica, e)

@@ -579,6 +579,10 @@ func saveFileToSDFS(filename string, localfilename string, currentCommittedVersi
 			IsReplicaChunk: false,
 		}
 		log.Printf("[ Client ][ PutFile ]Sending chunk %v of file: %v", chunkId, filename)
+		if stream == nil {
+			log.Printf("[ Client ][ PutFile ]Sending file: %v FAILED", filename)
+			return false, errors.New("Stream was nil")
+		}
 		e := stream.Send(req)
 		if e != nil {
 			log.Printf("[ Client ][ PutFile ]Cannot send chunk %v of file %v to server: %v", chunkId, filename, e)
