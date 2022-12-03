@@ -198,17 +198,11 @@ while flag:
 	taskId = data.split("#")[0]
 
 	# send
-	label = model.process(inputfilepath)
-	isExist = os.path.exists("../../data/")
-	if not isExist:
-		os.mkdir("../../data/")
-		
 	outfile = inputfilepath.split("/")[-1] + "-out-" + taskId
-	with open("../../data/" + outfile, 'w') as f:
-		f.write(label)
-		
-	new_socket.send(bytes(outfile, "utf-8"))
-	logging.info(f"Sent packet to {address}: {outfile}")
+	outputfilename = model.process(inputfilepath, outfile)
+
+	new_socket.send(bytes(outputfilename, "utf-8"))
+	logging.info(f"Sent packet to {address}: {outputfilename}")
 	new_socket.close()
 `
 	wrapperfilepath := fmt.Sprintf("%v/model-wrapper.py", modelFolder)

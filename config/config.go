@@ -34,6 +34,9 @@ type Configuration struct {
 	WorkerPort                   int    `json:"WorkerPort"`
 	SchedulerPollInterval        int    `json:"SchedulerPollInterval"`
 	TaskExecutionTimeout         int    `json:"TaskExecutionTimeout"`
+	QueryMonitorInterval         int    `json:"QueryMonitorInterval"`
+	InitialBatchSize             int    `json:"InitialBatchSize"`
+	SchedulerSyncTimer           int    `json:"SchedulerSyncTimer"`
 }
 
 func GetConfig(configFilePath string, params ...string) Configuration {

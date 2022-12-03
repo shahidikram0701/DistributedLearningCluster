@@ -9,10 +9,10 @@
     "DataNodeServiceSDFSPort": 50056,
     "FailureDetectorPort": 50054,
     "NumOfCoordinators": 4,
-    "NumOfReplicas": 5,
+    "NumOfReplicas": 4,
     "ChunkSize": 4000000,
     "DataRootFolder": "../../data",
-    "WriteQuorum": 4,
+    "WriteQuorum": 3,
     "ReadQuorum": 2,
     "NumRetriesPerOperation": 3,
     "SDFSDataFolder": "../../sdfs",
@@ -25,5 +25,8 @@
     "SDFSModelsFolder": "../../sdfs_models",
     "WorkerPort": 50058,
     "SchedulerPollInterval": 1,
-    "TaskExecutionTimeout": 3
+    "TaskExecutionTimeout": 3,
+    "QueryMonitorInterval": 10,
+    "InitialBatchSize": 5,
+    "SchedulerSyncTimer": 3
 }

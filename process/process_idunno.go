@@ -15,6 +15,10 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+var (
+	BatchSize map[string]int
+)
+
 func getClientForSchedulerService() (ss.SchedulerServiceClient, context.Context, *grpc.ClientConn, context.CancelFunc) {
 	conf := config.GetConfig("../../config/config.json")
 	schedulerAddr := fmt.Sprintf("%v:%v", memberList.GetCoordinatorNode(), conf.SchedulerPort)
@@ -121,6 +125,10 @@ func DeployModel(modelname string) bool {
 		Status:  deploymentStatus,
 	})
 
+	if deploymentStatus {
+		BatchSize[modelname] = conf.InitialBatchSize
+	}
+
 	return deploymentStatus
 }
 
@@ -154,7 +162,7 @@ func setupModelOnWorker(worker string, modelId string, responseChannel chan bool
 	defer conn.Close()
 	defer cancel()
 
-	log.Printf("[ Client ][ DeployModel ][ setupModelOnWorker ]Setting up the model on the client: %v", worker)
+	log.Printf("[ Client ][ DeployModel ][ setupModelOnWorker ]Setting up the model on the worker: %v", worker)
 
 	r, err := client.SetupModel(ctx, &ws.SetupModelRequest{
 		ModelId: modelId,
@@ -245,10 +253,11 @@ func StartInference(modelName string, filenames []string) {
 func runInferencePeriodically(modelName string, filenames []string) {
 	i := 0
 
-	BATCH_SIZE := 5
-	for {
+	for numTasks := 0; ; numTasks++ {
 		batch := []string{}
-		for b := 0; b < BATCH_SIZE; b++ {
+		batch_size := BatchSize[modelName]
+		log.Printf("[ Client ][ ModelInference ]Task number: %v; BatchSize: %v", numTasks, batch_size)
+		for b := 0; b < batch_size; b++ {
 			batch = append(batch, filenames[i])
 			i = (i + 1) % len(filenames)
 		}
@@ -256,6 +265,63 @@ func runInferencePeriodically(modelName string, filenames []string) {
 		taskId := QueryModel(modelName, batch)
 		log.Printf("[ Client ][ ModelInference ]Query model %v with inputs %v; TaskId: %v", modelName, batch, taskId)
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(4000 * time.Millisecond)
 	}
+}
+
+func GetAllQueryRates() ([]string, []float32) {
+	client, ctx, conn, cancel := getClientForSchedulerService()
+	defer conn.Close()
+	defer cancel()
+	r, err := client.GetAllQueryRates(ctx, &ss.GetAllQueryRatesRequest{})
+
+	if err != nil {
+		log.Printf("[ Client ][ GetAllTasksOfModel ]GetAllTasksOfModel failed: %v", err)
+		return []string{}, []float32{}
+	}
+
+	return r.GetModelnames(), r.GetQueryrates()
+}
+
+func SetBatchSize(modelname string, batchsize int) int {
+	BatchSize[modelname] = batchsize
+	return BatchSize[modelname]
+}
+
+func GetBatchSize(modelname string) int {
+	return BatchSize[modelname]
+}
+
+func GetQueryCount(modelname string) int {
+	client, ctx, conn, cancel := getClientForSchedulerService()
+	defer conn.Close()
+	defer cancel()
+
+	r, err := client.GetQueryCount(ctx, &ss.GetQueryCountRequest{
+		Modelname: modelname,
+	})
+
+	if err != nil {
+		log.Printf("[ Client ][ GetQueryCount ]Error: %v", err)
+		return -1
+	}
+
+	return int(r.GetQuerycount())
+}
+
+func GetAllWorkersOfModel(modelname string) []string {
+	client, ctx, conn, cancel := getClientForSchedulerService()
+	defer conn.Close()
+	defer cancel()
+
+	r, err := client.GetWorkersOfModel(ctx, &ss.GetWorkersOfModelRequest{
+		Modelname: modelname,
+	})
+
+	if err != nil {
+		log.Printf("[ Client ][ GetQueryCount ]Error: %v", err)
+		return []string{}
+	}
+
+	return r.GetWorkers()
 }

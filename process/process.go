@@ -77,6 +77,9 @@ func Run(port int, udpserverport int, log_process_port int, coordinatorServiceFo
 
 	// Start the UDP server to listen to pings and pongs
 	go StartUdpServer(GetMemberList, udpserverport, wg)
+
+	// initialise the batch size
+	BatchSize = make(map[string]int)
 }
 
 /**

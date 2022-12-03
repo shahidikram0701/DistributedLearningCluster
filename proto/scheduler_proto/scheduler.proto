@@ -11,9 +11,14 @@ service SchedulerService {
     rpc SubmitTask (SubmitTaskRequest) returns (SubmitTaskResponse) {}
     rpc GetAllTasks (GetAllTasksRequest) returns (GetAllTasksResponse) {}
     rpc GetAllTasksOfModel (GetAllTasksOfModelRequest) returns (GetAllTasksOfModelResponse) {}
+    rpc GetAllQueryRates (GetAllQueryRatesRequest) returns (GetAllQueryRatesResponse) {}
+    rpc GetQueryCount (GetQueryCountRequest) returns (GetQueryCountResponse) {}
+    rpc GetWorkersOfModel (GetWorkersOfModelRequest) returns (GetWorkersOfModelResponse) {}
 
     rpc GimmeQuery (GimmeQueryRequest) returns (GimmeQueryResponse) {}
     rpc UpdateQueryStatus (UpdateQueryStatusRequest) returns (UpdateQueryStatusResponse) {}
+
+    rpc SchedulerSync (SchedulerSyncRequest) returns (SchedulerSyncResponse) {}
 }
 
 message DeployModelRequest {
@@ -78,4 +83,35 @@ message UpdateQueryStatusRequest {
 }
 
 message UpdateQueryStatusResponse {
+}
+
+message GetAllQueryRatesRequest {
+}
+
+message GetAllQueryRatesResponse {
+    repeated string modelnames = 1;
+    repeated float queryrates = 2;
+}
+
+message GetQueryCountRequest {
+    string modelname = 1; 
+}
+
+message GetQueryCountResponse {
+    int32 querycount = 1;
+}
+
+message SchedulerSyncRequest {
+    bytes schedulerState = 1;
+}
+
+message SchedulerSyncResponse {
+}
+
+message GetWorkersOfModelRequest {
+    string modelname = 1;
+}
+
+message GetWorkersOfModelResponse {
+    repeated string workers = 1;
 }

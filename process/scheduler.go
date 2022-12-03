@@ -4,6 +4,7 @@ import (
 	"context"
 	"cs425/mp/config"
 	ss "cs425/mp/proto/scheduler_proto"
+	ws "cs425/mp/proto/worker_proto"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type SchedulerServer struct {
@@ -64,10 +66,30 @@ type Model struct {
 	QueryRate    float64
 	CreationTime time.Time
 	Status       ModelStatus
+	QueryCount   int
 }
 
 func (model Model) String() string {
 	return fmt.Sprintf("(ModelName, %v), (ModelId, %v), (Workers, %v), (CreationTime, %v), (Status, %v)", model.Name, model.Id, model.Workers, model.CreationTime, model.Status)
+}
+
+func (state *SchedulerState) IncrementQueryCount(modelId string, processedQueries int) {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	model := state.Models[modelId]
+	model.QueryCount += processedQueries
+
+	state.Models[modelId] = model
+
+	log.Printf("[ Scheduler ][ QueryCount ]Updating query count of model: %v by %v to finally become %v", model.Name, processedQueries, model.QueryCount)
+}
+
+func (state *SchedulerState) GetQueryCount(modelId string) int {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	return state.Models[modelId].QueryCount
 }
 
 type Task struct {
@@ -117,19 +139,19 @@ func (task Task) String() string {
 }
 
 type SchedulerState struct {
-	sync.RWMutex
+	lock                *sync.RWMutex
 	Models              map[string]Model
 	Tasks               map[string]Task     // all the tasks in the system
 	TaskQueue           map[string][]string //model-id to task-id mapping
 	WindowOfTasks       []string
 	IndexIntoMemberList int
 	ModelNameToId       map[string]string
-	TaskTimer           map[string]*time.Timer
+	taskTimer           map[string]*time.Timer
 }
 
 func (state *SchedulerState) GetModelName(modelId string) string {
-	state.RLock()
-	defer state.RUnlock()
+	state.lock.RLock()
+	defer state.lock.RUnlock()
 
 	if _, ok := state.Models[modelId]; !ok {
 		log.Printf("[ Scheduler ][ GetModelName ]Invalid Model Id")
@@ -140,17 +162,33 @@ func (state *SchedulerState) GetModelName(modelId string) string {
 }
 
 func (state *SchedulerState) GetModelId(modelname string) (string, bool) {
-	state.RLock()
-	defer state.RUnlock()
+	state.lock.RLock()
+	defer state.lock.RUnlock()
 
 	modelId, ok := state.ModelNameToId[modelname]
 
 	return modelId, ok
 }
 
+func (state *SchedulerState) GetWorkersOfModel(modelId string) []string {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	workers := []string{}
+
+	for _, worker := range state.Models[modelId].Workers {
+		if memberList.IsNodeAlive(worker) {
+			workers = append(workers, worker)
+		}
+	}
+
+	return workers
+
+}
+
 func (state *SchedulerState) GetAllTasksOfClient(clientId string) []Task {
-	state.RLock()
-	defer state.RUnlock()
+	state.lock.RLock()
+	defer state.lock.RUnlock()
 
 	tasks := []Task{}
 
@@ -164,8 +202,8 @@ func (state *SchedulerState) GetAllTasksOfClient(clientId string) []Task {
 }
 
 func (state *SchedulerState) GetAllTasksOfModelOfClient(modelname string, clientId string) []Task {
-	state.RLock()
-	defer state.RUnlock()
+	state.lock.RLock()
+	defer state.lock.RUnlock()
 
 	tasks := []Task{}
 
@@ -179,8 +217,8 @@ func (state *SchedulerState) GetAllTasksOfModelOfClient(modelname string, client
 }
 
 func (state *SchedulerState) GetQueryRateOfModel(modelId string) float64 {
-	state.RLock()
-	defer state.RUnlock()
+	state.lock.RLock()
+	defer state.lock.RUnlock()
 
 	if _, ok := state.Models[modelId]; !ok {
 		log.Printf("[ Scheduler ][ GetQueryRateOfModel ]Invalid Model Id")
@@ -191,8 +229,8 @@ func (state *SchedulerState) GetQueryRateOfModel(modelId string) float64 {
 }
 
 func (state *SchedulerState) AddModel(modelname string) (string, []string) {
-	state.Lock()
-	defer state.Unlock()
+	state.lock.Lock()
+	defer state.lock.Unlock()
 	conf := config.GetConfig("../../config/config.json")
 
 	modelId := uuid.New().String()
@@ -219,8 +257,8 @@ func (state *SchedulerState) AddModel(modelname string) (string, []string) {
 }
 
 func (state *SchedulerState) QueueTask(modelname string, modelId string, queryinputfiles []string, owner string, creationTime string) string {
-	state.Lock()
-	defer state.Unlock()
+	state.lock.Lock()
+	defer state.lock.Unlock()
 
 	taskId := uuid.New().String()
 	log.Printf("[ Scheduler ][ ModelInference ][ QueueTask ]New taskId for model %v::%v: %v", modelname, modelId, taskId)
@@ -247,8 +285,8 @@ func (state *SchedulerState) QueueTask(modelname string, modelId string, queryin
 }
 
 func (state *SchedulerState) MarkModelAsDeployed(modelId string) {
-	state.Lock()
-	defer state.Unlock()
+	state.lock.Lock()
+	defer state.lock.Unlock()
 
 	if _, ok := state.Models[modelId]; !ok {
 		log.Printf("[ Scheduler ][ MarkModelAsDeployed ]Invalid Model Id")
@@ -262,8 +300,8 @@ func (state *SchedulerState) MarkModelAsDeployed(modelId string) {
 }
 
 func (state *SchedulerState) RemoveModel(modelId string) {
-	state.Lock()
-	defer state.Unlock()
+	state.lock.Lock()
+	defer state.lock.Unlock()
 
 	log.Printf("[]")
 
@@ -277,8 +315,8 @@ func (state *SchedulerState) RemoveModel(modelId string) {
 }
 
 func (state *SchedulerState) GetModelStatus(modelId string) (ModelStatus, bool) {
-	state.RLock()
-	defer state.RUnlock()
+	state.lock.RLock()
+	defer state.lock.RUnlock()
 
 	if _, ok := state.Models[modelId]; !ok {
 		log.Printf("[ Scheduler ][ GetModelStatus ]Invalid Model Id")
@@ -289,8 +327,8 @@ func (state *SchedulerState) GetModelStatus(modelId string) (ModelStatus, bool) 
 }
 
 func (state *SchedulerState) GetNextTaskToBeScheduled(modelId string, workerId string) ([]string, string, bool) {
-	state.Lock()
-	defer state.Unlock()
+	state.lock.Lock()
+	defer state.lock.Unlock()
 
 	log.Printf("[ Scheduler ][ ModelInference ][ GetNextTaskToBeScheduled ]Model: %v; Worker: %v", modelId, workerId)
 	tasksofModel := state.TaskQueue[modelId]
@@ -320,8 +358,8 @@ func (state *SchedulerState) GetNextTaskToBeScheduled(modelId string, workerId s
 }
 
 func (state *SchedulerState) HandleRescheduleOfTask(taskId string) {
-	state.Lock()
-	defer state.Unlock()
+	state.lock.Lock()
+	defer state.lock.Unlock()
 
 	task := state.Tasks[taskId]
 	task.AssignedTo = ""
@@ -334,8 +372,8 @@ func (state *SchedulerState) HandleRescheduleOfTask(taskId string) {
 }
 
 func (state *SchedulerState) MarkTaskComplete(taskId string, outputFiles []string) {
-	state.Lock()
-	defer state.Unlock()
+	state.lock.Lock()
+	defer state.lock.Unlock()
 
 	task := state.Tasks[taskId]
 
@@ -346,13 +384,167 @@ func (state *SchedulerState) MarkTaskComplete(taskId string, outputFiles []strin
 	state.Tasks[taskId] = task
 
 	log.Printf("[ Scheduler ][ ModelInference ][ MarkTaskComplete ]Marked task %v of model %v as complete; Output file: %v", taskId, task.ModelName, outputFiles)
+
+	model := state.Models[task.ModelId]
+	numQueries := len(task.Filenames)
+
+	log.Printf("[ Scheduler ][ ModelInference ][ MarkTaskComplete ]Incrementing the number of queries processed by model %v by %v", model.Name, numQueries)
+
+	model.QueryCount += numQueries
+
+	state.Models[task.ModelId] = model
+}
+
+func (state *SchedulerState) UpdateModelsQueryRates() {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	if len(state.WindowOfTasks) == 0 {
+		return
+	}
+
+	perModelCompletedCounts := map[string]int{}
+	perModelTotal := map[string]int{}
+
+	for modelId := range state.Models {
+		perModelCompletedCounts[modelId] = 0
+		perModelTotal[modelId] = 0
+	}
+
+	for _, taskId := range state.WindowOfTasks {
+		task := state.Tasks[taskId]
+
+		perModelTotal[task.ModelId] += len(task.Filenames)
+
+		if task.Status == Success {
+			perModelCompletedCounts[task.ModelId] += len(task.Filenames)
+		}
+	}
+
+	log.Printf("[ Scheduler ][ UpdateModelsQueryRates ]Completed Tasks: %v", perModelCompletedCounts)
+	log.Printf("[ Scheduler ][ UpdateModelsQueryRates ]Total Tasks: %v", perModelTotal)
+
+	// Clear the window of tasks
+	log.Printf("[ Scheduler ][ UpdateModelsQueryRates ]Clearing the past window of tasks")
+	state.WindowOfTasks = []string{}
+
+	for modelId := range state.Models {
+		model := state.Models[modelId]
+
+		model.QueryRate = float64((float64(perModelCompletedCounts[modelId]) / float64(perModelTotal[modelId])) * 100.0)
+
+		log.Printf("[ Scheduler ][ UpdateModelsQueryRates ]Query Rate of model %v is %v", model.Name, model.QueryRate)
+
+		state.Models[modelId] = model
+	}
+
+	// Check if need to deploy another model
+	for modelId := range state.Models {
+		for modelId2 := range state.Models {
+			if modelId == modelId2 {
+				continue
+			}
+			qr1 := state.Models[modelId].QueryRate
+			qr2 := state.Models[modelId2].QueryRate
+
+			if qr2 > qr1 && (qr2-qr1) >= 20 {
+				// deploy a new copy of the model
+				go addNewWorker(modelId)
+				break
+			}
+		}
+	}
+}
+
+func (state *SchedulerState) addNewWorkerForModel(modelId string, worker string) {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	model := state.Models[modelId]
+	model.Workers = append(model.Workers, worker)
+
+	log.Printf("[ Scheduler ][ AddNewWorker ]Added new worker %v for the model %v", worker, model.Name)
+
+	state.Models[modelId] = model
+}
+
+func (state *SchedulerState) getAllQueryRates() ([]string, []float32) {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	models := []string{}
+	queryRates := []float32{}
+
+	for modelId := range state.Models {
+		model := state.Models[modelId]
+		models = append(models, model.Name)
+		queryRates = append(queryRates, float32(model.QueryRate))
+	}
+
+	return models, queryRates
+}
+
+func (state *SchedulerState) GetSnapOfSchedulerState() []byte {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Sending snap of the state: %v", *state)
+
+	serialisedState, err := json.Marshal(*state)
+	if err != nil {
+		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Error Marshalling the state: %v", err)
+		return nil
+	}
+
+	log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Snap of the state: %v", string(serialisedState))
+
+	return serialisedState
+}
+
+func (state *SchedulerState) SetSchedulerState(newState *SchedulerState) {
+	state.lock.Lock()
+	defer state.lock.Unlock()
+
+	state.Models = newState.Models
+	state.Tasks = newState.Tasks
+	state.TaskQueue = newState.TaskQueue
+	state.WindowOfTasks = newState.WindowOfTasks
+	state.IndexIntoMemberList = newState.IndexIntoMemberList
+	state.ModelNameToId = newState.ModelNameToId
+
+	// should handle timers?
+}
+
+func addNewWorker(modelId string) {
+	// select a new random worker
+	newWorker := memberList.GetRandomNode()
+
+	log.Printf("[ Scheduler ][ AddNewWorker ]Adding new worker: %v for model: %v", newWorker, modelId)
+
+	client, ctx, conn, cancel := getClientForWorkerService(newWorker)
+
+	defer conn.Close()
+	defer cancel()
+
+	log.Printf("[ Client ][ AddNewWorker ]Setting up the model on the worker: %v", newWorker)
+
+	r, err := client.SetupModel(ctx, &ws.SetupModelRequest{
+		ModelId: modelId,
+	})
+	if err != nil {
+		log.Printf("[ Client ][ AddNewWorker ]Error setting up the model: %v", err)
+	} else if !r.GetStatus() {
+		log.Printf("[ Client ][ AddNewWorker ]Setting up of model instance on the new worker %v FAILED", newWorker)
+	} else {
+		schedulerState.addNewWorkerForModel(modelId, newWorker)
+	}
 }
 
 func handleTaskExecutionTimeout(taskid string, modelId string, workerId string) {
 	log.Printf("[Scheduler][ ModelInference ][ handleTaskExecutionTimeout ]Setting timer to handle task execution timeout")
 	conf := config.GetConfig("../../config/config.json")
-	schedulerState.TaskTimer[taskid] = time.NewTimer(time.Duration(conf.TaskExecutionTimeout) * time.Second)
-	<-schedulerState.TaskTimer[taskid].C
+	schedulerState.taskTimer[taskid] = time.NewTimer(time.Duration(conf.TaskExecutionTimeout) * time.Second)
+	<-schedulerState.taskTimer[taskid].C
 
 	modelname := schedulerState.GetModelName(modelId)
 
@@ -364,14 +556,17 @@ func handleTaskExecutionTimeout(taskid string, modelId string, workerId string) 
 func StartSchedulerService(schedulerServicePort int, wg *sync.WaitGroup) {
 	// Initialise the state of the scheduler
 	schedulerState = &SchedulerState{
+		lock:                &sync.RWMutex{},
 		Models:              make(map[string]Model),
 		Tasks:               make(map[string]Task),
 		TaskQueue:           make(map[string][]string),
 		WindowOfTasks:       []string{},
 		IndexIntoMemberList: 0,
 		ModelNameToId:       make(map[string]string),
-		TaskTimer:           make(map[string]*time.Timer),
+		taskTimer:           make(map[string]*time.Timer),
 	}
+	go queryRateMonitor()
+	go SchedulerService_SyncWithSchedulerReplicas(wg)
 	SchedulerService_IDunno(schedulerServicePort, wg)
 }
 
@@ -452,7 +647,7 @@ func (s *SchedulerServer) UpdateQueryStatus(ctx context.Context, in *ss.UpdateQu
 	log.Printf("[ Scheduler ][ ModelInference ][ UpdateQueryStatus ]Task %v completed with output file stored as %v", taskId, outputfiles)
 
 	// Stopping the timer
-	schedulerState.TaskTimer[taskId].Stop()
+	schedulerState.taskTimer[taskId].Stop()
 
 	if len(outputfiles) == 0 {
 		schedulerState.HandleRescheduleOfTask(taskId)
@@ -521,4 +716,143 @@ func (s *SchedulerServer) GetAllTasksOfModel(ctx context.Context, in *ss.GetAllT
 	log.Fatalf("[ Scheduler ][ GetAllTasks ]Serialization of the tasks object failed")
 	return &ss.GetAllTasksOfModelResponse{}, errors.New("Serialization of the tasks object failed")
 
+}
+
+func (s *SchedulerServer) GetAllQueryRates(ctx context.Context, in *ss.GetAllQueryRatesRequest) (*ss.GetAllQueryRatesResponse, error) {
+	log.Printf("[ Scheduler ][ GetAllQueryRates ]")
+	models, queryRates := schedulerState.getAllQueryRates()
+	log.Printf("[ Scheduler ][ GetAllQueryRates ]models: %v; queryRates: %v", models, queryRates)
+	return &ss.GetAllQueryRatesResponse{
+		Modelnames: models,
+		Queryrates: queryRates,
+	}, nil
+}
+
+func queryRateMonitor() {
+	conf := config.GetConfig("../../config/config.json")
+	for {
+		schedulerState.UpdateModelsQueryRates()
+		time.Sleep(time.Duration(conf.QueryMonitorInterval) * time.Second)
+	}
+}
+
+func (s *SchedulerServer) GetQueryCount(ctx context.Context, in *ss.GetQueryCountRequest) (*ss.GetQueryCountResponse, error) {
+	modelname := in.GetModelname()
+
+	modelId, ok := schedulerState.GetModelId(modelname)
+	if !ok {
+		return &ss.GetQueryCountResponse{}, errors.New("Model doesnt exist")
+	}
+	querycount := schedulerState.GetQueryCount(modelId)
+
+	log.Printf("[ Scheduler ][ GetQueryCount ]Query Count of model: %v is %v", modelname, querycount)
+
+	return &ss.GetQueryCountResponse{
+		Querycount: int32(querycount),
+	}, nil
+}
+
+func (s *SchedulerServer) SchedulerSync(ctx context.Context, in *ss.SchedulerSyncRequest) (*ss.SchedulerSyncResponse, error) {
+	var newState SchedulerState
+	unmarshallingError := json.Unmarshal(in.SchedulerState, &newState)
+	if unmarshallingError != nil {
+		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Error while unmarshalling the received state: %v\n", unmarshallingError)
+
+		return &ss.SchedulerSyncResponse{}, errors.New("Unmarshalling error")
+	}
+	log.Printf("[ Scheduler ][ Scheduler Synchronisation ] Received State: %v", newState)
+	schedulerState.SetSchedulerState(&newState)
+
+	return &ss.SchedulerSyncResponse{}, nil
+}
+
+func (s *SchedulerServer) GetWorkersOfModel(ctx context.Context, in *ss.GetWorkersOfModelRequest) (*ss.GetWorkersOfModelResponse, error) {
+	modelname := in.GetModelname()
+
+	log.Printf("[ Scheduler ][ GetWorkersOfModel ]Getting workers of the model: %v", modelname)
+
+	modelId, ok := schedulerState.GetModelId(modelname)
+
+	if !ok {
+		log.Printf("[ Scheduler ][ GetWorkersOfModel ]Modelname is invalid")
+		return &ss.GetWorkersOfModelResponse{}, errors.New("Model not found")
+	}
+
+	workers := schedulerState.GetWorkersOfModel(modelId)
+
+	log.Printf("[ Scheduler ][ GetWorkersOfModel ]Workers of the model %v are %v", modelname, workers)
+
+	return &ss.GetWorkersOfModelResponse{
+		Workers: workers,
+	}, nil
+}
+
+func SchedulerService_SyncWithSchedulerReplicas(wg *sync.WaitGroup) {
+	conf := config.GetConfig("../../config/config.json")
+
+	for {
+		if memberList == nil {
+			continue
+		}
+		currentCoordinator := memberList.GetCoordinatorNode()
+		myIpAddr := coordinatorState.myIpAddr
+
+		if currentCoordinator == myIpAddr {
+			// fmt.Printf("[ Coordinator ][ Replica Recovery ]")
+			log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Initialising\n")
+			syncWithSchedulerReplicas()
+		}
+		time.Sleep(time.Duration(conf.SchedulerSyncTimer) * time.Second)
+	}
+}
+
+func syncWithSchedulerReplicas() {
+	allSchedulers := memberList.GetAllCoordinators()
+
+	for _, scheduler := range allSchedulers {
+		if scheduler == coordinatorState.myIpAddr {
+			continue
+		}
+		sendStateSnapToBackupScheduler(scheduler)
+	}
+}
+
+func sendStateSnapToBackupScheduler(scheduler string) bool {
+	conf := config.GetConfig("../../config/config.json")
+	schedulerAddr := fmt.Sprintf("%v:%v", scheduler, conf.SchedulerPort)
+
+	log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Sending snap of my state to: %v", schedulerAddr)
+	conn, err := grpc.Dial(schedulerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	if err != nil {
+		// If the connection fails to the picked coordinator node, retry connection to another node
+		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Failed to establish connection with the scheduler: %v", err)
+		return false
+	}
+
+	// defer conn.Close()
+
+	// Initialise a client to connect to the coordinator process
+	s := ss.NewSchedulerServiceClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// defer cancel()
+
+	defer conn.Close()
+	defer cancel()
+
+	snap := schedulerState.GetSnapOfSchedulerState()
+	if snap == nil {
+		return false
+	}
+	_, err = s.SchedulerSync(ctx, &ss.SchedulerSyncRequest{
+		SchedulerState: snap,
+	})
+	if err != nil {
+		// may be service process is down
+		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Failed oopsss")
+		return false
+	}
+	log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Successfully sent the state - %v to the backup scheduler %v", snap, scheduler)
+	return true
 }
