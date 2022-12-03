@@ -399,9 +399,9 @@ func queryTheModel(port int, queryinputfile string, taskId string) (string, bool
 
 	queryinputfilepath := fmt.Sprintf("%v/%v/%v-1", conf.OutputDataFolder, queryinputfile, queryinputfile)
 
-	toSend := fmt.Sprintf("%v_%v#%v", taskId, time.Now().UnixNano(), queryinputfile)
+	toSend := fmt.Sprintf("%v_%v#%v", taskId, time.Now().UnixNano(), queryinputfilepath)
 
-	log.Printf("[ Worker ][ InferenceModel ]Query Input File Path: %v", queryinputfilepath)
+	log.Printf("[ Worker ][ InferenceModel ]Query Input File Path: %v", toSend)
 	_, err = conn.Write([]byte(toSend))
 
 	if err != nil {
