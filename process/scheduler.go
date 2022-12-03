@@ -85,11 +85,19 @@ func (state *SchedulerState) IncrementQueryCount(modelId string, processedQuerie
 	log.Printf("[ Scheduler ][ QueryCount ]Updating query count of model: %v by %v to finally become %v", model.Name, processedQueries, model.QueryCount)
 }
 
-func (state *SchedulerState) GetQueryCount(modelId string) int {
+func (state *SchedulerState) GetQueryCounts() ([]string, []int32) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
-	return state.Models[modelId].QueryCount
+	modelnames := []string{}
+	querycounts := []int32{}
+
+	for modelId := range state.Models {
+		modelnames = append(modelnames, state.Models[modelId].Name)
+		querycounts = append(querycounts, int32(state.Models[modelId].QueryCount))
+	}
+
+	return modelnames, querycounts
 }
 
 type Task struct {
@@ -431,7 +439,11 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 	for modelId := range state.Models {
 		model := state.Models[modelId]
 
-		model.QueryRate = float64((float64(perModelCompletedCounts[modelId]) / float64(perModelTotal[modelId])) * 100.0)
+		if perModelTotal[modelId] > 0 {
+			model.QueryRate = float64((float64(perModelCompletedCounts[modelId]) / float64(perModelTotal[modelId])) * 100.0)
+		} else {
+			model.QueryRate = 0.0
+		}
 
 		log.Printf("[ Scheduler ][ UpdateModelsQueryRates ]Query Rate of model %v is %v", model.Name, model.QueryRate)
 
@@ -449,6 +461,12 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 
 			if qr2 > qr1 && (qr2-qr1) >= 20 {
 				// deploy a new copy of the model
+				fmt.Printf("\n\t[ Scheduler ][ UpdateModelsQueryRates ]Query Rate Drop! %v: %v | %v: %v\n", state.Models[modelId].Name, state.Models[modelId].QueryRate, state.Models[modelId2].Name, state.Models[modelId2].QueryRate)
+
+				if len(state.Models[modelId].Workers) == 9 {
+					fmt.Printf("\t[ Scheduler ][ UpdateModelsQueryRates ]Model %v already has max number of workers\n", state.Models[modelId].Name)
+					break
+				}
 				go addNewWorker(modelId)
 				break
 			}
@@ -463,7 +481,7 @@ func (state *SchedulerState) addNewWorkerForModel(modelId string, worker string)
 	model := state.Models[modelId]
 	model.Workers = append(model.Workers, worker)
 
-	log.Printf("[ Scheduler ][ AddNewWorker ]Added new worker %v for the model %v", worker, model.Name)
+	fmt.Printf("\t[ Scheduler ][ AddNewWorker ]Added new worker %v for the model %v\n", worker, model.Name)
 
 	state.Models[modelId] = model
 }
@@ -515,26 +533,47 @@ func (state *SchedulerState) SetSchedulerState(newState *SchedulerState) {
 	// should handle timers?
 }
 
+func (state *SchedulerState) CheckIfAlreadyAWorker(modelId string, workerId string) bool {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	for _, worker := range state.Models[modelId].Workers {
+		if worker == workerId {
+			return true
+		}
+	}
+
+	return false
+}
+
 func addNewWorker(modelId string) {
 	// select a new random worker
 	newWorker := memberList.GetRandomNode()
-
-	log.Printf("[ Scheduler ][ AddNewWorker ]Adding new worker: %v for model: %v", newWorker, modelId)
+	retry := 0
+	for retry < 3 && schedulerState.CheckIfAlreadyAWorker(modelId, newWorker) {
+		newWorker = memberList.GetRandomNode()
+		retry++
+	}
+	if retry == 3 {
+		return
+	}
+	modelname := schedulerState.GetModelName(modelId)
+	fmt.Printf("\t[ Scheduler ][ AddNewWorker ]Adding new worker: %v for model: %v\n", newWorker, modelname)
 
 	client, ctx, conn, cancel := getClientForWorkerService(newWorker)
 
 	defer conn.Close()
 	defer cancel()
 
-	log.Printf("[ Client ][ AddNewWorker ]Setting up the model on the worker: %v", newWorker)
+	log.Printf("[ Scheduler ][ AddNewWorker ]Setting up the model on the worker: %v", newWorker)
 
 	r, err := client.SetupModel(ctx, &ws.SetupModelRequest{
 		ModelId: modelId,
 	})
 	if err != nil {
-		log.Printf("[ Client ][ AddNewWorker ]Error setting up the model: %v", err)
+		fmt.Printf("\t[ Scheduler ][ AddNewWorker ]Error setting up the model: %v\n", err)
 	} else if !r.GetStatus() {
-		log.Printf("[ Client ][ AddNewWorker ]Setting up of model instance on the new worker %v FAILED", newWorker)
+		fmt.Printf("\t[ Scheduler ][ AddNewWorker ]Setting up of model instance %v on the new worker %v FAILED\n", modelname, newWorker)
 	} else {
 		schedulerState.addNewWorkerForModel(modelId, newWorker)
 	}
@@ -737,18 +776,13 @@ func queryRateMonitor() {
 }
 
 func (s *SchedulerServer) GetQueryCount(ctx context.Context, in *ss.GetQueryCountRequest) (*ss.GetQueryCountResponse, error) {
-	modelname := in.GetModelname()
+	modelnames, querycounts := schedulerState.GetQueryCounts()
 
-	modelId, ok := schedulerState.GetModelId(modelname)
-	if !ok {
-		return &ss.GetQueryCountResponse{}, errors.New("Model doesnt exist")
-	}
-	querycount := schedulerState.GetQueryCount(modelId)
-
-	log.Printf("[ Scheduler ][ GetQueryCount ]Query Count of model: %v is %v", modelname, querycount)
+	log.Printf("[ Scheduler ][ GetQueryCount ]Query Count of models: %v are %v", modelnames, querycounts)
 
 	return &ss.GetQueryCountResponse{
-		Querycount: int32(querycount),
+		Modelnames: modelnames,
+		Querycount: querycounts,
 	}, nil
 }
 

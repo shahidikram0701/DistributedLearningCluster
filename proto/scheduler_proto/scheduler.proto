@@ -94,11 +94,11 @@ message GetAllQueryRatesResponse {
 }
 
 message GetQueryCountRequest {
-    string modelname = 1; 
 }
 
 message GetQueryCountResponse {
-    int32 querycount = 1;
+    repeated string modelnames = 1;
+    repeated int32 querycount = 2;
 }
 
 message SchedulerSyncRequest {

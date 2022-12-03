@@ -292,21 +292,19 @@ func GetBatchSize(modelname string) int {
 	return BatchSize[modelname]
 }
 
-func GetQueryCount(modelname string) int {
+func GetQueryCount() ([]string, []int32) {
 	client, ctx, conn, cancel := getClientForSchedulerService()
 	defer conn.Close()
 	defer cancel()
 
-	r, err := client.GetQueryCount(ctx, &ss.GetQueryCountRequest{
-		Modelname: modelname,
-	})
+	r, err := client.GetQueryCount(ctx, &ss.GetQueryCountRequest{})
 
 	if err != nil {
 		log.Printf("[ Client ][ GetQueryCount ]Error: %v", err)
-		return -1
+		return []string{}, []int32{}
 	}
 
-	return int(r.GetQuerycount())
+	return r.GetModelnames(), r.GetQuerycount()
 }
 
 func GetAllWorkersOfModel(modelname string) []string {

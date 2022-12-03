@@ -232,15 +232,12 @@ func main() {
 
 			fmt.Println("New Batch Size: ", newbatchsize)
 
-		case "get-querycount":
-			if len(parsedCommand) <= 1 {
-				fmt.Printf("\n\tSpecify model name")
-				continue
-			}
-			modelname := parsedCommand[1]
-			querycount := process.GetQueryCount(modelname)
+		case "get-querycounts":
+			models, querycounts := process.GetQueryCount()
 
-			fmt.Printf("Query count of model %v is %v\n", modelname, querycount)
+			for idx, model := range models {
+				fmt.Printf("Model Name: %v\tQuery Count: %v\n", model, querycounts[idx])
+			}
 
 		case "get-workers":
 			if len(parsedCommand) <= 1 {
