@@ -601,7 +601,25 @@ func (state *SchedulerState) SetSchedulerState(models map[string]Model, tasks ma
 	state.IndexIntoMemberList = int(idx)
 	state.ModelNameToId = modelNameId
 
-	// should handle timers?
+	log.Printf("[ Scheduler ][ Scheduler Synchornisation ]Setting scheduler state")
+	newTaskQueue := make(map[string]*ModelTasks)
+
+	for taskid := range tasks {
+		task := tasks[taskid]
+		if task.Status == Ready {
+			if _, ok := newTaskQueue[task.ModelId]; !ok {
+				newTaskQueue[task.ModelId] = &ModelTasks{
+					lock:  &sync.RWMutex{},
+					tasks: []string{},
+				}
+			}
+			newTaskQueue[task.ModelId].tasks = append(newTaskQueue[task.ModelId].tasks, taskid)
+		}
+	}
+	state.TaskQueue = newTaskQueue
+	log.Printf("[ Scheduler ][ Scheduler Synchornisation ]DONE Setting scheduler state")
+
+	// can start timer for each of the pending tasks;
 }
 
 func (state *SchedulerState) CheckIfAlreadyAWorker(modelId string, workerId string) bool {
@@ -919,7 +937,7 @@ func (s *SchedulerServer) SchedulerSync(ctx context.Context, in *ss.SchedulerSyn
 	idx := in.GetIndexIntoMemberList()
 
 	log.Printf("[ Scheduler ][ Scheduler Synchronisation ] Received State")
-	schedulerState.SetSchedulerState(models, tasks, modelNameId, idx)
+	go schedulerState.SetSchedulerState(models, tasks, modelNameId, idx)
 
 	return &ss.SchedulerSyncResponse{}, nil
 }
@@ -993,7 +1011,7 @@ func sendStateSnapToBackupScheduler(scheduler string) bool {
 	// Initialise a client to connect to the coordinator process
 	s := ss.NewSchedulerServiceClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	// defer cancel()
 
 	defer conn.Close()

@@ -378,7 +378,7 @@ func pollSchedulerForQueries(modelId string) {
 				resultfilename, queryStatus := processQuery(modelId, r.GetTaskId(), queryinputfile)
 
 				if resultfilename == "" {
-					fmt.Println("Result filename is empty")
+					// fmt.Println("Result filename is empty")
 					taskSuccess = false
 					break
 				}
