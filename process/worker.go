@@ -372,12 +372,15 @@ func pollSchedulerForQueries(modelId string) {
 		} else {
 			log.Printf("[ Worker ][ ModelInference ][ pollSchedulerForQueries ]Query to execute: model:%v:::Task:%v:::Inputs:%v", modelId, r.GetTaskId(), r.GetQueryinputfiles())
 			resultfilenames := []string{}
+			taskSuccess := true
 
 			for _, queryinputfile := range r.GetQueryinputfiles() {
 				resultfilename, queryStatus := processQuery(modelId, r.GetTaskId(), queryinputfile)
 
 				if resultfilename == "" {
 					fmt.Println("Result filename is empty")
+					taskSuccess = false
+					break
 				}
 
 				log.Printf("[ Worker ][ ModelInference ][ pollSchedulerForQueries ]Status of the query of file: %v -> %v; Result of the query stored in the filename: %v", queryinputfile, queryStatus, resultfilenames)
@@ -385,7 +388,7 @@ func pollSchedulerForQueries(modelId string) {
 				resultfilenames = append(resultfilenames, resultfilename)
 			}
 
-			go informSchedulerOfQueryExecution(modelId, r.GetTaskId(), resultfilenames)
+			go informSchedulerOfQueryExecution(modelId, r.GetTaskId(), resultfilenames, taskSuccess)
 
 			conn.Close()
 			cancel()
@@ -507,7 +510,7 @@ func queryTheModel(port int, queryinputfile string, taskId string) (string, bool
 	return string(outfile), true
 }
 
-func informSchedulerOfQueryExecution(modelId string, taskId string, filenames []string) {
+func informSchedulerOfQueryExecution(modelId string, taskId string, filenames []string, taskSuccess bool) {
 	client, ctx, conn, cancel := getClientForSchedulerService()
 	defer conn.Close()
 	defer cancel()
@@ -515,6 +518,7 @@ func informSchedulerOfQueryExecution(modelId string, taskId string, filenames []
 	_, err := client.UpdateQueryStatus(ctx, &ss.UpdateQueryStatusRequest{
 		TaskId:          taskId,
 		Outputfilenames: filenames,
+		Status:          taskSuccess,
 	})
 
 	if err != nil {

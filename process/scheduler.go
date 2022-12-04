@@ -703,7 +703,7 @@ func (s *SchedulerServer) UpdateQueryStatus(ctx context.Context, in *ss.UpdateQu
 	// Stopping the timer
 	schedulerState.taskTimer[taskId].Stop()
 
-	if len(outputfiles) == 0 {
+	if len(outputfiles) == 0 || !in.Status {
 		schedulerState.HandleRescheduleOfTask(taskId)
 	} else {
 		schedulerState.MarkTaskComplete(taskId, outputfiles)

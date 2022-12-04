@@ -81,6 +81,7 @@ message GetAllTasksOfModelResponse {
 message UpdateQueryStatusRequest {
     string taskId = 1;
     repeated string outputfilenames = 2 ;
+    bool status = 3;
 }
 
 message UpdateQueryStatusResponse {
