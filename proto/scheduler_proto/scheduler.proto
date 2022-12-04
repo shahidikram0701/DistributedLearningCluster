@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package process;
+
+option go_package = "cs425/mp/process";
+
+// The Scheduler service
+service SchedulerService {
+    rpc DeployModel (DeployModelRequest) returns (DeployModelReply) {}
+    rpc DeployModelAck (DeployModelAckRequest) returns (DeployModelAckReply) {}
+    rpc SubmitTask (SubmitTaskRequest) returns (SubmitTaskResponse) {}
+    rpc GetAllTasks (GetAllTasksRequest) returns (GetAllTasksResponse) {}
+    rpc GetAllTasksOfModel (GetAllTasksOfModelRequest) returns (GetAllTasksOfModelResponse) {}
+    rpc GetAllQueryRates (GetAllQueryRatesRequest) returns (GetAllQueryRatesResponse) {}
+    rpc GetQueryCount (GetQueryCountRequest) returns (GetQueryCountResponse) {}
+    rpc GetWorkersOfModel (GetWorkersOfModelRequest) returns (GetWorkersOfModelResponse) {}
+
+    rpc GimmeQuery (GimmeQueryRequest) returns (GimmeQueryResponse) {}
+    rpc UpdateQueryStatus (UpdateQueryStatusRequest) returns (UpdateQueryStatusResponse) {}
+    rpc GimmeModels (GimmeModelsRequest) returns (GimmeModelsResponse) {}
+
+    rpc SchedulerSync (SchedulerSyncRequest) returns (SchedulerSyncResponse) {}
+}
+
+message DeployModelRequest {
+    string modelname = 1;
+}
+
+message DeployModelReply {
+    repeated string workers = 1;
+    string modelId = 2;
+}
+
+message DeployModelAckRequest {
+    string modelId = 1;
+    bool status = 2;
+}
+
+message DeployModelAckReply {
+}
+
+message SubmitTaskRequest {
+    string modelname = 1;
+    repeated string queryinputfiles = 2;
+    string owner = 3;
+    string creationtime = 4;
+}
+
+message SubmitTaskResponse {
+    string taskId = 1;
+}
+
+message GimmeQueryRequest {
+    string modelId = 1;
+    string workerId = 2;
+}
+
+message GimmeQueryResponse {
+    bool status = 1;
+    string taskId = 2;
+    repeated string queryinputfiles = 3;
+}
+
+message GetAllTasksRequest {
+    string owner = 1;
+}
+
+message GetAllTasksResponse {
+    bytes tasks = 1;
+}
+
+message GetAllTasksOfModelRequest {
+    string owner = 1;
+    string modelname = 2;
+}
+
+message GetAllTasksOfModelResponse {
+    bytes tasks = 1;
+}
+
+message UpdateQueryStatusRequest {
+    string taskId = 1;
+    repeated string outputfilenames = 2 ;
+    bool status = 3;
+}
+
+message UpdateQueryStatusResponse {
+}
+
+message GetAllQueryRatesRequest {
+}
+
+message GetAllQueryRatesResponse {
+    repeated string modelnames = 1;
+    repeated float queryrates = 2;
+}
+
+message GetQueryCountRequest {
+}
+
+message GetQueryCountResponse {
+    repeated string modelnames = 1;
+    repeated int32 querycount = 2;
+}
+
+message SchedulerSyncRequest {
+    bytes models = 1;
+    bytes tasks = 2;
+    bytes modelNameToId = 3;
+    int32 indexIntoMemberList = 4;
+}
+
+message SchedulerSyncResponse {
+}
+
+message GetWorkersOfModelRequest {
+    string modelname = 1;
+}
+
+message GetWorkersOfModelResponse {
+    repeated string workers = 1;
+}
+
+message GimmeModelsRequest {
+}
+
+message GimmeModelsResponse {
+    repeated string models = 1;
+}

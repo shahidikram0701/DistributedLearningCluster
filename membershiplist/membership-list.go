@@ -151,7 +151,16 @@ func (ml *MembershipList) Len() int {
 * Method to get the membership list
  */
 func (ml *MembershipList) GetList() []MembershipListItem {
-	return ml.items
+	ml.RLock()
+	defer ml.RUnlock()
+
+	items := []MembershipListItem{}
+
+	for _, i := range ml.items {
+		items = append(items, i)
+	}
+
+	return items
 }
 
 /**
@@ -367,6 +376,19 @@ func (ml *MembershipList) GetCoordinatorNode() string {
 		}
 	}
 	return ""
+}
+
+func (ml *MembershipList) IsCoordinatorNode(ip string) bool {
+	ml.RLock()
+	defer ml.RUnlock()
+
+	for _, value := range ml.items {
+		if strings.Split(value.Id, ":")[0] == ip && value.IsCoordinator {
+			return true
+		}
+	}
+	return false
+
 }
 
 func (ml *MembershipList) GetAllCoordinators() []string {

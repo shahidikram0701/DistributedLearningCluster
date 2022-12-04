@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package process;
+
+option go_package = "cs425/mp/process";
+
+// The Worker service
+service WorkerService {
+    rpc SetupModel (SetupModelRequest) returns (SetupModelReply) {}
+
+    rpc RunModel (RunModelRequest) returns (RunModelResponse) {}
+}
+
+message SetupModelRequest {
+    string modelId = 1;
+}
+
+message SetupModelReply {
+    bool status = 1;
+}
+
+message RunModelRequest {
+    string modelId = 1;
+}
+
+message RunModelResponse {
+    bool status = 1;
+}

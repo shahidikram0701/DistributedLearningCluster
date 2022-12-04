@@ -42,7 +42,7 @@ var (
 // Timeout for when a put/delete should be abandoned after
 // acknowledging to the client about the write quorum attained
 var (
-	COMMIT_TIMEOUT = 5 // second
+	COMMIT_TIMEOUT = 10 // second
 )
 
 /**
@@ -120,7 +120,7 @@ func (state *DataNodeState) dataNode_AddSequenceNumber(filename string, seqNum i
 
 	_, ok := state.sequenceNumber[filename]
 	if ok {
-		log.Fatalf("[ DataNode ][ Replica Recovery ]Already contains the sequence number for the file %v", filename)
+		log.Printf("[ DataNode ][ Replica Recovery ]Already contains the sequence number for the file %v", filename)
 
 		return false
 	}
@@ -384,7 +384,7 @@ func (s *DataNodeServer) DataNode_UpdateSequenceNumber(ctx context.Context, in *
 	if newLocalSequenceNumber == int(newSequenceNumber) {
 		log.Printf("[ DataNode ]Upating Sequence Number for file %v: Sequence numbers match: %v", filename, newSequenceNumber)
 	} else {
-		log.Fatalf("[ DataNode ]Updating Sequence Number for file %v: Sequence number for the file on the node is misaligned. Replica sequence number: %v whereas it should be: %v", filename, newLocalSequenceNumber, newSequenceNumber)
+		log.Printf("[ DataNode ]Updating Sequence Number for file %v: Sequence number for the file on the node is misaligned. Replica sequence number: %v whereas it should be: %v", filename, newLocalSequenceNumber, newSequenceNumber)
 	}
 
 	return &dn.DataNode_UpdateSequenceNumberResponse{}, nil
@@ -730,6 +730,11 @@ func dataNode_SendFileToReplica(replica string, filename string, allChunks []*dn
 		chunk.IsReplicaChunk = true
 		req := chunk
 		log.Printf("[ Primary Replica ][ Replicate ]Replicate chunk %v of file: %v to replica: %v", req.ChunkId, filename, replica)
+		if stream == nil {
+			log.Printf("[ Primary Replica ][ Replicate ]Replicate chunk %v of file: %v to replica: %v FAILED", req.ChunkId, filename, replica)
+			replicaChannel <- false
+			return
+		}
 		e := stream.Send(req)
 		if e != nil {
 			log.Printf("[ Primary Replica ][ Replicate ]Cannot send chunk %v of file %v to replica: %v --- %v", req.ChunkId, filename, replica, e)
@@ -754,7 +759,8 @@ func dataNode_SendFileToReplica(replica string, filename string, allChunks []*dn
  */
 func dataNodeService_CommitFileChanges(filename string, sequenceNumberForOperation int) (bool, int) {
 	if dataNodeState.dataNode_GetSequenceNumber(filename) > sequenceNumberForOperation {
-		log.Fatalf("Sequence number has gone ahead at the server!! (DataNodeSequence Number: %v, SequenceForOperation: %v)", dataNodeState.dataNode_GetSequenceNumber(filename), sequenceNumberForOperation)
+		log.Printf("Sequence number has gone ahead at the server!! (DataNodeSequence Number: %v, SequenceForOperation: %v)", dataNodeState.dataNode_GetSequenceNumber(filename), sequenceNumberForOperation)
+		return false, -1
 	}
 	// wait until sequence number
 	for dataNodeState.dataNode_GetSequenceNumber(filename) != sequenceNumberForOperation {
@@ -926,7 +932,7 @@ func sendFileToClient(filename string, version int, stream dn.DataNodeService_Da
 	file, err := os.Open(filePath)
 
 	if err != nil {
-		log.Fatalf("cannot open File: %v - %v", filePath, err)
+		log.Printf("cannot open File: %v - %v", filePath, err)
 		return errors.New("[ Primary Replica ][ GetFile ]Cannot open the file: " + filename)
 
 	}

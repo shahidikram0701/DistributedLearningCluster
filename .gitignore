@@ -10,3 +10,8 @@ sdfs/
 outdata/
 tmp/
 .DS_Store
+temp_model/
+*.pth
+*.jpeg
+models/model*
+sdfs_models/

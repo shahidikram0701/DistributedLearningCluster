@@ -68,10 +68,10 @@ func main() {
 	introAddr := fmt.Sprintf("%s:%d", configuration.IntroducerAddress, configuration.IntroducerPort)
 
 	// Start the process
-	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorServiceLoggerPort, configuration.CoordinatorServiceSDFSPort, configuration.DataNodeServiceSDFSPort, wg, introAddr, *devmode, outboundIp)
+	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorServiceLoggerPort, configuration.CoordinatorServiceSDFSPort, configuration.DataNodeServiceSDFSPort, wg, introAddr, *devmode, outboundIp, configuration.SchedulerPort, configuration.WorkerPort)
 
 	for {
-		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - search-logs <query> (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put <localfilename> <sdfsfilename>\n\t - get <sdfsfilename> <localfilename>\n\t - delete <sdfsfilename>\n\t - ls <sdfsfilename>\n\t - store\n\t - get-versions <sdfsfilename> <numVersions> <localfilename>\n\n\t: ")
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - search-logs <query> (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put <localfilename> <sdfsfilename>\n\t - get <sdfsfilename> <localfilename>\n\t - delete <sdfsfilename>\n\t - ls <sdfsfilename>\n\t - store\n\t - get-versions <sdfsfilename> <numVersions> <localfilename>\n\n\tIDunno commands\n\n\t - deploy-model <modelname>\n\t - query-model <modelname> <queryinputfilename>\n\t - start-inference <modelname> <numinputfiles> <files...>\n\t - get-tasks\n\t - get-model-tasks <modelname>\n\t - get-queryrates\n\t - get-batchsize <modelname>\n\t - set-batchsize <modelname> <batchsize>\n\t - get-querycounts\n\t - get-workers <modelname>\n\n\t: ")
 
 		inputReader := bufio.NewReader(os.Stdin)
 		command, _ := inputReader.ReadString('\n')
@@ -120,7 +120,7 @@ func main() {
 			filename := parsedCommand[1]
 			localfilename := parsedCommand[2]
 			start := time.Now()
-			status := process.GetFile(filename, localfilename)
+			status := process.GetFile(filename, localfilename, false)
 			fmt.Printf("Status: %v\tTime taken: %v\n\t", status, time.Since(start).Seconds())
 
 		case "delete":
@@ -153,6 +153,102 @@ func main() {
 			}
 			query := parsedCommand[1]
 			process.SendLogQueryRequest(configuration.CoordinatorServiceLoggerPort, query)
+
+		case "deploy-model":
+			if len(parsedCommand) <= 1 {
+				fmt.Printf("\n\tSpecify model name")
+				continue
+			}
+			modelname := parsedCommand[1]
+			start := time.Now()
+			fmt.Printf("Status: %v\t Time Taken: %vs\n\t;", process.DeployModel(modelname), time.Since(start).Seconds())
+
+		case "query-model":
+			if len(parsedCommand) <= 2 {
+				fmt.Printf("\n\tSpecify model name and query input file")
+				continue
+			}
+			modelname := parsedCommand[1]
+			queryinputfilename := parsedCommand[2]
+			fmt.Printf("%v\n", process.QueryModel(modelname, []string{queryinputfilename}))
+
+		case "start-inference":
+			if len(parsedCommand) <= 3 {
+				fmt.Printf("\n\nSpecify input filenames")
+				continue
+			}
+			modelname := parsedCommand[1]
+			numfiles, _ := strconv.Atoi(parsedCommand[2])
+			files := []string{}
+
+			for f := 0; f < numfiles; f++ {
+				files = append(files, parsedCommand[3+f])
+			}
+			process.StartInference(modelname, files)
+
+		case "get-tasks":
+			tasks := process.GetAllTasks()
+			fmt.Println("Tasks:")
+			for _, task := range tasks {
+				fmt.Println(task)
+			}
+
+		case "get-model-tasks":
+			if len(parsedCommand) <= 1 {
+				fmt.Printf("\n\tSpecify model name")
+				continue
+			}
+			modelname := parsedCommand[1]
+			tasks := process.GetAllTasksOfModel(modelname)
+			fmt.Println("Tasks:")
+			for _, task := range tasks {
+				fmt.Println(task)
+			}
+
+		case "get-queryrates":
+			models, queryrates := process.GetAllQueryRates()
+
+			for idx, model := range models {
+				fmt.Printf("Model Name: %v\tQuery Rate: %v\n", model, queryrates[idx])
+			}
+
+		case "get-batchsize":
+			if len(parsedCommand) <= 1 {
+				fmt.Printf("\n\tSpecify model name")
+				continue
+			}
+			modelname := parsedCommand[1]
+			fmt.Println("Batchsize: ", process.GetBatchSize(modelname))
+
+		case "set-batchsize":
+			if len(parsedCommand) <= 2 {
+				fmt.Printf("\n\tSpecify model name and batch size")
+				continue
+			}
+			modelname := parsedCommand[1]
+			batchsize, _ := strconv.Atoi(parsedCommand[2])
+
+			newbatchsize := process.SetBatchSize(modelname, batchsize)
+
+			fmt.Println("New Batch Size: ", newbatchsize)
+
+		case "get-querycounts":
+			models, querycounts := process.GetQueryCount()
+
+			for idx, model := range models {
+				fmt.Printf("Model Name: %v\tQuery Count: %v\n", model, querycounts[idx])
+			}
+
+		case "get-workers":
+			if len(parsedCommand) <= 1 {
+				fmt.Printf("\n\tSpecify model name")
+				continue
+			}
+
+			modelname := parsedCommand[1]
+			workers := process.GetAllWorkersOfModel(modelname)
+
+			fmt.Printf("Workers: %v", workers)
 
 		default:
 			continue
