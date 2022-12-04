@@ -772,7 +772,9 @@ func (s *SchedulerServer) UpdateQueryStatus(ctx context.Context, in *ss.UpdateQu
 	log.Printf("[ Scheduler ][ ModelInference ][ UpdateQueryStatus ]Task %v completed with output file stored as %v", taskId, outputfiles)
 
 	// Stopping the timer
-	schedulerState.taskTimer[taskId].Stop()
+	if _, ok := schedulerState.taskTimer[taskId]; ok {
+		schedulerState.taskTimer[taskId].Stop()
+	}
 
 	if len(outputfiles) == 0 || !in.Status {
 		schedulerState.HandleRescheduleOfTask(taskId)
