@@ -464,7 +464,7 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 				fmt.Printf("\n\t[ Scheduler ][ UpdateModelsQueryRates ]Query Rate Drop! %v: %v | %v: %v\n", state.Models[modelId].Name, state.Models[modelId].QueryRate, state.Models[modelId2].Name, state.Models[modelId2].QueryRate)
 
 				if len(state.Models[modelId].Workers) == 9 {
-					fmt.Printf("\t[ Scheduler ][ UpdateModelsQueryRates ]Model %v already has max number of workers\n", state.Models[modelId].Name)
+					log.Printf("[ Scheduler ][ UpdateModelsQueryRates ]Model %v already has max number of workers", state.Models[modelId].Name)
 					break
 				}
 				go addNewWorker(modelId)
@@ -546,6 +546,19 @@ func (state *SchedulerState) CheckIfAlreadyAWorker(modelId string, workerId stri
 	return false
 }
 
+func (state *SchedulerState) GetAllModels() []string {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	models := []string{}
+
+	for modelId := range state.Models {
+		models = append(models, modelId)
+	}
+
+	return models
+}
+
 func addNewWorker(modelId string) {
 	// select a new random worker
 	newWorker := memberList.GetRandomNode()
@@ -558,7 +571,7 @@ func addNewWorker(modelId string) {
 		return
 	}
 	modelname := schedulerState.GetModelName(modelId)
-	fmt.Printf("\t[ Scheduler ][ AddNewWorker ]Adding new worker: %v for model: %v\n", newWorker, modelname)
+	log.Printf("[ Scheduler ][ AddNewWorker ]Adding new worker: %v for model: %v", newWorker, modelname)
 
 	client, ctx, conn, cancel := getClientForWorkerService(newWorker)
 
@@ -567,13 +580,13 @@ func addNewWorker(modelId string) {
 
 	log.Printf("[ Scheduler ][ AddNewWorker ]Setting up the model on the worker: %v", newWorker)
 
-	r, err := client.SetupModel(ctx, &ws.SetupModelRequest{
+	r, err := client.RunModel(ctx, &ws.RunModelRequest{
 		ModelId: modelId,
 	})
 	if err != nil {
-		fmt.Printf("\t[ Scheduler ][ AddNewWorker ]Error setting up the model: %v\n", err)
+		log.Printf("[ Scheduler ][ AddNewWorker ]Error setting up the model: %v", err)
 	} else if !r.GetStatus() {
-		fmt.Printf("\t[ Scheduler ][ AddNewWorker ]Setting up of model instance %v on the new worker %v FAILED\n", modelname, newWorker)
+		log.Printf("\t[ Scheduler ][ AddNewWorker ]Setting up of model instance %v on the new worker %v FAILED\n", modelname, newWorker)
 	} else {
 		schedulerState.addNewWorkerForModel(modelId, newWorker)
 	}
@@ -764,6 +777,14 @@ func (s *SchedulerServer) GetAllQueryRates(ctx context.Context, in *ss.GetAllQue
 	return &ss.GetAllQueryRatesResponse{
 		Modelnames: models,
 		Queryrates: queryRates,
+	}, nil
+}
+
+func (s *SchedulerServer) GimmeModels(ctx context.Context, in *ss.GimmeModelsRequest) (*ss.GimmeModelsResponse, error) {
+	models := schedulerState.GetAllModels()
+
+	return &ss.GimmeModelsResponse{
+		Models: models,
 	}, nil
 }
 

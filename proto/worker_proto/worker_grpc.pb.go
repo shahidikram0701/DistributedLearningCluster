@@ -23,6 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type WorkerServiceClient interface {
 	SetupModel(ctx context.Context, in *SetupModelRequest, opts ...grpc.CallOption) (*SetupModelReply, error)
+	RunModel(ctx context.Context, in *RunModelRequest, opts ...grpc.CallOption) (*RunModelResponse, error)
 }
 
 type workerServiceClient struct {
@@ -42,11 +43,21 @@ func (c *workerServiceClient) SetupModel(ctx context.Context, in *SetupModelRequ
 	return out, nil
 }
 
+func (c *workerServiceClient) RunModel(ctx context.Context, in *RunModelRequest, opts ...grpc.CallOption) (*RunModelResponse, error) {
+	out := new(RunModelResponse)
+	err := c.cc.Invoke(ctx, "/process.WorkerService/RunModel", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkerServiceServer is the server API for WorkerService service.
 // All implementations must embed UnimplementedWorkerServiceServer
 // for forward compatibility
 type WorkerServiceServer interface {
 	SetupModel(context.Context, *SetupModelRequest) (*SetupModelReply, error)
+	RunModel(context.Context, *RunModelRequest) (*RunModelResponse, error)
 	mustEmbedUnimplementedWorkerServiceServer()
 }
 
@@ -56,6 +67,9 @@ type UnimplementedWorkerServiceServer struct {
 
 func (UnimplementedWorkerServiceServer) SetupModel(context.Context, *SetupModelRequest) (*SetupModelReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetupModel not implemented")
+}
+func (UnimplementedWorkerServiceServer) RunModel(context.Context, *RunModelRequest) (*RunModelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunModel not implemented")
 }
 func (UnimplementedWorkerServiceServer) mustEmbedUnimplementedWorkerServiceServer() {}
 
@@ -88,6 +102,24 @@ func _WorkerService_SetupModel_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkerService_RunModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkerServiceServer).RunModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.WorkerService/RunModel",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkerServiceServer).RunModel(ctx, req.(*RunModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkerService_ServiceDesc is the grpc.ServiceDesc for WorkerService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -98,6 +130,10 @@ var WorkerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetupModel",
 			Handler:    _WorkerService_SetupModel_Handler,
+		},
+		{
+			MethodName: "RunModel",
+			Handler:    _WorkerService_RunModel_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

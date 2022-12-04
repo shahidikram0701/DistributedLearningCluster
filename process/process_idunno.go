@@ -270,7 +270,7 @@ func runInferencePeriodically(modelName string, filenames []string) {
 		taskId := QueryModel(modelName, batch)
 		log.Printf("[ Client ][ ModelInference ]Query model %v with inputs %v; TaskId: %v", modelName, batch, taskId)
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 }
 

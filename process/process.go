@@ -68,6 +68,7 @@ func Run(port int, udpserverport int, log_process_port int, coordinatorServiceFo
 	go StartDataNodeService_SDFS(datanodeServiceForSDFSPort, wg)
 
 	go StartWorkerService(workerPort, wg)
+	go UpdateModels(wg)
 
 	// Start the logger server
 	go StartLogServer(log_process_port, wg)

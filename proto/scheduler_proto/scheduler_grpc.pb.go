@@ -32,6 +32,7 @@ type SchedulerServiceClient interface {
 	GetWorkersOfModel(ctx context.Context, in *GetWorkersOfModelRequest, opts ...grpc.CallOption) (*GetWorkersOfModelResponse, error)
 	GimmeQuery(ctx context.Context, in *GimmeQueryRequest, opts ...grpc.CallOption) (*GimmeQueryResponse, error)
 	UpdateQueryStatus(ctx context.Context, in *UpdateQueryStatusRequest, opts ...grpc.CallOption) (*UpdateQueryStatusResponse, error)
+	GimmeModels(ctx context.Context, in *GimmeModelsRequest, opts ...grpc.CallOption) (*GimmeModelsResponse, error)
 	SchedulerSync(ctx context.Context, in *SchedulerSyncRequest, opts ...grpc.CallOption) (*SchedulerSyncResponse, error)
 }
 
@@ -133,6 +134,15 @@ func (c *schedulerServiceClient) UpdateQueryStatus(ctx context.Context, in *Upda
 	return out, nil
 }
 
+func (c *schedulerServiceClient) GimmeModels(ctx context.Context, in *GimmeModelsRequest, opts ...grpc.CallOption) (*GimmeModelsResponse, error) {
+	out := new(GimmeModelsResponse)
+	err := c.cc.Invoke(ctx, "/process.SchedulerService/GimmeModels", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *schedulerServiceClient) SchedulerSync(ctx context.Context, in *SchedulerSyncRequest, opts ...grpc.CallOption) (*SchedulerSyncResponse, error) {
 	out := new(SchedulerSyncResponse)
 	err := c.cc.Invoke(ctx, "/process.SchedulerService/SchedulerSync", in, out, opts...)
@@ -156,6 +166,7 @@ type SchedulerServiceServer interface {
 	GetWorkersOfModel(context.Context, *GetWorkersOfModelRequest) (*GetWorkersOfModelResponse, error)
 	GimmeQuery(context.Context, *GimmeQueryRequest) (*GimmeQueryResponse, error)
 	UpdateQueryStatus(context.Context, *UpdateQueryStatusRequest) (*UpdateQueryStatusResponse, error)
+	GimmeModels(context.Context, *GimmeModelsRequest) (*GimmeModelsResponse, error)
 	SchedulerSync(context.Context, *SchedulerSyncRequest) (*SchedulerSyncResponse, error)
 	mustEmbedUnimplementedSchedulerServiceServer()
 }
@@ -193,6 +204,9 @@ func (UnimplementedSchedulerServiceServer) GimmeQuery(context.Context, *GimmeQue
 }
 func (UnimplementedSchedulerServiceServer) UpdateQueryStatus(context.Context, *UpdateQueryStatusRequest) (*UpdateQueryStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateQueryStatus not implemented")
+}
+func (UnimplementedSchedulerServiceServer) GimmeModels(context.Context, *GimmeModelsRequest) (*GimmeModelsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GimmeModels not implemented")
 }
 func (UnimplementedSchedulerServiceServer) SchedulerSync(context.Context, *SchedulerSyncRequest) (*SchedulerSyncResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SchedulerSync not implemented")
@@ -390,6 +404,24 @@ func _SchedulerService_UpdateQueryStatus_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SchedulerService_GimmeModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GimmeModelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SchedulerServiceServer).GimmeModels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.SchedulerService/GimmeModels",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SchedulerServiceServer).GimmeModels(ctx, req.(*GimmeModelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SchedulerService_SchedulerSync_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SchedulerSyncRequest)
 	if err := dec(in); err != nil {
@@ -454,6 +486,10 @@ var SchedulerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateQueryStatus",
 			Handler:    _SchedulerService_UpdateQueryStatus_Handler,
+		},
+		{
+			MethodName: "GimmeModels",
+			Handler:    _SchedulerService_GimmeModels_Handler,
 		},
 		{
 			MethodName: "SchedulerSync",

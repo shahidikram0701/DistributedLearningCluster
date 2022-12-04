@@ -17,6 +17,7 @@ service SchedulerService {
 
     rpc GimmeQuery (GimmeQueryRequest) returns (GimmeQueryResponse) {}
     rpc UpdateQueryStatus (UpdateQueryStatusRequest) returns (UpdateQueryStatusResponse) {}
+    rpc GimmeModels (GimmeModelsRequest) returns (GimmeModelsResponse) {}
 
     rpc SchedulerSync (SchedulerSyncRequest) returns (SchedulerSyncResponse) {}
 }
@@ -114,4 +115,11 @@ message GetWorkersOfModelRequest {
 
 message GetWorkersOfModelResponse {
     repeated string workers = 1;
+}
+
+message GimmeModelsRequest {
+}
+
+message GimmeModelsResponse {
+    repeated string models = 1;
 }

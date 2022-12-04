@@ -95,25 +95,54 @@ func StartWorkerService(port int, wg *sync.WaitGroup) {
 	}
 }
 
-func (s *WorkerService) SetupModel(ctx context.Context, in *ws.SetupModelRequest) (*ws.SetupModelReply, error) {
+func UpdateModels(wg *sync.WaitGroup) {
+	for {
+		if memberList == nil {
+			continue
+		}
+		client, ctx, conn, cancel := getClientForSchedulerService()
+
+		r, err := client.GimmeModels(ctx, &ss.GimmeModelsRequest{})
+
+		if err != nil {
+			log.Printf("[ Worker ][ Model Prefetch ]Couldnt fetch model info from scheduler")
+		} else {
+			models := r.GetModels()
+
+			for _, model := range models {
+				if _, ok := workerState.GetModelPort(model); ok {
+					log.Printf("[ Worker ][ Model Prefetch ]Model %v already present", model)
+					continue
+				}
+				_, err := setupModel(model)
+
+				if err != nil {
+					log.Printf("[ Worker ][ Model Prefetch ]Model Setup failed: %v - %v", model, err)
+				}
+			}
+		}
+		conn.Close()
+		cancel()
+		time.Sleep(5 * time.Second)
+	}
+	// wg.Done()
+}
+
+func setupModel(modelId string) (bool, error) {
+	fmt.Println("Setting up model: ", modelId)
 	conf := config.GetConfig("../../config/config.json")
-	modelId := in.GetModelId()
 
 	weightFile := fmt.Sprintf("%v.weights.pth", modelId)
 	codeFile := fmt.Sprintf("%v.py", modelId)
 
 	if !GetFile(weightFile, weightFile, true) {
 		log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Fetching the model weights failed")
-		return &ws.SetupModelReply{
-			Status: false,
-		}, errors.New("Fetching of model weights failed")
+		return false, errors.New("Fetching of model weights failed")
 	}
 
 	if !GetFile(codeFile, codeFile, true) {
 		log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Fetching the model code failed")
-		return &ws.SetupModelReply{
-			Status: false,
-		}, errors.New("Fetching of model code failed")
+		return false, errors.New("Fetching of model code failed")
 	}
 
 	modelFolder := fmt.Sprintf("%v/%v", conf.SDFSModelsFolder, modelId)
@@ -132,9 +161,7 @@ func (s *WorkerService) SetupModel(ctx context.Context, in *ws.SetupModelRequest
 	)
 	if e != nil {
 		log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Moving the model code file failed - %v", e)
-		// return &ws.SetupModelReply{
-		// 	Status: false,
-		// }, errors.New("Moving the model code failed")
+		return false, errors.New("Moving the model code failed")
 	}
 
 	log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Moving the weights file to within the directory containing representing the model")
@@ -144,9 +171,7 @@ func (s *WorkerService) SetupModel(ctx context.Context, in *ws.SetupModelRequest
 	)
 	if e != nil {
 		log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Moving the model weights file failed - %v", e)
-		// return &ws.SetupModelReply{
-		// 	Status: false,
-		// }, errors.New("Moving the model weights failed")
+		return false, errors.New("Moving the model weights failed")
 	}
 
 	log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Moved the model to folder %v", modelFolder)
@@ -210,9 +235,7 @@ while flag:
 
 	if err != nil {
 		log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Error while forming the wrapper code for the model")
-		return &ws.SetupModelReply{
-			Status: false,
-		}, errors.New("Fetching of model code failed")
+		return false, errors.New("Fetching of model code failed")
 	}
 	w := bufio.NewWriter(f)
 	n4, _ := w.WriteString(wrapper)
@@ -225,18 +248,14 @@ while flag:
 	err = os.Chmod(wrapperfilepath, 0777)
 	if err != nil {
 		log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Error while changing the permissions of the wrapper file to allow execute")
-		// return &ws.SetupModelReply{
-		// 	Status: false,
-		// }, errors.New("Error while changing the permissions of the wrapper file to allow execute")
+		return false, errors.New("Error while changing the permissions of the wrapper file to allow execute")
 	}
 
 	log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Changing the permissions of the model file to allow execute")
 	err = os.Chmod(fmt.Sprintf("%v/model.py", modelFolder), 0777)
 	if err != nil {
 		log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Error while changing the permissions of the model file to allow execute")
-		// return &ws.SetupModelReply{
-		// 	Status: false,
-		// }, errors.New("Error while changing the permissions of the wrapper file to allow execute")
+		return false, errors.New("Error while changing the permissions of the wrapper file to allow execute")
 	}
 
 	log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Running the model")
@@ -245,27 +264,93 @@ while flag:
 
 	log.Printf("[ Worker ][ DeployModel ][ SetupModel ] Started model %v on port %v", modelId, workerport)
 
+	return true, nil
+
+}
+
+func run(modelId string) bool {
+	conf := config.GetConfig("../../config/config.json")
+	modelFolder := fmt.Sprintf("%v/%v", conf.SDFSModelsFolder, modelId)
+	wrapperfilepath := fmt.Sprintf("%v/model-wrapper.py", modelFolder)
+	workerport, ok := workerState.GetModelPort(modelId)
+
+	fmt.Println("Running model on port: ", modelId, workerport)
+
+	if !ok {
+		log.Printf("[ Worker ][ RunModel ][ processQuery ]Model not present: %v", modelId)
+		return false
+	}
 	grepCommand := fmt.Sprintf("python3 %v %v &", wrapperfilepath, workerport)
 
 	log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Executing: %v", grepCommand)
 
 	// Exectute the underlying os grep command for the given
-	err = exec.Command("bash", "-c", grepCommand).Run()
-
+	err := exec.Command("bash", "-c", grepCommand).Run()
 	if err != nil {
-		log.Fatalf("[ Worker ][ DeployModel ][ SetupModel ]Error running the model; error: %v", err)
-		return &ws.SetupModelReply{
-			Status: false,
-		}, nil
+		log.Printf("[ Worker ][ RunModel ][ processQuery ]Error running model %v: %v", modelId, err)
+		return false
 	}
-
 	// Start a thread that will poll the scheduler for queries whenever it is not executing one
 	log.Printf("[ Worker ][ Inferencing ]Initialising Polling of scheduler for queries")
 	go pollSchedulerForQueries(modelId)
 
+	return true
+}
+
+func (s *WorkerService) SetupModel(ctx context.Context, in *ws.SetupModelRequest) (*ws.SetupModelReply, error) {
+
+	modelId := in.GetModelId()
+
+	status, err := setupModel(modelId)
+
+	if !status {
+		return &ws.SetupModelReply{
+			Status: status,
+		}, err
+	}
+
+	status = run(modelId)
+	err = nil
+	if !status {
+		err = errors.New("Error Running the model")
+	}
+
 	return &ws.SetupModelReply{
-		Status: true,
-	}, nil
+		Status: status,
+	}, err
+}
+
+func (s *WorkerService) RunModel(ctx context.Context, in *ws.RunModelRequest) (*ws.RunModelResponse, error) {
+
+	modelId := in.GetModelId()
+
+	_, ok := workerState.GetModelPort(modelId)
+
+	if ok {
+		run(modelId)
+
+		return &ws.RunModelResponse{
+			Status: true,
+		}, nil
+	}
+
+	status, err := setupModel(modelId)
+
+	if !status {
+		return &ws.RunModelResponse{
+			Status: false,
+		}, err
+	}
+
+	status = run(modelId)
+	err = nil
+	if !status {
+		err = errors.New("Error Running the model")
+	}
+
+	return &ws.RunModelResponse{
+		Status: status,
+	}, err
 }
 
 func pollSchedulerForQueries(modelId string) {
