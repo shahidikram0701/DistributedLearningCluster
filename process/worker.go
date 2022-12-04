@@ -278,7 +278,7 @@ func run(modelId string) bool {
 		log.Printf("[ Worker ][ RunModel ][ processQuery ]Model not present: %v", modelId)
 		return false
 	}
-	grepCommand := fmt.Sprintf("python3 %v %v &", wrapperfilepath, workerport)
+	grepCommand := fmt.Sprintf("python3.6 %v %v &", wrapperfilepath, workerport)
 
 	log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Executing: %v", grepCommand)
 
