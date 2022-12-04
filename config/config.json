@@ -19,14 +19,14 @@
     "ReplicaRecoveryInterval": 3,
     "OutputDataFolder": "../../outdata",
     "CoordinatorSyncTimer": 3,
-    "NumOfWorkersPerModel": 2,
+    "NumOfWorkersPerModel": 4,
     "SchedulerPort": 50057,
     "ModelsDataFolder": "../../models",
     "SDFSModelsFolder": "../../sdfs_models",
     "WorkerPort": 50058,
     "SchedulerPollInterval": 1,
-    "TaskExecutionTimeout": 3,
-    "QueryMonitorInterval": 20,
+    "TaskExecutionTimeout": 4,
+    "QueryMonitorInterval": 10,
     "InitialBatchSize": 5,
     "SchedulerSyncTimer": 3
 }

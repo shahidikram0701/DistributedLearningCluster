@@ -206,7 +206,7 @@ func StartCoordinatorService(coordinatorServiceForLogsPort int, coordinatorServi
 
 	go coordintorService_ProcessLogs(coordinatorServiceForLogsPort, wg)
 	go coordinatorService_SDFS(coordinatorServiceForSDFSPort, wg)
-	go CoordinatorService_ReplicaRecovery(wg)
+	// go CoordinatorService_ReplicaRecovery(wg)
 	// go CoordinatorService_SyncWithCoordinatorReplicas(wg)
 }
 
