@@ -98,6 +98,8 @@ func (mt *ModelTasks) GetTaskToSchedule(modelId string, workerId string) ([]stri
 			task.StartTime = time.Now()
 			task.Status = Waiting
 
+			log.Printf("[ Scheduler ][ Waittime ]Wait time for %v task", task.ModelName)
+
 			// Start execution timeout timer for this task
 			go handleTaskExecutionTimeout(taskid, modelId, workerId)
 
@@ -161,6 +163,7 @@ type Task struct {
 	OwnerId         string
 	Filenames       []string // input filename
 	Resultfilenames []string
+	arrivalTime     time.Time
 }
 
 type TaskStatus int
@@ -203,6 +206,7 @@ type SchedulerState struct {
 	IndexIntoMemberList int
 	ModelNameToId       map[string]string
 	taskTimer           map[string]*time.Timer
+	queryRateDropTime   time.Time
 }
 
 func (state *SchedulerState) GetModelName(modelId string) string {
@@ -331,6 +335,7 @@ func (state *SchedulerState) QueueTask(modelname string, modelId string, queryin
 		ModelName:    modelname,
 		OwnerId:      owner,
 		Filenames:    queryinputfiles,
+		arrivalTime:  time.Now(),
 	}
 
 	log.Printf("[ Scheduler ][ ModelInference ]Adding task: %v to queue of model %v::%v", task, modelname, modelId)
@@ -525,6 +530,8 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 			qr2 := state.Models[modelId2].QueryRate
 
 			if qr2 > qr1 && (qr2-qr1) >= 20 {
+				state.queryRateDropTime = time.Now()
+				log.Printf("[ Scheduler ][ Stabilisation Time ]Started time marking the query drop rate")
 				// deploy a new copy of the model
 				fmt.Printf("\n\t[ Scheduler ][ UpdateModelsQueryRates ]Query Rate Drop! %v: %v | %v: %v\n", state.Models[modelId].Name, state.Models[modelId].QueryRate, state.Models[modelId2].Name, state.Models[modelId2].QueryRate)
 
@@ -534,7 +541,13 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 				}
 				go addNewWorker(modelId)
 				break
+			} else if qr2 > qr1 {
+				if !state.queryRateDropTime.IsZero() {
+					log.Printf("[ Scheduler ][ Stabilisation Time ]Time since break: %v", time.Since(state.queryRateDropTime))
+					state.queryRateDropTime = time.Time{}
+				}
 			}
+
 		}
 	}
 }
@@ -707,6 +720,7 @@ func StartSchedulerService(schedulerServicePort int, wg *sync.WaitGroup) {
 		IndexIntoMemberList: 0,
 		ModelNameToId:       make(map[string]string),
 		taskTimer:           make(map[string]*time.Timer),
+		queryRateDropTime:   time.Time{},
 	}
 	go queryRateMonitor()
 	go SchedulerService_SyncWithSchedulerReplicas(wg)
