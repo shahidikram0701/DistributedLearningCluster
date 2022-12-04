@@ -129,7 +129,7 @@ func UpdateModels(wg *sync.WaitGroup) {
 }
 
 func setupModel(modelId string) (bool, error) {
-	fmt.Println("Setting up model: ", modelId)
+	fmt.Printf("\n\tSetting up model: %v\n", modelId)
 	conf := config.GetConfig("../../config/config.json")
 
 	weightFile := fmt.Sprintf("%v.weights.pth", modelId)
@@ -272,7 +272,7 @@ func run(modelId string) bool {
 	wrapperfilepath := fmt.Sprintf("%v/model-wrapper.py", modelFolder)
 	workerport, ok := workerState.GetModelPort(modelId)
 
-	fmt.Println("Running model on port: ", modelId, workerport)
+	fmt.Printf("\n\tRunning model: %v on port: %v\n", modelId, workerport)
 
 	if !ok {
 		log.Printf("[ Worker ][ RunModel ][ processQuery ]Model not present: %v", modelId)

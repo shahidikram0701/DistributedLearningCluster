@@ -11,5 +11,7 @@ outdata/
 tmp/
 .DS_Store
 temp_model/
-models/
+*.pth
+*.jpeg
+models/model*
 sdfs_models/

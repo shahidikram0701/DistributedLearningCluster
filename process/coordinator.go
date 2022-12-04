@@ -745,7 +745,7 @@ func sendStateSnapToBackupCoordinator(coordinator string) bool {
 	})
 	if err != nil {
 		// may be service process is down
-		fmt.Printf("[ Coordinator ][ Coordinator Synchronisation ]Failed oopsss\n")
+		log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Failed oopsss")
 		return false
 	}
 	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Successfully sent the state to the backup coordinator %v", coordinator)
