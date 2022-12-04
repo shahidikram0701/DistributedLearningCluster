@@ -563,33 +563,39 @@ func (state *SchedulerState) getAllQueryRates() ([]string, []float32) {
 	return models, queryRates
 }
 
-func (state *SchedulerState) GetSnapOfSchedulerState() []byte {
+func (state *SchedulerState) GetSnapOfSchedulerState() ([]byte, []byte, []byte, int, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
 	log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Sending snap of the state: %v", *state)
 
-	serialisedState, err := json.Marshal(*state)
+	serialisedModels, err := json.Marshal(state.Models)
 	if err != nil {
-		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Error Marshalling the state: %v", err)
-		return nil
+		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Error Marshalling the models: %v", err)
+		return nil, nil, nil, -1, false
+	}
+	serialisedTasks, err := json.Marshal(state.Tasks)
+	if err != nil {
+		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Error Marshalling the tasks: %v", err)
+		return nil, nil, nil, -1, false
+	}
+	serialisedModelNameId, err := json.Marshal(state.ModelNameToId)
+	if err != nil {
+		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Error Marshalling the modelNameId: %v", err)
+		return nil, nil, nil, -1, false
 	}
 
-	log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Snap of the state: %v", string(serialisedState))
-
-	return serialisedState
+	return serialisedModels, serialisedTasks, serialisedModelNameId, state.IndexIntoMemberList, true
 }
 
-func (state *SchedulerState) SetSchedulerState(newState *SchedulerState) {
+func (state *SchedulerState) SetSchedulerState(models map[string]Model, tasks map[string]Task, modelNameId map[string]string, idx int32) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
 
-	state.Models = newState.Models
-	state.Tasks = newState.Tasks
-	state.TaskQueue = newState.TaskQueue
-	state.WindowOfTasks = newState.WindowOfTasks
-	state.IndexIntoMemberList = newState.IndexIntoMemberList
-	state.ModelNameToId = newState.ModelNameToId
+	state.Models = models
+	state.Tasks = tasks
+	state.IndexIntoMemberList = int(idx)
+	state.ModelNameToId = modelNameId
 
 	// should handle timers?
 }
@@ -681,7 +687,7 @@ func StartSchedulerService(schedulerServicePort int, wg *sync.WaitGroup) {
 		taskTimer:           make(map[string]*time.Timer),
 	}
 	go queryRateMonitor()
-	// go SchedulerService_SyncWithSchedulerReplicas(wg)
+	go SchedulerService_SyncWithSchedulerReplicas(wg)
 	SchedulerService_IDunno(schedulerServicePort, wg)
 }
 
@@ -879,15 +885,35 @@ func (s *SchedulerServer) GetQueryCount(ctx context.Context, in *ss.GetQueryCoun
 }
 
 func (s *SchedulerServer) SchedulerSync(ctx context.Context, in *ss.SchedulerSyncRequest) (*ss.SchedulerSyncResponse, error) {
-	var newState SchedulerState
-	unmarshallingError := json.Unmarshal(in.SchedulerState, &newState)
-	if unmarshallingError != nil {
-		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Error while unmarshalling the received state: %v\n", unmarshallingError)
+	var models map[string]Model
+	var tasks map[string]Task
+	var modelNameId map[string]string
 
-		return &ss.SchedulerSyncResponse{}, errors.New("Unmarshalling error")
+	unmarshallingError := json.Unmarshal(in.GetModels(), &models)
+	if unmarshallingError != nil {
+		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Error while unmarshalling the model: %v\n", unmarshallingError)
+
+		return &ss.SchedulerSyncResponse{}, errors.New("Unmarshalling error(model)")
 	}
+
+	unmarshallingError = json.Unmarshal(in.GetTasks(), &tasks)
+	if unmarshallingError != nil {
+		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Error while unmarshalling the tasks: %v\n", unmarshallingError)
+
+		return &ss.SchedulerSyncResponse{}, errors.New("Unmarshalling error(tasks)")
+	}
+
+	unmarshallingError = json.Unmarshal(in.GetModelNameToId(), &modelNameId)
+	if unmarshallingError != nil {
+		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Error while unmarshalling the tasks: %v\n", unmarshallingError)
+
+		return &ss.SchedulerSyncResponse{}, errors.New("Unmarshalling error(tasks)")
+	}
+
+	idx := in.GetIndexIntoMemberList()
+
 	log.Printf("[ Scheduler ][ Scheduler Synchronisation ] Received State")
-	schedulerState.SetSchedulerState(&newState)
+	schedulerState.SetSchedulerState(models, tasks, modelNameId, idx)
 
 	return &ss.SchedulerSyncResponse{}, nil
 }
@@ -961,18 +987,21 @@ func sendStateSnapToBackupScheduler(scheduler string) bool {
 	// Initialise a client to connect to the coordinator process
 	s := ss.NewSchedulerServiceClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	// defer cancel()
 
 	defer conn.Close()
 	defer cancel()
 
-	snap := schedulerState.GetSnapOfSchedulerState()
-	if snap == nil {
+	models, tasks, modelNameId, index, ok := schedulerState.GetSnapOfSchedulerState()
+	if !ok {
 		return false
 	}
 	_, err = s.SchedulerSync(ctx, &ss.SchedulerSyncRequest{
-		SchedulerState: snap,
+		Models:              models,
+		Tasks:               tasks,
+		ModelNameToId:       modelNameId,
+		IndexIntoMemberList: int32(index),
 	})
 	if err != nil {
 		// may be service process is down

@@ -104,7 +104,10 @@ message GetQueryCountResponse {
 }
 
 message SchedulerSyncRequest {
-    bytes schedulerState = 1;
+    bytes models = 1;
+    bytes tasks = 2;
+    bytes modelNameToId = 3;
+    int32 indexIntoMemberList = 4;
 }
 
 message SchedulerSyncResponse {
