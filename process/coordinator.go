@@ -734,7 +734,7 @@ func sendStateSnapToBackupCoordinator(coordinator string) bool {
 	// Initialise a client to connect to the coordinator process
 	c := cs.NewCoordinatorServiceForSDFSClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	// defer cancel()
 
 	defer conn.Close()
@@ -745,7 +745,7 @@ func sendStateSnapToBackupCoordinator(coordinator string) bool {
 	})
 	if err != nil {
 		// may be service process is down
-		log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Failed oopsss")
+		fmt.Printf("[ Coordinator ][ Coordinator Synchronisation ]Failed oopsss\n")
 		return false
 	}
 	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Successfully sent the state to the backup coordinator %v", coordinator)
@@ -759,8 +759,9 @@ func (s *CoordinatorServerForSDFS) CoordinatorSync(ctx context.Context, in *cs.C
 		log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Error while unmarshalling the received state: %v\n", unmarshallingError)
 	}
 
-	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Received State: %v", newState)
-	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Current State: %v", string(coordinatorState.GetSnapOfState()[:]))
+	log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Received State")
+	// log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Received State: %v", newState)
+	// log.Printf("[ Coordinator ][ Coordinator Synchronisation ]Current State: %v", string(coordinatorState.GetSnapOfState()[:]))
 
 	coordinatorState.SetState(&newState)
 

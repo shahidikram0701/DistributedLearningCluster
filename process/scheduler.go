@@ -69,6 +69,54 @@ type Model struct {
 	QueryCount   int
 }
 
+type ModelTasks struct {
+	lock  *sync.RWMutex
+	tasks []string
+}
+
+func (mt *ModelTasks) AddTaskToModel(taskId string) {
+	mt.lock.Lock()
+	defer mt.lock.Unlock()
+
+	log.Printf("[ Scheduler ][ ModelTasks ]Adding Task to model")
+
+	mt.tasks = append(mt.tasks, taskId)
+}
+
+func (mt *ModelTasks) GetTaskToSchedule(modelId string, workerId string) ([]string, string, bool) {
+	mt.lock.Lock()
+	defer mt.lock.Unlock()
+	log.Printf("[ Scheduler ][ TaskScheduler ]Getting task to schedule for model %v at worker: %v", modelId, workerId)
+
+	for _, taskid := range mt.tasks {
+		if schedulerState.Tasks[taskid].Status == Ready {
+			task := schedulerState.Tasks[taskid]
+
+			log.Printf("[ Scheduler ][ ModelInference ][ GetTaskToSchedule ]Next task to be allocated for model %v::%v is %v", modelId, task.ModelName, taskid)
+
+			task.AssignedTo = workerId
+			task.StartTime = time.Now()
+			task.Status = Waiting
+
+			// Start execution timeout timer for this task
+			go handleTaskExecutionTimeout(taskid, modelId, workerId)
+
+			// Appending the task to the window of tasks
+			schedulerState.WindowOfTasks = append(schedulerState.WindowOfTasks, taskid)
+
+			schedulerState.Tasks[taskid] = task
+
+			return task.Filenames, taskid, true
+		}
+	}
+
+	return []string{}, "", false
+}
+
+func (mt ModelTasks) String() string {
+	return fmt.Sprintf("Tasks: %v", mt.tasks)
+}
+
 func (model Model) String() string {
 	return fmt.Sprintf("(ModelName, %v), (ModelId, %v), (Workers, %v), (CreationTime, %v), (Status, %v)", model.Name, model.Id, model.Workers, model.CreationTime, model.Status)
 }
@@ -149,8 +197,8 @@ func (task Task) String() string {
 type SchedulerState struct {
 	lock                *sync.RWMutex
 	Models              map[string]Model
-	Tasks               map[string]Task     // all the tasks in the system
-	TaskQueue           map[string][]string //model-id to task-id mapping
+	Tasks               map[string]Task        // all the tasks in the system
+	TaskQueue           map[string]*ModelTasks //model-id to task-id mapping
 	WindowOfTasks       []string
 	IndexIntoMemberList int
 	ModelNameToId       map[string]string
@@ -260,13 +308,17 @@ func (state *SchedulerState) AddModel(modelname string) (string, []string) {
 
 	state.Models[modelId] = model
 	state.ModelNameToId[modelname] = modelId
+	state.TaskQueue[modelId] = &ModelTasks{
+		lock:  &sync.RWMutex{},
+		tasks: []string{},
+	}
 
 	return modelId, nodes
 }
 
 func (state *SchedulerState) QueueTask(modelname string, modelId string, queryinputfiles []string, owner string, creationTime string) string {
-	state.lock.Lock()
-	defer state.lock.Unlock()
+	// state.lock.Lock()
+	// defer state.lock.Unlock()
 
 	taskId := uuid.New().String()
 	log.Printf("[ Scheduler ][ ModelInference ][ QueueTask ]New taskId for model %v::%v: %v", modelname, modelId, taskId)
@@ -284,10 +336,17 @@ func (state *SchedulerState) QueueTask(modelname string, modelId string, queryin
 	log.Printf("[ Scheduler ][ ModelInference ]Adding task: %v to queue of model %v::%v", task, modelname, modelId)
 
 	state.Tasks[taskId] = task
-	if _, ok := state.TaskQueue[modelId]; !ok {
-		state.TaskQueue[modelId] = []string{}
+
+	state.lock.Lock()
+	if state.TaskQueue[modelId] == nil {
+		state.TaskQueue[modelId] = &ModelTasks{
+			lock:  &sync.RWMutex{},
+			tasks: []string{},
+		}
 	}
-	state.TaskQueue[modelId] = append(state.TaskQueue[modelId], taskId)
+	state.lock.Unlock()
+
+	state.TaskQueue[modelId].AddTaskToModel(taskId)
 
 	return taskId
 }
@@ -335,34 +394,36 @@ func (state *SchedulerState) GetModelStatus(modelId string) (ModelStatus, bool) 
 }
 
 func (state *SchedulerState) GetNextTaskToBeScheduled(modelId string, workerId string) ([]string, string, bool) {
-	state.lock.Lock()
-	defer state.lock.Unlock()
+	// state.lock.Lock()
+	// defer state.lock.Unlock()
 
 	log.Printf("[ Scheduler ][ ModelInference ][ GetNextTaskToBeScheduled ]Model: %v; Worker: %v", modelId, workerId)
-	tasksofModel := state.TaskQueue[modelId]
-	log.Printf("[ Scheduler ][ ModelInference ][ GetNextTaskToBeScheduled ]TaskQueue[%v]: %v", modelId, tasksofModel)
+	tasks := state.TaskQueue[modelId]
+	log.Printf("[ Scheduler ][ ModelInference ][ GetNextTaskToBeScheduled ]TaskQueue[%v]: %v", modelId, tasks)
 
-	for _, taskid := range tasksofModel {
-		if state.Tasks[taskid].Status == Ready {
-			task := state.Tasks[taskid]
-			log.Printf("[ Scheduler ][ ModelInference ][ GetNextTaskToBeScheduled ]Next task to be allocated for model %v::%v is %v", modelId, task.ModelName, taskid)
-			task.AssignedTo = workerId
-			task.StartTime = time.Now()
-			task.Status = Waiting
+	return state.TaskQueue[modelId].GetTaskToSchedule(modelId, workerId)
 
-			// Start execution timeout timer for this task
-			go handleTaskExecutionTimeout(taskid, modelId, workerId)
+	// for _, taskid := range tasksofModel {
+	// 	if state.Tasks[taskid].Status == Ready {
+	// 		task := state.Tasks[taskid]
+	// 		log.Printf("[ Scheduler ][ ModelInference ][ GetNextTaskToBeScheduled ]Next task to be allocated for model %v::%v is %v", modelId, task.ModelName, taskid)
+	// 		task.AssignedTo = workerId
+	// 		task.StartTime = time.Now()
+	// 		task.Status = Waiting
 
-			// Appending the task to the window of tasks
-			state.WindowOfTasks = append(state.WindowOfTasks, taskid)
+	// 		// Start execution timeout timer for this task
+	// 		go handleTaskExecutionTimeout(taskid, modelId, workerId)
 
-			state.Tasks[taskid] = task
+	// 		// Appending the task to the window of tasks
+	// 		state.WindowOfTasks = append(state.WindowOfTasks, taskid)
 
-			return task.Filenames, taskid, true
-		}
-	}
+	// 		state.Tasks[taskid] = task
 
-	return []string{}, "", false
+	// 		return task.Filenames, taskid, true
+	// 	}
+	// }
+
+	// return []string{}, "", false
 }
 
 func (state *SchedulerState) HandleRescheduleOfTask(taskId string) {
@@ -613,7 +674,7 @@ func StartSchedulerService(schedulerServicePort int, wg *sync.WaitGroup) {
 		lock:                &sync.RWMutex{},
 		Models:              make(map[string]Model),
 		Tasks:               make(map[string]Task),
-		TaskQueue:           make(map[string][]string),
+		TaskQueue:           make(map[string]*ModelTasks),
 		WindowOfTasks:       []string{},
 		IndexIntoMemberList: 0,
 		ModelNameToId:       make(map[string]string),
