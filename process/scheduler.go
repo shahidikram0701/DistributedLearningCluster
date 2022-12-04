@@ -620,7 +620,7 @@ func StartSchedulerService(schedulerServicePort int, wg *sync.WaitGroup) {
 		taskTimer:           make(map[string]*time.Timer),
 	}
 	go queryRateMonitor()
-	go SchedulerService_SyncWithSchedulerReplicas(wg)
+	// go SchedulerService_SyncWithSchedulerReplicas(wg)
 	SchedulerService_IDunno(schedulerServicePort, wg)
 }
 
@@ -825,7 +825,7 @@ func (s *SchedulerServer) SchedulerSync(ctx context.Context, in *ss.SchedulerSyn
 
 		return &ss.SchedulerSyncResponse{}, errors.New("Unmarshalling error")
 	}
-	log.Printf("[ Scheduler ][ Scheduler Synchronisation ] Received State: %v", newState)
+	log.Printf("[ Scheduler ][ Scheduler Synchronisation ] Received State")
 	schedulerState.SetSchedulerState(&newState)
 
 	return &ss.SchedulerSyncResponse{}, nil

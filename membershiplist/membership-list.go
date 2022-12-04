@@ -151,7 +151,16 @@ func (ml *MembershipList) Len() int {
 * Method to get the membership list
  */
 func (ml *MembershipList) GetList() []MembershipListItem {
-	return ml.items
+	ml.RLock()
+	defer ml.RUnlock()
+
+	items := []MembershipListItem{}
+
+	for _, i := range ml.items {
+		items = append(items, i)
+	}
+
+	return items
 }
 
 /**

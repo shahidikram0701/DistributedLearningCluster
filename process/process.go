@@ -281,12 +281,10 @@ func getClientForCoordinatorService() (cs.CoordinatorServiceForSDFSClient, conte
  */
 func PutFile(filename string, localfilename string, basepath ...string) bool {
 	conf := config.GetConfig("../../config/config.json")
-	client, ctx, conn, cancel := getClientForCoordinatorService()
 
-	defer conn.Close()
-	defer cancel()
 	retries := 0
 	for {
+		client, ctx, conn, cancel := getClientForCoordinatorService()
 		log.Printf("[ Client ]PutFile(%v): Intiating request to the coordinator!", filename)
 		filePath := fmt.Sprintf("%v/%v", conf.DataRootFolder, localfilename)
 		if len(basepath) > 0 {
@@ -294,6 +292,8 @@ func PutFile(filename string, localfilename string, basepath ...string) bool {
 		}
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			log.Printf("[ Client ][ PutFile ]File %v doesnt exist", localfilename)
+			conn.Close()
+			cancel()
 			return false
 		}
 
@@ -322,12 +322,16 @@ func PutFile(filename string, localfilename string, basepath ...string) bool {
 
 			if status {
 				log.Printf("[ Client ][ PutFile ]Successfully streamed the file %v to SDFS", filename)
+				conn.Close()
+				cancel()
 				break
 			} else {
 				log.Printf("[ Client ][ PutFile ]Failed for file %v", filename)
 				log.Printf("[ Client ][ PutFile ]Retrying...")
 			}
 		}
+		conn.Close()
+		cancel()
 		retries++
 		if retries > conf.NumRetriesPerOperation {
 			return false
