@@ -258,11 +258,9 @@ while flag:
 		return false, errors.New("Error while changing the permissions of the wrapper file to allow execute")
 	}
 
-	log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Running the model")
-
 	workerport := workerState.RecordModel(modelId)
 
-	log.Printf("[ Worker ][ DeployModel ][ SetupModel ] Started model %v on port %v", modelId, workerport)
+	log.Printf("[ Worker ][ DeployModel ][ SetupModel ]Model %v Setup done; Mapped to port %v", modelId, workerport)
 
 	return true, nil
 
@@ -312,6 +310,7 @@ func (s *WorkerService) SetupModel(ctx context.Context, in *ws.SetupModelRequest
 	status = run(modelId)
 	err = nil
 	if !status {
+		fmt.Println("Error Running the model")
 		err = errors.New("Error Running the model")
 	}
 
@@ -345,6 +344,7 @@ func (s *WorkerService) RunModel(ctx context.Context, in *ws.RunModelRequest) (*
 	status = run(modelId)
 	err = nil
 	if !status {
+		fmt.Println("Error Running the model")
 		err = errors.New("Error Running the model")
 	}
 
@@ -375,6 +375,10 @@ func pollSchedulerForQueries(modelId string) {
 
 			for _, queryinputfile := range r.GetQueryinputfiles() {
 				resultfilename, queryStatus := processQuery(modelId, r.GetTaskId(), queryinputfile)
+
+				if resultfilename == "" {
+					fmt.Println("Result filename is empty")
+				}
 
 				log.Printf("[ Worker ][ ModelInference ][ pollSchedulerForQueries ]Status of the query of file: %v -> %v; Result of the query stored in the filename: %v", queryinputfile, queryStatus, resultfilenames)
 
