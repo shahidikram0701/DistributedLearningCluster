@@ -338,7 +338,7 @@ func (state *SchedulerState) QueueTask(modelname string, modelId string, queryin
 	state.Tasks[taskId] = task
 
 	state.lock.Lock()
-	if state.TaskQueue[modelId] == nil {
+	if _, ok := state.TaskQueue[modelId]; !ok {
 		state.TaskQueue[modelId] = &ModelTasks{
 			lock:  &sync.RWMutex{},
 			tasks: []string{},
@@ -400,6 +400,10 @@ func (state *SchedulerState) GetNextTaskToBeScheduled(modelId string, workerId s
 	log.Printf("[ Scheduler ][ ModelInference ][ GetNextTaskToBeScheduled ]Model: %v; Worker: %v", modelId, workerId)
 	tasks := state.TaskQueue[modelId]
 	log.Printf("[ Scheduler ][ ModelInference ][ GetNextTaskToBeScheduled ]TaskQueue[%v]: %v", modelId, tasks)
+
+	if _, ok := state.TaskQueue[modelId]; !ok {
+		return []string{}, "", false
+	}
 
 	return state.TaskQueue[modelId].GetTaskToSchedule(modelId, workerId)
 
