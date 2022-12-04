@@ -759,7 +759,8 @@ func dataNode_SendFileToReplica(replica string, filename string, allChunks []*dn
  */
 func dataNodeService_CommitFileChanges(filename string, sequenceNumberForOperation int) (bool, int) {
 	if dataNodeState.dataNode_GetSequenceNumber(filename) > sequenceNumberForOperation {
-		log.Fatalf("Sequence number has gone ahead at the server!! (DataNodeSequence Number: %v, SequenceForOperation: %v)", dataNodeState.dataNode_GetSequenceNumber(filename), sequenceNumberForOperation)
+		log.Printf("Sequence number has gone ahead at the server!! (DataNodeSequence Number: %v, SequenceForOperation: %v)", dataNodeState.dataNode_GetSequenceNumber(filename), sequenceNumberForOperation)
+		return false, -1
 	}
 	// wait until sequence number
 	for dataNodeState.dataNode_GetSequenceNumber(filename) != sequenceNumberForOperation {

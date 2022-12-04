@@ -26,7 +26,7 @@
     "WorkerPort": 50058,
     "SchedulerPollInterval": 1,
     "TaskExecutionTimeout": 3,
-    "QueryMonitorInterval": 10,
+    "QueryMonitorInterval": 20,
     "InitialBatchSize": 5,
     "SchedulerSyncTimer": 3
 }

@@ -553,7 +553,9 @@ func (state *SchedulerState) GetAllModels() []string {
 	models := []string{}
 
 	for modelId := range state.Models {
-		models = append(models, modelId)
+		if state.Models[modelId].Status == Deployed {
+			models = append(models, modelId)
+		}
 	}
 
 	return models
@@ -884,7 +886,7 @@ func sendStateSnapToBackupScheduler(scheduler string) bool {
 	conf := config.GetConfig("../../config/config.json")
 	schedulerAddr := fmt.Sprintf("%v:%v", scheduler, conf.SchedulerPort)
 
-	log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Sending snap of my state to: %v", schedulerAddr)
+	// log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Sending snap of my state to: %v", schedulerAddr)
 	conn, err := grpc.Dial(schedulerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	if err != nil {
@@ -916,6 +918,6 @@ func sendStateSnapToBackupScheduler(scheduler string) bool {
 		log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Failed oopsss")
 		return false
 	}
-	log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Successfully sent the state - %v to the backup scheduler %v", snap, scheduler)
+	log.Printf("[ Scheduler ][ Scheduler Synchronisation ]Successfully sent the state to the backup scheduler %v", scheduler)
 	return true
 }
