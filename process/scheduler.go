@@ -98,7 +98,7 @@ func (mt *ModelTasks) GetTaskToSchedule(modelId string, workerId string) ([]stri
 			task.StartTime = time.Now()
 			task.Status = Waiting
 
-			log.Printf("[ Scheduler ][ Waittime ]Wait time for %v task", task.ModelName)
+			log.Printf("[ Scheduler ][ Waittime ]Wait time for %v task: %v", task.ModelName, time.Since(task.arrivalTime))
 
 			// Start execution timeout timer for this task
 			go handleTaskExecutionTimeout(taskid, modelId, workerId)
@@ -544,7 +544,6 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 			} else if qr2 > qr1 {
 				if !state.queryRateDropTime.IsZero() {
 					log.Printf("[ Scheduler ][ Stabilisation Time ]Time since break: %v", time.Since(state.queryRateDropTime))
-					state.queryRateDropTime = time.Time{}
 				}
 			}
 

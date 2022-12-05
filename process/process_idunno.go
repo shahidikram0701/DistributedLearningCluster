@@ -254,7 +254,7 @@ func runInferencePeriodically(modelName string, filenames []string) {
 	conf := config.GetConfig("../../config/config.json")
 	i := 0
 
-	for numTasks := 0; numTasks < 15; numTasks++ {
+	for numTasks := 0; numTasks < 100; numTasks++ {
 		batch := []string{}
 		_, ok := BatchSize[modelName]
 		if !ok {
