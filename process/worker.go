@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// Type: State of the worker
 type WorkerState struct {
 	sync.RWMutex
 	id         string
@@ -26,10 +27,14 @@ type WorkerState struct {
 	models     map[string]int
 }
 
+// state of the worker process
 var (
 	workerState *WorkerState
 )
 
+/*
+* Method to set the id of the worker process
+ */
 func (state *WorkerState) SetId(ip string) {
 	state.Lock()
 	defer state.Unlock()
@@ -37,6 +42,9 @@ func (state *WorkerState) SetId(ip string) {
 	state.id = ip
 }
 
+/*
+* Method to record model in the worker state
+ */
 func (state *WorkerState) RecordModel(modelId string) int {
 	state.Lock()
 	defer state.Unlock()
@@ -53,6 +61,9 @@ func (state *WorkerState) RecordModel(modelId string) int {
 	return port
 }
 
+/*
+* Method to the port on which the model is running on this worker
+ */
 func (state *WorkerState) GetModelPort(modelId string) (int, bool) {
 	state.RLock()
 	defer state.RUnlock()
@@ -64,6 +75,9 @@ func (state *WorkerState) GetModelPort(modelId string) (int, bool) {
 	return -1, false
 }
 
+/*
+* Method to get the id of the worker
+ */
 func (state *WorkerState) GetId() string {
 	return state.id
 }
@@ -72,6 +86,9 @@ type WorkerService struct {
 	ws.UnimplementedWorkerServiceServer
 }
 
+/*
+* Start the worker process
+ */
 func StartWorkerService(port int, wg *sync.WaitGroup) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -95,6 +112,9 @@ func StartWorkerService(port int, wg *sync.WaitGroup) {
 	}
 }
 
+/*
+* Poll the scheduler to check for newly deployed models and prefetch
+ */
 func UpdateModels(wg *sync.WaitGroup) {
 	for {
 		if memberList == nil {
@@ -128,6 +148,10 @@ func UpdateModels(wg *sync.WaitGroup) {
 	// wg.Done()
 }
 
+/*
+* Set up the model on the worker by pulling code and weights from SDFS
+* writes a wrapper file the executes the model on a TCP server on the machine
+ */
 func setupModel(modelId string) (bool, error) {
 	fmt.Printf("\n\tSetting up model: %v\n", modelId)
 	conf := config.GetConfig("../../config/config.json")
@@ -295,6 +319,9 @@ func run(modelId string) bool {
 	return true
 }
 
+/*
+* RPC Server handle to serve the setting up of a model on the wokrer
+ */
 func (s *WorkerService) SetupModel(ctx context.Context, in *ws.SetupModelRequest) (*ws.SetupModelReply, error) {
 
 	modelId := in.GetModelId()
@@ -319,6 +346,9 @@ func (s *WorkerService) SetupModel(ctx context.Context, in *ws.SetupModelRequest
 	}, err
 }
 
+/*
+* RPC server handle to run the model on the worker
+ */
 func (s *WorkerService) RunModel(ctx context.Context, in *ws.RunModelRequest) (*ws.RunModelResponse, error) {
 
 	modelId := in.GetModelId()
@@ -353,6 +383,9 @@ func (s *WorkerService) RunModel(ctx context.Context, in *ws.RunModelRequest) (*
 	}, err
 }
 
+/*
+* Polls the scheduler for tasks of a model
+ */
 func pollSchedulerForQueries(modelId string) {
 	workerId := workerState.GetId()
 	for {
@@ -401,6 +434,9 @@ func pollSchedulerForQueries(modelId string) {
 	}
 }
 
+/*
+* Processes the queries as recieved for a model from the scheduler
+ */
 func processQuery(modelId string, taskId string, queryinputfile string) (string, bool) {
 	// check if the query input file is already present at the worker
 	conf := config.GetConfig("../../config/config.json")
@@ -462,6 +498,9 @@ func processQuery(modelId string, taskId string, queryinputfile string) (string,
 	return outfile, true
 }
 
+/*
+* Query the model which is deployed as a service exposed via TCP socket connection
+ */
 func queryTheModel(port int, queryinputfile string, taskId string) (string, bool) {
 	conf := config.GetConfig("../../config/config.json")
 	hostname := dataNode_GetOutboundIP().String()
@@ -510,6 +549,9 @@ func queryTheModel(port int, queryinputfile string, taskId string) (string, bool
 	return string(outfile), true
 }
 
+/*
+* Inform the scheduler regarding the status of the task exection
+ */
 func informSchedulerOfQueryExecution(modelId string, taskId string, filenames []string, taskSuccess bool) {
 	client, ctx, conn, cancel := getClientForSchedulerService()
 	defer conn.Close()

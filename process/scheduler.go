@@ -18,14 +18,21 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+/*
+* RPC Scheduler Service
+ */
 type SchedulerServer struct {
 	ss.UnimplementedSchedulerServiceServer
 }
 
+// state of the scheduler process
 var (
 	schedulerState *SchedulerState
 )
 
+/*
+* Start the scheduler service
+ */
 func SchedulerService_IDunno(port int, wg *sync.WaitGroup) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -59,6 +66,7 @@ func (modelStatus ModelStatus) String() string {
 	}
 }
 
+// Type: Model
 type Model struct {
 	Name         string
 	Id           string
@@ -69,11 +77,15 @@ type Model struct {
 	QueryCount   int
 }
 
+// Type: Tasks of a model
 type ModelTasks struct {
 	lock  *sync.RWMutex
 	tasks []string
 }
 
+/*
+* Method to add task to a model task queue
+ */
 func (mt *ModelTasks) AddTaskToModel(taskId string) {
 	mt.lock.Lock()
 	defer mt.lock.Unlock()
@@ -83,6 +95,9 @@ func (mt *ModelTasks) AddTaskToModel(taskId string) {
 	mt.tasks = append(mt.tasks, taskId)
 }
 
+/*
+* Get the next task that has to be scheduled for a model
+ */
 func (mt *ModelTasks) GetTaskToSchedule(modelId string, workerId string) ([]string, string, bool) {
 	mt.lock.Lock()
 	defer mt.lock.Unlock()
@@ -121,6 +136,9 @@ func (model Model) String() string {
 	return fmt.Sprintf("(ModelName, %v), (ModelId, %v), (Workers, %v), (CreationTime, %v), (Status, %v)", model.Name, model.Id, model.Workers, model.CreationTime, model.Status)
 }
 
+/*
+* Method to increment the query counter of model on successful task completion
+ */
 func (state *SchedulerState) IncrementQueryCount(modelId string, processedQueries int) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
@@ -133,6 +151,9 @@ func (state *SchedulerState) IncrementQueryCount(modelId string, processedQuerie
 	log.Printf("[ Scheduler ][ QueryCount ]Updating query count of model: %v by %v to finally become %v", model.Name, processedQueries, model.QueryCount)
 }
 
+/*
+* Method to get the query counts of all the models deployed in the system
+ */
 func (state *SchedulerState) GetQueryCounts() ([]string, []int32) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -148,6 +169,7 @@ func (state *SchedulerState) GetQueryCounts() ([]string, []int32) {
 	return modelnames, querycounts
 }
 
+// Type: Task
 type Task struct {
 	Id              string
 	Name            string
@@ -194,6 +216,7 @@ func (task Task) String() string {
 	)
 }
 
+// Type: State of the Scheduler process
 type SchedulerState struct {
 	lock                *sync.RWMutex
 	Models              map[string]Model
@@ -205,6 +228,9 @@ type SchedulerState struct {
 	taskTimer           map[string]*time.Timer
 }
 
+/*
+* Method to get the model name
+ */
 func (state *SchedulerState) GetModelName(modelId string) string {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -217,6 +243,9 @@ func (state *SchedulerState) GetModelName(modelId string) string {
 	return state.Models[modelId].Name
 }
 
+/*
+* Method to fetch the Id of a model given model name
+ */
 func (state *SchedulerState) GetModelId(modelname string) (string, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -226,6 +255,9 @@ func (state *SchedulerState) GetModelId(modelname string) (string, bool) {
 	return modelId, ok
 }
 
+/*
+* Method to fetch all the workers of a model
+ */
 func (state *SchedulerState) GetWorkersOfModel(modelId string) []string {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -242,6 +274,9 @@ func (state *SchedulerState) GetWorkersOfModel(modelId string) []string {
 
 }
 
+/*
+* Method to get all the tasks of a particular client
+ */
 func (state *SchedulerState) GetAllTasksOfClient(clientId string) []Task {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -257,6 +292,9 @@ func (state *SchedulerState) GetAllTasksOfClient(clientId string) []Task {
 	return tasks
 }
 
+/*
+* Method to get all the tasks of a desired model pertaining to a client
+ */
 func (state *SchedulerState) GetAllTasksOfModelOfClient(modelname string, clientId string) []Task {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -272,6 +310,9 @@ func (state *SchedulerState) GetAllTasksOfModelOfClient(modelname string, client
 	return tasks
 }
 
+/*
+* Method to get the query rate of a model
+ */
 func (state *SchedulerState) GetQueryRateOfModel(modelId string) float64 {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -284,6 +325,9 @@ func (state *SchedulerState) GetQueryRateOfModel(modelId string) float64 {
 	return state.Models[modelId].QueryRate
 }
 
+/*
+* Method to add a model to scheduler state on deployment
+ */
 func (state *SchedulerState) AddModel(modelname string) (string, []string) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
@@ -316,6 +360,9 @@ func (state *SchedulerState) AddModel(modelname string) (string, []string) {
 	return modelId, nodes
 }
 
+/*
+* Method to queue an incomning task from the client for a particular model
+ */
 func (state *SchedulerState) QueueTask(modelname string, modelId string, queryinputfiles []string, owner string, creationTime string) string {
 	// state.lock.Lock()
 	// defer state.lock.Unlock()
@@ -351,6 +398,9 @@ func (state *SchedulerState) QueueTask(modelname string, modelId string, queryin
 	return taskId
 }
 
+/*
+* Method to mark the model as deployed on notification from the client
+ */
 func (state *SchedulerState) MarkModelAsDeployed(modelId string) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
@@ -366,6 +416,9 @@ func (state *SchedulerState) MarkModelAsDeployed(modelId string) {
 	state.Models[modelId] = model
 }
 
+/*
+* Method to delete a model
+ */
 func (state *SchedulerState) RemoveModel(modelId string) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
@@ -381,6 +434,9 @@ func (state *SchedulerState) RemoveModel(modelId string) {
 	delete(state.Models, modelId)
 }
 
+/*
+* Method to get the status of the model deployment
+ */
 func (state *SchedulerState) GetModelStatus(modelId string) (ModelStatus, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -393,6 +449,9 @@ func (state *SchedulerState) GetModelStatus(modelId string) (ModelStatus, bool) 
 	return state.Models[modelId].Status, true
 }
 
+/*
+* Method for scheduling the next task on request from the worker
+ */
 func (state *SchedulerState) GetNextTaskToBeScheduled(modelId string, workerId string) ([]string, string, bool) {
 	// state.lock.Lock()
 	// defer state.lock.Unlock()
@@ -430,6 +489,9 @@ func (state *SchedulerState) GetNextTaskToBeScheduled(modelId string, workerId s
 	// return []string{}, "", false
 }
 
+/*
+* Method to handle reschedule of the tasks in case wait time exceeeded or worker failed
+ */
 func (state *SchedulerState) HandleRescheduleOfTask(taskId string) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
@@ -444,6 +506,9 @@ func (state *SchedulerState) HandleRescheduleOfTask(taskId string) {
 	log.Printf("[ Scheduler ][ ModelInference ][ HandleRescheduleOfTask ]Updated state of the task %v to Ready", taskId)
 }
 
+/*
+* Method to mark the task as complete
+ */
 func (state *SchedulerState) MarkTaskComplete(taskId string, outputFiles []string) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
@@ -468,6 +533,9 @@ func (state *SchedulerState) MarkTaskComplete(taskId string, outputFiles []strin
 	state.Models[task.ModelId] = model
 }
 
+/*
+* Method to update the query rates of all the models deployed over a past window of tasks
+ */
 func (state *SchedulerState) UpdateModelsQueryRates() {
 	state.lock.Lock()
 	defer state.lock.Unlock()
@@ -539,6 +607,9 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 	}
 }
 
+/*
+* Method to add new worker for a model on scaling
+ */
 func (state *SchedulerState) addNewWorkerForModel(modelId string, worker string) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
@@ -551,6 +622,9 @@ func (state *SchedulerState) addNewWorkerForModel(modelId string, worker string)
 	state.Models[modelId] = model
 }
 
+/*
+* Method for getting all the query rates across all the deployed models
+ */
 func (state *SchedulerState) getAllQueryRates() ([]string, []float32) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -567,6 +641,10 @@ func (state *SchedulerState) getAllQueryRates() ([]string, []float32) {
 	return models, queryRates
 }
 
+/*
+* Method to get the snap of the scheduler state to maintain scheduler synchronisation
+* for scheduller recovery
+ */
 func (state *SchedulerState) GetSnapOfSchedulerState() ([]byte, []byte, []byte, int, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -592,6 +670,9 @@ func (state *SchedulerState) GetSnapOfSchedulerState() ([]byte, []byte, []byte, 
 	return serialisedModels, serialisedTasks, serialisedModelNameId, state.IndexIntoMemberList, true
 }
 
+/*
+* Method to set the state of the scheduler as recieved from the main scheduler
+ */
 func (state *SchedulerState) SetSchedulerState(models map[string]Model, tasks map[string]Task, modelNameId map[string]string, idx int32) {
 	state.lock.Lock()
 	defer state.lock.Unlock()
@@ -622,6 +703,9 @@ func (state *SchedulerState) SetSchedulerState(models map[string]Model, tasks ma
 	// can start timer for each of the pending tasks;
 }
 
+/*
+* Method to check if a worker is already assigned to a model
+ */
 func (state *SchedulerState) CheckIfAlreadyAWorker(modelId string, workerId string) bool {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -635,6 +719,9 @@ func (state *SchedulerState) CheckIfAlreadyAWorker(modelId string, workerId stri
 	return false
 }
 
+/*
+* Method to get all the models deployed in the system
+ */
 func (state *SchedulerState) GetAllModels() []string {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
@@ -650,6 +737,9 @@ func (state *SchedulerState) GetAllModels() []string {
 	return models
 }
 
+/*
+* Adds a new worker for the model when scale up necessity observed
+ */
 func addNewWorker(modelId string) {
 	// select a new random worker
 	newWorker := memberList.GetRandomNode()
@@ -683,6 +773,9 @@ func addNewWorker(modelId string) {
 	}
 }
 
+/*
+* Handler for ensuring the tasks are not in the Waiting state forvever
+ */
 func handleTaskExecutionTimeout(taskid string, modelId string, workerId string) {
 	log.Printf("[Scheduler][ ModelInference ][ handleTaskExecutionTimeout ]Setting timer to handle task execution timeout")
 	conf := config.GetConfig("../../config/config.json")
@@ -696,6 +789,9 @@ func handleTaskExecutionTimeout(taskid string, modelId string, workerId string) 
 	schedulerState.HandleRescheduleOfTask(taskid)
 }
 
+/*
+* Starts the scheduler process on the machine
+ */
 func StartSchedulerService(schedulerServicePort int, wg *sync.WaitGroup) {
 	// Initialise the state of the scheduler
 	schedulerState = &SchedulerState{
@@ -713,6 +809,9 @@ func StartSchedulerService(schedulerServicePort int, wg *sync.WaitGroup) {
 	SchedulerService_IDunno(schedulerServicePort, wg)
 }
 
+/*
+* RPC server handle for deploying model
+ */
 func (s *SchedulerServer) DeployModel(ctx context.Context, in *ss.DeployModelRequest) (*ss.DeployModelReply, error) {
 	modelname := in.GetModelname()
 
@@ -729,6 +828,9 @@ func (s *SchedulerServer) DeployModel(ctx context.Context, in *ss.DeployModelReq
 	}, nil
 }
 
+/*
+* RPC server handle to handling acknowledgment of model deployment
+ */
 func (s *SchedulerServer) DeployModelAck(ctx context.Context, in *ss.DeployModelAckRequest) (*ss.DeployModelAckReply, error) {
 	modelId := in.GetModelId()
 	status := in.GetStatus()
@@ -744,6 +846,9 @@ func (s *SchedulerServer) DeployModelAck(ctx context.Context, in *ss.DeployModel
 	return &ss.DeployModelAckReply{}, nil
 }
 
+/*
+* RPC server handler for scheduling new task of a model on a worker
+ */
 func (s *SchedulerServer) GimmeQuery(ctx context.Context, in *ss.GimmeQueryRequest) (*ss.GimmeQueryResponse, error) {
 	modelId := in.GetModelId()
 	workerId := in.GetWorkerId()
@@ -779,6 +884,9 @@ func (s *SchedulerServer) GimmeQuery(ctx context.Context, in *ss.GimmeQueryReque
 	}, nil
 }
 
+/*
+* RPC server handler for updating the query execution status as indicated by the worker
+ */
 func (s *SchedulerServer) UpdateQueryStatus(ctx context.Context, in *ss.UpdateQueryStatusRequest) (*ss.UpdateQueryStatusResponse, error) {
 	taskId := in.GetTaskId()
 	outputfiles := in.GetOutputfilenames()
@@ -803,6 +911,9 @@ func (s *SchedulerServer) UpdateQueryStatus(ctx context.Context, in *ss.UpdateQu
 	return &ss.UpdateQueryStatusResponse{}, nil
 }
 
+/*
+* RPC server handler for clients submitting tasks
+ */
 func (s *SchedulerServer) SubmitTask(ctx context.Context, in *ss.SubmitTaskRequest) (*ss.SubmitTaskResponse, error) {
 	modelname := in.GetModelname()
 	queryInputFiles := in.GetQueryinputfiles()
@@ -825,6 +936,9 @@ func (s *SchedulerServer) SubmitTask(ctx context.Context, in *ss.SubmitTaskReque
 	}, nil
 }
 
+/*
+* RPC server handle to return all the tasks of a particular handle
+ */
 func (s *SchedulerServer) GetAllTasks(ctx context.Context, in *ss.GetAllTasksRequest) (*ss.GetAllTasksResponse, error) {
 	owner := in.GetOwner()
 
@@ -844,6 +958,9 @@ func (s *SchedulerServer) GetAllTasks(ctx context.Context, in *ss.GetAllTasksReq
 
 }
 
+/*
+* RPC server handle to get all the tasks pertaining to a user for a model
+ */
 func (s *SchedulerServer) GetAllTasksOfModel(ctx context.Context, in *ss.GetAllTasksOfModelRequest) (*ss.GetAllTasksOfModelResponse, error) {
 	owner := in.GetOwner()
 	modelname := in.GetModelname()
@@ -863,6 +980,9 @@ func (s *SchedulerServer) GetAllTasksOfModel(ctx context.Context, in *ss.GetAllT
 
 }
 
+/*
+* RPC server handler to return all the query rates of all the models in the system
+ */
 func (s *SchedulerServer) GetAllQueryRates(ctx context.Context, in *ss.GetAllQueryRatesRequest) (*ss.GetAllQueryRatesResponse, error) {
 	log.Printf("[ Scheduler ][ GetAllQueryRates ]")
 	models, queryRates := schedulerState.getAllQueryRates()
@@ -873,6 +993,10 @@ func (s *SchedulerServer) GetAllQueryRates(ctx context.Context, in *ss.GetAllQue
 	}, nil
 }
 
+/*
+* RPC handle to give information of all the models deployed in the system to the workers
+* for model prefetching
+ */
 func (s *SchedulerServer) GimmeModels(ctx context.Context, in *ss.GimmeModelsRequest) (*ss.GimmeModelsResponse, error) {
 	models := schedulerState.GetAllModels()
 
@@ -881,6 +1005,9 @@ func (s *SchedulerServer) GimmeModels(ctx context.Context, in *ss.GimmeModelsReq
 	}, nil
 }
 
+/*
+* Periodically updates the query rates of the models from a buffer of tasks
+ */
 func queryRateMonitor() {
 	conf := config.GetConfig("../../config/config.json")
 	for {
@@ -897,6 +1024,9 @@ func queryRateMonitor() {
 	}
 }
 
+/*
+* RPC Sever handle for serving the query counts of all the models
+ */
 func (s *SchedulerServer) GetQueryCount(ctx context.Context, in *ss.GetQueryCountRequest) (*ss.GetQueryCountResponse, error) {
 	modelnames, querycounts := schedulerState.GetQueryCounts()
 
@@ -908,6 +1038,9 @@ func (s *SchedulerServer) GetQueryCount(ctx context.Context, in *ss.GetQueryCoun
 	}, nil
 }
 
+/*
+* Server handle for receiving and updating the scheduler state from the main scheduler
+ */
 func (s *SchedulerServer) SchedulerSync(ctx context.Context, in *ss.SchedulerSyncRequest) (*ss.SchedulerSyncResponse, error) {
 	var models map[string]Model
 	var tasks map[string]Task
@@ -942,6 +1075,9 @@ func (s *SchedulerServer) SchedulerSync(ctx context.Context, in *ss.SchedulerSyn
 	return &ss.SchedulerSyncResponse{}, nil
 }
 
+/*
+* RPC handle for serving wokrers of a model
+ */
 func (s *SchedulerServer) GetWorkersOfModel(ctx context.Context, in *ss.GetWorkersOfModelRequest) (*ss.GetWorkersOfModelResponse, error) {
 	modelname := in.GetModelname()
 
@@ -963,6 +1099,9 @@ func (s *SchedulerServer) GetWorkersOfModel(ctx context.Context, in *ss.GetWorke
 	}, nil
 }
 
+/*
+* Synchronise the state of the main scheduler with the backup schedulers
+ */
 func SchedulerService_SyncWithSchedulerReplicas(wg *sync.WaitGroup) {
 	conf := config.GetConfig("../../config/config.json")
 
@@ -982,6 +1121,9 @@ func SchedulerService_SyncWithSchedulerReplicas(wg *sync.WaitGroup) {
 	}
 }
 
+/*
+* Utility function to send snap of the states to all the backup schedulers
+ */
 func syncWithSchedulerReplicas() {
 	allSchedulers := memberList.GetAllCoordinators()
 
@@ -993,6 +1135,9 @@ func syncWithSchedulerReplicas() {
 	}
 }
 
+/*
+* Utility function to send state of a scheduler to one backup scheduler
+ */
 func sendStateSnapToBackupScheduler(scheduler string) bool {
 	conf := config.GetConfig("../../config/config.json")
 	schedulerAddr := fmt.Sprintf("%v:%v", scheduler, conf.SchedulerPort)
