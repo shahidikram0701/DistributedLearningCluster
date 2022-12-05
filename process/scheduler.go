@@ -68,13 +68,14 @@ func (modelStatus ModelStatus) String() string {
 
 // Type: Model
 type Model struct {
-	Name         string
-	Id           string
-	Workers      []string
-	QueryRate    float64
-	CreationTime time.Time
-	Status       ModelStatus
-	QueryCount   int
+	Name                 string
+	Id                   string
+	Workers              []string
+	QueryRate            float64
+	CreationTime         time.Time
+	Status               ModelStatus
+	QueryCount           int
+	AverageQueryExecTime float64
 }
 
 // Type: Tasks of a model
@@ -169,6 +170,24 @@ func (state *SchedulerState) GetQueryCounts() ([]string, []int32) {
 	return modelnames, querycounts
 }
 
+/*
+* Method to get the exec times of all the models deployed in the system
+ */
+func (state *SchedulerState) GetExectimes() ([]string, []float32) {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	modelnames := []string{}
+	exectimes := []float32{}
+
+	for modelId := range state.Models {
+		modelnames = append(modelnames, state.Models[modelId].Name)
+		exectimes = append(exectimes, float32(state.Models[modelId].AverageQueryExecTime))
+	}
+
+	return modelnames, exectimes
+}
+
 // Type: Task
 type Task struct {
 	Id              string
@@ -183,6 +202,7 @@ type Task struct {
 	OwnerId         string
 	Filenames       []string // input filename
 	Resultfilenames []string
+	ArrivalTime     time.Time
 }
 
 type TaskStatus int
@@ -378,6 +398,7 @@ func (state *SchedulerState) QueueTask(modelname string, modelId string, queryin
 		ModelName:    modelname,
 		OwnerId:      owner,
 		Filenames:    queryinputfiles,
+		ArrivalTime:  time.Now(),
 	}
 
 	log.Printf("[ Scheduler ][ ModelInference ]Adding task: %v to queue of model %v::%v", task, modelname, modelId)
@@ -546,6 +567,7 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 
 	perModelCompletedCounts := map[string]int{}
 	perModelTotal := map[string]int{}
+	perModelExecutionTimes := map[string]float64{}
 
 	for _, taskId := range state.WindowOfTasks {
 		task := state.Tasks[taskId]
@@ -553,12 +575,14 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 		if _, ok := perModelTotal[task.ModelId]; !ok {
 			perModelTotal[task.ModelId] = 0
 			perModelCompletedCounts[task.ModelId] = 0
+			perModelExecutionTimes[task.ModelId] = 0.0
 		}
 
 		perModelTotal[task.ModelId] += len(task.Filenames)
 
 		if task.Status == Success {
 			perModelCompletedCounts[task.ModelId] += len(task.Filenames)
+			perModelExecutionTimes[task.ModelId] += task.EndTime.Sub(task.ArrivalTime).Seconds()
 		}
 	}
 
@@ -571,7 +595,8 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 
 	for modelId := range perModelTotal {
 		model := state.Models[modelId]
-
+		model.AverageQueryExecTime = perModelExecutionTimes[modelId] / float64(perModelCompletedCounts[modelId])
+		log.Printf("[ Scheduler ][ Average Execution Time ]Average Execution Time of model: %v is %v", model.Name, model.AverageQueryExecTime)
 		if perModelTotal[modelId] > 0 {
 			model.QueryRate = float64((float64(perModelCompletedCounts[modelId]) / float64(perModelTotal[modelId])) * 100.0)
 		} else {
@@ -1035,6 +1060,20 @@ func (s *SchedulerServer) GetQueryCount(ctx context.Context, in *ss.GetQueryCoun
 	return &ss.GetQueryCountResponse{
 		Modelnames: modelnames,
 		Querycount: querycounts,
+	}, nil
+}
+
+/*
+* RPC Sever handle for serving the query average execution time of all the models
+ */
+func (s *SchedulerServer) GetQueryAverageExectionTimes(ctx context.Context, in *ss.GetQueryAverageExectionTimeRequest) (*ss.GetQueryAverageExectionTimeResponse, error) {
+	modelnames, exectimes := schedulerState.GetExectimes()
+
+	log.Printf("[ Scheduler ][ GetQueryAverageExectionTimes ]Exec times of models: %v are %v", modelnames, exectimes)
+
+	return &ss.GetQueryAverageExectionTimeResponse{
+		Modelnames: modelnames,
+		Exectimes:  exectimes,
 	}, nil
 }
 

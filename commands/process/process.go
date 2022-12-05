@@ -71,7 +71,7 @@ func main() {
 	process.Run(configuration.FailureDetectorPort, configuration.UdpServerPort, configuration.LoggerPort, configuration.CoordinatorServiceLoggerPort, configuration.CoordinatorServiceSDFSPort, configuration.DataNodeServiceSDFSPort, wg, introAddr, *devmode, outboundIp, configuration.SchedulerPort, configuration.WorkerPort)
 
 	for {
-		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - search-logs <query> (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put <localfilename> <sdfsfilename>\n\t - get <sdfsfilename> <localfilename>\n\t - delete <sdfsfilename>\n\t - ls <sdfsfilename>\n\t - store\n\t - get-versions <sdfsfilename> <numVersions> <localfilename>\n\n\tIDunno commands\n\n\t - deploy-model <modelname>\n\t - query-model <modelname> <queryinputfilename>\n\t - start-inference <modelname> <numinputfiles> <files...>\n\t - get-tasks\n\t - get-model-tasks <modelname>\n\t - get-queryrates\n\t - get-batchsize <modelname>\n\t - set-batchsize <modelname> <batchsize>\n\t - get-querycounts\n\t - get-workers <modelname>\n\n\t: ")
+		fmt.Printf("\n\nEnter command \n\t - printmembershiplist (To print memebership list)\n\t - printtopology\n\t - leave (To leave the network)\n\t - search-logs <query> (Enter a query string to search in the logs)\n\t - getallcoordinators (Get List of coordinators)\n\t - exit (To exit)\n\n\tSDFS commands\n\n\t - put <localfilename> <sdfsfilename>\n\t - get <sdfsfilename> <localfilename>\n\t - delete <sdfsfilename>\n\t - ls <sdfsfilename>\n\t - store\n\t - get-versions <sdfsfilename> <numVersions> <localfilename>\n\n\tIDunno commands\n\n\t - deploy-model <modelname>\n\t - query-model <modelname> <queryinputfilename>\n\t - start-inference <modelname> <numinputfiles> <files...>\n\t - get-tasks\n\t - get-model-tasks <modelname>\n\t - get-queryrates\n\t - get-batchsize <modelname>\n\t - set-batchsize <modelname> <batchsize>\n\t - get-querycounts\n\t - get-queryexectimes\n\t - get-workers <modelname>\n\n\t: ")
 
 		inputReader := bufio.NewReader(os.Stdin)
 		command, _ := inputReader.ReadString('\n')
@@ -237,6 +237,13 @@ func main() {
 
 			for idx, model := range models {
 				fmt.Printf("Model Name: %v\tQuery Count: %v\n", model, querycounts[idx])
+			}
+
+		case "get-queryexectimes":
+			models, exectimes := process.GetAvgExecTimes()
+
+			for idx, model := range models {
+				fmt.Printf("Model Name: %v\tAvg Exec Time: %v\n", model, exectimes[idx])
 			}
 
 		case "get-workers":

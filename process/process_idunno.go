@@ -376,3 +376,21 @@ func GetAllWorkersOfModel(modelname string) []string {
 
 	return r.GetWorkers()
 }
+
+/*
+* Get the average exec times queries executed on a model
+ */
+func GetAvgExecTimes() ([]string, []float32) {
+	client, ctx, conn, cancel := getClientForSchedulerService()
+	defer conn.Close()
+	defer cancel()
+
+	r, err := client.GetQueryAverageExectionTimes(ctx, &ss.GetQueryAverageExectionTimeRequest{})
+
+	if err != nil {
+		log.Printf("[ Client ][ GetAvgExecTimes ]Error: %v", err)
+		return []string{}, []float32{}
+	}
+
+	return r.GetModelnames(), r.GetExectimes()
+}
