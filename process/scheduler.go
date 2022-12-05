@@ -599,6 +599,8 @@ func (state *SchedulerState) UpdateModelsQueryRates() {
 	for modelId := range perModelTotal {
 		model := state.Models[modelId]
 		model.AverageQueryExecTime = perModelExecutionTimes[modelId] / float64(perModelCompletedCounts[modelId])
+		fmt.Printf("\nModel: %v\t QPS: %v\t Time: %v", model.Name, float32(perModelCompletedCounts[modelId]/15.0), model.AverageQueryExecTime)
+		log.Printf("[Metric]Model: %v\t QPS: %v\t Time: %v", model.Name, float32(perModelCompletedCounts[modelId]/15.0), model.AverageQueryExecTime)
 		log.Printf("[ Scheduler ][ Average Execution Time ]Average Execution Time of model: %v is %v", model.Name, model.AverageQueryExecTime)
 		if perModelTotal[modelId] > 0 {
 			model.QueryRate = float64((float64(perModelCompletedCounts[modelId]) / float64(perModelTotal[modelId])) * 100.0)
