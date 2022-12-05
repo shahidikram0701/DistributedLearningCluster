@@ -15,10 +15,16 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+/**
+* Batchsize of the tasks
+ */
 var (
 	BatchSize map[string]int
 )
 
+/**
+* Get rpc client to the scheduler service
+ */
 func getClientForSchedulerService() (ss.SchedulerServiceClient, context.Context, *grpc.ClientConn, context.CancelFunc) {
 	conf := config.GetConfig("../../config/config.json")
 	schedulerAddr := fmt.Sprintf("%v:%v", memberList.GetCoordinatorNode(), conf.SchedulerPort)
@@ -38,6 +44,9 @@ func getClientForSchedulerService() (ss.SchedulerServiceClient, context.Context,
 	return c, ctx, conn, cancel
 }
 
+/*
+* Get rpc client to the worker service
+ */
 func getClientForWorkerService(workerIp string) (ws.WorkerServiceClient, context.Context, *grpc.ClientConn, context.CancelFunc) {
 	conf := config.GetConfig("../../config/config.json")
 	workerPort := conf.WorkerPort
@@ -58,6 +67,9 @@ func getClientForWorkerService(workerIp string) (ws.WorkerServiceClient, context
 	return client, ctx, conn, cancel
 }
 
+/*
+* Frontend function for the client to deploy model
+ */
 func DeployModel(modelname string) bool {
 	conf := config.GetConfig("../../config/config.json")
 	weightsfilename := modelname + ".weights.pth"
@@ -132,6 +144,9 @@ func DeployModel(modelname string) bool {
 	return deploymentStatus
 }
 
+/*
+* Deploy model on all the workers
+ */
 func deployModelOnWorkers(r *ss.DeployModelReply, numWorkers int) bool {
 
 	modelId := r.GetModelId()
@@ -156,6 +171,9 @@ func deployModelOnWorkers(r *ss.DeployModelReply, numWorkers int) bool {
 	return true
 }
 
+/*
+* Utility function to deploy model on one worker
+ */
 func setupModelOnWorker(worker string, modelId string, responseChannel chan bool) {
 	client, ctx, conn, cancel := getClientForWorkerService(worker)
 
@@ -177,6 +195,9 @@ func setupModelOnWorker(worker string, modelId string, responseChannel chan bool
 	responseChannel <- r.GetStatus()
 }
 
+/*
+* Front end function for the client to query a certain model
+ */
 func QueryModel(modelname string, queryinputfilenames []string) string {
 	client, ctx, conn, cancel := getClientForSchedulerService()
 	defer conn.Close()
@@ -197,6 +218,9 @@ func QueryModel(modelname string, queryinputfilenames []string) string {
 	return fmt.Sprintf("Submitted Task: %v", r.GetTaskId())
 }
 
+/*
+* Frontend function to fetch all the tasks of a user
+ */
 func GetAllTasks() []Task {
 	client, ctx, conn, cancel := getClientForSchedulerService()
 	defer conn.Close()
@@ -221,6 +245,9 @@ func GetAllTasks() []Task {
 	return tasks
 }
 
+/*
+* Fetch All the tasks of the user specific to a model
+ */
 func GetAllTasksOfModel(modelname string) []Task {
 	client, ctx, conn, cancel := getClientForSchedulerService()
 	defer conn.Close()
@@ -246,10 +273,16 @@ func GetAllTasksOfModel(modelname string) []Task {
 	return tasks
 }
 
+/*
+* Start batch inferencing queries
+ */
 func StartInference(modelName string, filenames []string) {
 	go runInferencePeriodically(modelName, filenames)
 }
 
+/*
+* gofunc to run inference periodically
+ */
 func runInferencePeriodically(modelName string, filenames []string) {
 	conf := config.GetConfig("../../config/config.json")
 	i := 0
@@ -274,6 +307,9 @@ func runInferencePeriodically(modelName string, filenames []string) {
 	}
 }
 
+/*
+* Fetches query rates of all the models currently deployed in the system
+ */
 func GetAllQueryRates() ([]string, []float32) {
 	client, ctx, conn, cancel := getClientForSchedulerService()
 	defer conn.Close()
@@ -288,15 +324,24 @@ func GetAllQueryRates() ([]string, []float32) {
 	return r.GetModelnames(), r.GetQueryrates()
 }
 
+/*
+* Set the batch size of the tasks for a model
+ */
 func SetBatchSize(modelname string, batchsize int) int {
 	BatchSize[modelname] = batchsize
 	return BatchSize[modelname]
 }
 
+/*
+* Get the batchsize of tasks on a model
+ */
 func GetBatchSize(modelname string) int {
 	return BatchSize[modelname]
 }
 
+/*
+* Get the number of queries executed on a model
+ */
 func GetQueryCount() ([]string, []int32) {
 	client, ctx, conn, cancel := getClientForSchedulerService()
 	defer conn.Close()
@@ -312,6 +357,9 @@ func GetQueryCount() ([]string, []int32) {
 	return r.GetModelnames(), r.GetQuerycount()
 }
 
+/*
+* Fetch all the workers of the model
+ */
 func GetAllWorkersOfModel(modelname string) []string {
 	client, ctx, conn, cancel := getClientForSchedulerService()
 	defer conn.Close()
@@ -327,4 +375,22 @@ func GetAllWorkersOfModel(modelname string) []string {
 	}
 
 	return r.GetWorkers()
+}
+
+/*
+* Get the average exec times queries executed on a model
+ */
+func GetAvgExecTimes() ([]string, []float32) {
+	client, ctx, conn, cancel := getClientForSchedulerService()
+	defer conn.Close()
+	defer cancel()
+
+	r, err := client.GetQueryAverageExectionTimes(ctx, &ss.GetQueryAverageExectionTimeRequest{})
+
+	if err != nil {
+		log.Printf("[ Client ][ GetAvgExecTimes ]Error: %v", err)
+		return []string{}, []float32{}
+	}
+
+	return r.GetModelnames(), r.GetExectimes()
 }

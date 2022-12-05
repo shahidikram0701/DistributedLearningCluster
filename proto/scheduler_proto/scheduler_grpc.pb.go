@@ -30,6 +30,7 @@ type SchedulerServiceClient interface {
 	GetAllQueryRates(ctx context.Context, in *GetAllQueryRatesRequest, opts ...grpc.CallOption) (*GetAllQueryRatesResponse, error)
 	GetQueryCount(ctx context.Context, in *GetQueryCountRequest, opts ...grpc.CallOption) (*GetQueryCountResponse, error)
 	GetWorkersOfModel(ctx context.Context, in *GetWorkersOfModelRequest, opts ...grpc.CallOption) (*GetWorkersOfModelResponse, error)
+	GetQueryAverageExectionTimes(ctx context.Context, in *GetQueryAverageExectionTimeRequest, opts ...grpc.CallOption) (*GetQueryAverageExectionTimeResponse, error)
 	GimmeQuery(ctx context.Context, in *GimmeQueryRequest, opts ...grpc.CallOption) (*GimmeQueryResponse, error)
 	UpdateQueryStatus(ctx context.Context, in *UpdateQueryStatusRequest, opts ...grpc.CallOption) (*UpdateQueryStatusResponse, error)
 	GimmeModels(ctx context.Context, in *GimmeModelsRequest, opts ...grpc.CallOption) (*GimmeModelsResponse, error)
@@ -116,6 +117,15 @@ func (c *schedulerServiceClient) GetWorkersOfModel(ctx context.Context, in *GetW
 	return out, nil
 }
 
+func (c *schedulerServiceClient) GetQueryAverageExectionTimes(ctx context.Context, in *GetQueryAverageExectionTimeRequest, opts ...grpc.CallOption) (*GetQueryAverageExectionTimeResponse, error) {
+	out := new(GetQueryAverageExectionTimeResponse)
+	err := c.cc.Invoke(ctx, "/process.SchedulerService/GetQueryAverageExectionTimes", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *schedulerServiceClient) GimmeQuery(ctx context.Context, in *GimmeQueryRequest, opts ...grpc.CallOption) (*GimmeQueryResponse, error) {
 	out := new(GimmeQueryResponse)
 	err := c.cc.Invoke(ctx, "/process.SchedulerService/GimmeQuery", in, out, opts...)
@@ -164,6 +174,7 @@ type SchedulerServiceServer interface {
 	GetAllQueryRates(context.Context, *GetAllQueryRatesRequest) (*GetAllQueryRatesResponse, error)
 	GetQueryCount(context.Context, *GetQueryCountRequest) (*GetQueryCountResponse, error)
 	GetWorkersOfModel(context.Context, *GetWorkersOfModelRequest) (*GetWorkersOfModelResponse, error)
+	GetQueryAverageExectionTimes(context.Context, *GetQueryAverageExectionTimeRequest) (*GetQueryAverageExectionTimeResponse, error)
 	GimmeQuery(context.Context, *GimmeQueryRequest) (*GimmeQueryResponse, error)
 	UpdateQueryStatus(context.Context, *UpdateQueryStatusRequest) (*UpdateQueryStatusResponse, error)
 	GimmeModels(context.Context, *GimmeModelsRequest) (*GimmeModelsResponse, error)
@@ -198,6 +209,9 @@ func (UnimplementedSchedulerServiceServer) GetQueryCount(context.Context, *GetQu
 }
 func (UnimplementedSchedulerServiceServer) GetWorkersOfModel(context.Context, *GetWorkersOfModelRequest) (*GetWorkersOfModelResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetWorkersOfModel not implemented")
+}
+func (UnimplementedSchedulerServiceServer) GetQueryAverageExectionTimes(context.Context, *GetQueryAverageExectionTimeRequest) (*GetQueryAverageExectionTimeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetQueryAverageExectionTimes not implemented")
 }
 func (UnimplementedSchedulerServiceServer) GimmeQuery(context.Context, *GimmeQueryRequest) (*GimmeQueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GimmeQuery not implemented")
@@ -368,6 +382,24 @@ func _SchedulerService_GetWorkersOfModel_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SchedulerService_GetQueryAverageExectionTimes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetQueryAverageExectionTimeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SchedulerServiceServer).GetQueryAverageExectionTimes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/process.SchedulerService/GetQueryAverageExectionTimes",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SchedulerServiceServer).GetQueryAverageExectionTimes(ctx, req.(*GetQueryAverageExectionTimeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SchedulerService_GimmeQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GimmeQueryRequest)
 	if err := dec(in); err != nil {
@@ -478,6 +510,10 @@ var SchedulerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetWorkersOfModel",
 			Handler:    _SchedulerService_GetWorkersOfModel_Handler,
+		},
+		{
+			MethodName: "GetQueryAverageExectionTimes",
+			Handler:    _SchedulerService_GetQueryAverageExectionTimes_Handler,
 		},
 		{
 			MethodName: "GimmeQuery",
